@@ -1,7 +1,3 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Alert Component
-//  resources/js/design-system/components/Alert.tsx
-// ==========================================================================
 
 import React from 'react';
 

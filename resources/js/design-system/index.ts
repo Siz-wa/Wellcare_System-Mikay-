@@ -1,7 +1,3 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Barrel Export
-//  resources/js/design-system/index.ts
-// ==========================================================================
 
 // Tokens
 export * from './tokens';

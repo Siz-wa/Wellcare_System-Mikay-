@@ -1,7 +1,4 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Avatar & AvatarGroup Components
-//  resources/js/design-system/components/Avatar.tsx
-// ==========================================================================
+
 
 import React from 'react';
 

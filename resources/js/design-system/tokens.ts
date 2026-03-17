@@ -1,7 +1,4 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — DESIGN TOKENS (TypeScript)
-//  resources/js/design-system/tokens.ts
-// ==========================================================================
+
 
 export const colors = {
   brand: {

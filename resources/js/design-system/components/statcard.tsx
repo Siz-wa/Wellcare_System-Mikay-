@@ -1,7 +1,4 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — StatCard Component
-//  resources/js/design-system/components/StatCard.tsx
-// ==========================================================================
+
 
 import React from 'react';
 

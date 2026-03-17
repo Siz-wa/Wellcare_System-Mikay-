@@ -1,7 +1,3 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Button Component
-//  resources/js/design-system/components/Button.tsx
-// ==========================================================================
 
 import React from 'react';
 

@@ -1,7 +1,4 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Form Components
-//  resources/js/design-system/components/Form.tsx
-// ==========================================================================
+
 
 import React from 'react';
 

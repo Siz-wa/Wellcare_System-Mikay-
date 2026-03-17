@@ -1,7 +1,4 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Card Component
-//  resources/js/design-system/components/Card.tsx
-// ==========================================================================
+
 
 import React from 'react';
 

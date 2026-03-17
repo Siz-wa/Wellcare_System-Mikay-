@@ -1,7 +1,4 @@
-// ==========================================================================
-//  WELLCARE DESIGN SYSTEM — Badge Component
-//  resources/js/design-system/components/Badge.tsx
-// ==========================================================================
+
 
 import React from 'react';
 
