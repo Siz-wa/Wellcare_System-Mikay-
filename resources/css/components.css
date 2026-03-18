@@ -726,7 +726,393 @@
   border: 1.5px solid transparent;
 }
 
+
 .wc-pill-primary  { background: var(--wc-blue-50);   border-color: var(--wc-blue-200);  color: var(--wc-blue-700);  }
 .wc-pill-success  { background: var(--wc-success-light); border-color: #86efac;          color: var(--wc-success-dark); }
 .wc-pill-warning  { background: var(--wc-warning-light); border-color: #fde047;          color: var(--wc-warning-dark); }
 .wc-pill-error    { background: var(--wc-error-light);   border-color: #fca5a5;          color: var(--wc-error-dark);   }
+
+/* ==========================================================================
+   WELLCARE LAYOUT ADDITIONS
+   Paste this block at the END of resources/css/components.css
+   
+   Notes:
+   - No tokens are redefined here — all var(--wc-*) come from tokens.css
+   - .wc-btn, .wc-input, .wc-input-dark already exist in components.css
+     and are reused as-is by Navbar and Footer
+   - .wc-nav-link already exists (sidebar variant) — we use a scoped
+     .wc-navbar__nav-link here to avoid conflicts with the sidebar styles
+   ========================================================================== */
+
+
+/* ── Logo ────────────────────────────────────────────────────────────────── */
+
+.wc-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.wc-logo__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--wc-blue-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+.wc-logo:hover .wc-logo__icon {
+  background: var(--wc-blue-700);
+}
+
+.wc-logo__wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
+  color: var(--wc-dark);
+  line-height: 1;
+}
+
+/* Used when logo sits on a dark background (e.g. Footer) */
+.wc-logo__wordmark--dark {
+  color: var(--wc-white);
+}
+
+.wc-logo__accent {
+  color: var(--wc-sky-500);
+}
+
+
+/* ── Navbar ──────────────────────────────────────────────────────────────── */
+
+.wc-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-nav);               /* 5000 — from tokens.css */
+  height: var(--header-height);        /* 72px — from tokens.css */
+  background: var(--wc-white);
+  border-bottom: 1px solid transparent;
+  transition:
+    background  var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow  var(--duration-base) var(--ease-out);
+}
+
+/* Scrolled state — frosted glass effect */
+.wc-navbar--scrolled {
+  background: rgb(255 255 255 / 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: var(--wc-gray-100);
+  box-shadow: var(--shadow-md);
+}
+
+.wc-navbar__inner {
+  max-width: var(--container-xl);       /* 1280px — from tokens.css */
+  margin: 0 auto;
+  padding: 0 var(--space-8);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wc-navbar__links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wc-navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Scoped nav link — avoids collision with sidebar .wc-nav-link.active */
+.wc-navbar__nav-link {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: var(--text-base);
+  color: var(--wc-gray-600);
+  background: transparent;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition:
+    color       var(--duration-fast) var(--ease-out),
+    background  var(--duration-fast) var(--ease-out);
+}
+
+.wc-navbar__nav-link:hover {
+  color: var(--wc-dark);
+  background: var(--wc-gray-100);
+}
+
+.wc-navbar__nav-link--active,
+.wc-navbar__nav-link--active:hover {
+  color: var(--wc-blue-600);
+  background: var(--wc-blue-50);
+}
+
+/* Mobile variant — slightly larger tap target */
+.wc-navbar__nav-link--mobile {
+  border-radius: var(--radius-xl);
+  padding: var(--space-3) var(--space-4);
+  width: 100%;
+}
+
+/* Hamburger button */
+.wc-navbar__hamburger {
+  display: none;                        /* shown via media query below */
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  color: var(--wc-dark);
+  line-height: 0;
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.wc-navbar__hamburger:hover {
+  background: var(--wc-gray-100);
+}
+
+/* Mobile drawer */
+.wc-navbar__mobile-drawer {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  z-index: var(--z-overlay);           /* 100 — from tokens.css */
+  background: var(--wc-white);
+  border-bottom: 1px solid var(--wc-gray-100);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ── Responsive breakpoint ── */
+@media (max-width: 768px) {
+  .wc-navbar__links     { display: none; }
+  .wc-navbar__cta       { display: none; }
+  .wc-navbar__hamburger { display: flex; }
+}
+
+
+/* ── Page shell ──────────────────────────────────────────────────────────── */
+
+.wc-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* Offsets the fixed navbar so content isn't hidden beneath it */
+  padding-top: var(--header-height);
+}
+
+.wc-page__content {
+  flex: 1;                              /* pushes footer to bottom */
+}
+
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.wc-footer {
+  background: var(--wc-gray-900);
+  color: var(--wc-gray-400);
+  padding-top: var(--space-16);
+}
+
+.wc-footer__inner {
+  max-width: var(--container-xl);
+  margin: 0 auto;
+  padding: 0 var(--space-8);
+}
+
+/* 4-col responsive grid */
+.wc-footer__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-12);
+  padding-bottom: var(--space-12);
+}
+
+/* Brand column */
+.wc-footer__brand {
+  max-width: 300px;
+}
+
+.wc-footer__tagline {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--wc-gray-400);
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+/* Social row */
+.wc-footer__social {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.wc-footer__social-link {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--wc-gray-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wc-gray-400);
+  text-decoration: none;
+  flex-shrink: 0;
+  line-height: 0;
+  transition:
+    background    var(--duration-fast) var(--ease-out),
+    border-color  var(--duration-fast) var(--ease-out),
+    color         var(--duration-fast) var(--ease-out);
+}
+
+.wc-footer__social-link:hover {
+  background: var(--wc-blue-600);
+  border-color: var(--wc-blue-600);
+  color: var(--wc-white);
+}
+
+/* Column headings */
+.wc-footer__heading {
+  /* Inherits h4 styles from base.css (font-display, 800, tracking-tighter) */
+  font-size: var(--text-base);
+  color: var(--wc-white);
+  margin-bottom: var(--space-5);
+}
+
+/* Quick links */
+.wc-footer__links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wc-footer__link {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--wc-gray-400);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.wc-footer__link:hover {
+  color: var(--wc-white);
+}
+
+/* Contact list */
+.wc-footer__contact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.wc-footer__contact-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.wc-footer__contact-icon {
+  color: var(--wc-sky-500);
+  flex-shrink: 0;
+  margin-top: 2px;
+  line-height: 0;
+}
+
+.wc-footer__address {
+  font-style: normal;                   /* reset <address> italic default */
+  color: var(--wc-gray-400);
+}
+
+/* Newsletter */
+.wc-footer__newsletter-desc {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-5);
+}
+
+.wc-footer__newsletter-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Extends .wc-input + .wc-input-dark (already in components.css) */
+.wc-footer__newsletter-input {
+  border-radius: var(--radius-lg);
+}
+
+/* Extends .wc-btn + .wc-btn-primary + .wc-btn-icon (already in components.css) */
+.wc-footer__newsletter-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--radius-lg);
+}
+
+/* Bottom copyright bar */
+.wc-footer__bottom {
+  border-top: 1px solid var(--wc-gray-800);
+  padding-block: var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.wc-footer__copyright {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--wc-gray-500);
+}
+
+.wc-footer__legal-links {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.wc-footer__legal-link {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--wc-gray-400);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.wc-footer__legal-link:hover {
+  color: var(--wc-white);
+}
