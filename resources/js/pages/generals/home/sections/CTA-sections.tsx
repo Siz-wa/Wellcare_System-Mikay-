@@ -1,6 +1,8 @@
-// resources/js/pages/user/home/sections/CTASection.tsx
+// resources/js/pages/generals/home/sections/CTA-sections.tsx
+
+
 import { useInView } from "@/hooks/useInView";
-import { ctaData } from "@/pages/generals/home/sections/homedata";
+import { ctaData }   from "@/pages/generals/home/sections/homedata";
 
 const ArrowRight = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -56,7 +58,7 @@ export default function CTASection() {
               {badge}
             </span>
 
-            {/* Heading — inline style overrides base.css h2 { color: var(--wc-dark) } */}
+            {/* Heading */}
             <h2
               className="text-[clamp(1.875rem,4vw,3rem)] mt-5 mb-5 tracking-[-0.04em]"
               style={{ color: "#ffffff" }}
@@ -64,7 +66,7 @@ export default function CTASection() {
               {heading.line1}<br />{heading.line2}
             </h2>
 
-            {/* Description — inline style overrides base.css p { color: var(--wc-gray-600) } */}
+            {/* Description */}
             <p
               className="text-lg mb-8 leading-relaxed"
               style={{ color: "#ffffff" }}
@@ -73,9 +75,16 @@ export default function CTASection() {
             </p>
 
             <div className="flex flex-wrap justify-center gap-4">
-              <a href={ctas.primary.href} className="wc-btn wc-btn-white wc-btn-lg wc-btn-pill">
+
+              {/* Primary CTA — links to the booking page */}
+              <a
+                href="/appointments/create" 
+                className="wc-btn wc-btn-white wc-btn-lg wc-btn-pill"
+              >
                 {ctas.primary.label} <ArrowRight />
               </a>
+
+              {/* Secondary CTA — external tel: link, <a> is correct here */}
               <a
                 href={ctas.secondary.href}
                 className="wc-btn wc-btn-lg wc-btn-pill"
@@ -88,8 +97,8 @@ export default function CTASection() {
               >
                 <PhoneIcon /> {ctas.secondary.label}
               </a>
-            </div>
 
+            </div>
           </div>
         </div>
       </div>
