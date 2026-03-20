@@ -1,0 +1,186 @@
+// resources/js/pages/user/home/homeData.ts
+// All static content for the Wellcare homepage.
+// Swap text here without touching any component files.
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+export const heroData = {
+  label: "Trusted Healthcare Partner",
+  heading: {
+    line1: "Your Health,",
+    line2: "Our Priority.",
+  },
+  body: "Wellcare Clinics & Laboratories provides world-class diagnostic services and specialist consultations with a human touch. Experience healthcare that truly cares.",
+  ctas: {
+    primary: { label: "Find a Doctor", href: "/doctors" },
+    secondary: { label: "Our Services", href: "/services" },
+  },
+  socialProof: {
+    count: "50+ Specialists",
+    sub: "Available for consultation",
+  },
+  floats: {
+    topLeft: {
+      label: "ACCREDITED",
+      title: "ISO Certified Lab",
+      iconBg: "#dcfce7",
+      iconColor: "#16a34a",
+    },
+    bottomRight: {
+      title: "Quick Results",
+      sub: "Laboratory results delivered within 24 hours.",
+      iconBg: "var(--wc-blue-50)",
+      iconColor: "var(--wc-blue-600)",
+    },
+  },
+  image: {
+    src: "https://images.unsplash.com/photo-1580281657702-257584239a55?w=900&q=85&auto=format&fit=crop",
+    alt: "Wellcare Clinic facility",
+  },
+};
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+export const statsData = [
+  { value: "15+",   label: "Years of Service" },
+  { value: "50+",   label: "Specialists" },
+  { value: "120k+", label: "Patients Served" },
+  { value: "98%",   label: "Satisfaction Rate" },
+];
+
+// ─── Services ─────────────────────────────────────────────────────────────────
+export type IconColor =
+  | "primary" | "sky" | "success" | "warning" | "error"
+  | "purple"  | "cyan" | "emerald";
+
+export interface ServiceItem {
+  iconKey: string;
+  color: IconColor;
+  title: string;
+  desc: string;
+  href: string;
+}
+
+export const servicesData: ServiceItem[] = [
+  {
+    iconKey: "activity",
+    color: "primary",
+    title: "Diagnostic Imaging",
+    desc: "Advanced MRI, CT, and X-ray services with rapid turnaround and expert radiologist review.",
+    href: "/services/imaging",
+  },
+  {
+    iconKey: "flask",
+    color: "sky",
+    title: "Laboratory Services",
+    desc: "ISO-certified lab offering comprehensive blood work, urinalysis, and specialized panels.",
+    href: "/services/laboratory",
+  },
+  {
+    iconKey: "users",
+    color: "success",
+    title: "Specialist Consultations",
+    desc: "Access 50+ board-certified specialists across cardiology, neurology, oncology, and more.",
+    href: "/services/consultations",
+  },
+  {
+    iconKey: "package",
+    color: "warning",
+    title: "Health Packages",
+    desc: "Curated wellness and executive check-up packages tailored for individuals and corporates.",
+    href: "/services/packages",
+  },
+  {
+    iconKey: "shield",
+    color: "purple",
+    title: "Preventive Care",
+    desc: "Proactive health monitoring, vaccination programs, and lifestyle medicine consultations.",
+    href: "/services/preventive",
+  },
+  {
+    iconKey: "clock",
+    color: "cyan",
+    title: "24/7 Emergency",
+    desc: "Round-the-clock emergency diagnostic support with on-call specialist access.",
+    href: "/services/emergency",
+  },
+];
+
+export const servicesSectionMeta = {
+  pill: "What We Offer",
+  heading: { plain: "Comprehensive ", gradient: "Healthcare Services" },
+  desc: "From routine diagnostics to complex specialist consultations — all under one roof, backed by cutting-edge technology and compassionate care.",
+};
+
+// ─── Why Us ───────────────────────────────────────────────────────────────────
+export const whyUsData = {
+  pill: "Why Choose Us",
+  heading: { plain: "Healthcare You Can ", gradient: "Trust" },
+  desc: "We combine clinical excellence with genuine human care. Our team doesn't just treat conditions — we build relationships with every patient.",
+  badge: { number: "98%", label: "Patient satisfaction" },
+  images: {
+    main: {
+      src: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=700&q=80&auto=format&fit=crop",
+      alt: "Doctor consulting patient",
+    },
+    secondary: {
+      src: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&q=80&auto=format&fit=crop",
+      alt: "Laboratory equipment",
+    },
+  },
+  items: [
+    { emoji: "🏅", title: "ISO-Certified Labs",        desc: "Rigorous quality standards ensuring accurate, reliable diagnostic results every time." },
+    { emoji: "⚡", title: "24-Hour Turnaround",         desc: "Most lab results ready within 24 hours so your care team can act fast." },
+    { emoji: "🩺", title: "50+ Board-Certified Docs",   desc: "Access to specialists across every major medical discipline." },
+    { emoji: "💙", title: "Patient-First Philosophy",   desc: "Every touchpoint is designed around your comfort, clarity, and confidence." },
+  ],
+};
+
+// ─── Doctors ──────────────────────────────────────────────────────────────────
+export const doctorsData = {
+  pill: "Our Team",
+  heading: { plain: "Meet Our ", gradient: "Specialists" },
+  desc: "Board-certified physicians dedicated to your health outcomes.",
+  viewAllHref: "/doctors",
+  doctors: [
+    { name: "Dr. Maria Santos", specialty: "Cardiologist",   initials: "MS", color: "#0056b3" },
+    { name: "Dr. Jose Reyes",   specialty: "Neurologist",    initials: "JR", color: "#00a8e8" },
+    { name: "Dr. Ana Cruz",     specialty: "Oncologist",     initials: "AC", color: "#16a34a" },
+    { name: "Dr. Carlos Lim",   specialty: "Pulmonologist",  initials: "CL", color: "#7c3aed" },
+  ],
+};
+
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+export const testimonialsData = {
+  pill: "Patient Stories",
+  heading: { plain: "What Our ", gradient: "Patients Say" },
+  items: [
+    {
+      quote: "Wellcare's diagnostic team caught something my previous clinic missed for two years. Their thoroughness genuinely changed my life.",
+      name: "Patricia M.",
+      role: "Patient since 2019",
+      initials: "PM",
+    },
+    {
+      quote: "The lab results were ready within hours and their specialist walked me through every number. I've never felt more informed about my own health.",
+      name: "Ramon T.",
+      role: "Executive Check-up",
+      initials: "RT",
+    },
+    {
+      quote: "From booking to consultation, every step was seamless. The team genuinely cares — you feel it the moment you walk in.",
+      name: "Sophia L.",
+      role: "Annual Wellness Plan",
+      initials: "SL",
+    },
+  ],
+};
+
+// ─── CTA Banner ───────────────────────────────────────────────────────────────
+export const ctaData = {
+  badge: "Book Today",
+  heading: { line1: "Ready to Take Control", line2: "of Your Health?" },
+  desc: "Schedule your consultation or diagnostic appointment today. Same-day slots available.",
+  ctas: {
+    primary:   { label: "Book an Appointment", href: "/book" },
+    secondary: { label: "Call Us Now",          href: "tel:+6328888-9355" },
+  },
+};
