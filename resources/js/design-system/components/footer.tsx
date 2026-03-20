@@ -1,23 +1,20 @@
+
 import { useState } from "react";
+import { Link } from "@inertiajs/react";
 import { WellcareLogo } from "./navbar";
+import { about, services, contact, doctors } from "@/routes";
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-// .wc-btn classes  → already in resources/css/components.css
-// .wc-footer__*    → add from layout-classes.css into resources/css/components.css
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
 const QUICK_LINKS = [
-  { label: "About Us",            href: "/about" },
-  { label: "Our Specialists",     href: "/specialists" },
-  { label: "Laboratory Services", href: "/laboratory" },
-  { label: "Health Packages",     href: "/packages" },
-  { label: "Careers",             href: "/careers" },
+  { label: "About Us",            href: about.url() },
+  { label: "Our Specialists",     href: doctors.url() },
+  { label: "Health Services",     href: services.url() },
+  { label: "Contact Us",          href: contact.url() },
 ] as const;
 
 const SOCIAL_LINKS = [
   {
     label: "Facebook",
-    href: "#",
+    href: "https://facebook.com/wellcareclinics",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
@@ -26,7 +23,7 @@ const SOCIAL_LINKS = [
   },
   {
     label: "Twitter / X",
-    href: "#",
+    href: "https://twitter.com/wellcareclinics",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66
@@ -37,7 +34,7 @@ const SOCIAL_LINKS = [
   },
   {
     label: "Instagram",
-    href: "#",
+    href: "https://instagram.com/wellcareclinics",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
@@ -48,20 +45,15 @@ const SOCIAL_LINKS = [
   },
 ] as const;
 
-// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function Footer() {
   const [email, setEmail] = useState("");
-
-  const handleSubscribe = () => {
-    // TODO: wire up to your newsletter endpoint
-    if (email) setEmail("");
-  };
 
   return (
     <footer className="wc-footer">
       <div className="wc-footer__inner">
 
-        {/* ── Main 4-col grid ───────────────────────────────────────────── */}
+        {/* ── Main 4-col grid ── */}
         <div className="wc-footer__grid">
 
           {/* Col 1 — Brand */}
@@ -73,11 +65,14 @@ export default function Footer() {
             </p>
             <div className="wc-footer__social">
               {SOCIAL_LINKS.map((s) => (
+                // External URLs — <a> with target="_blank" is correct
                 <a
                   key={s.label}
                   href={s.href}
                   className="wc-footer__social-link"
                   aria-label={s.label}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   {s.icon}
                 </a>
@@ -91,9 +86,10 @@ export default function Footer() {
             <ul className="wc-footer__links">
               {QUICK_LINKS.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="wc-footer__link">
+                  {/* Internal routes — <Link> for SPA navigation */}
+                  <Link href={link.href} className="wc-footer__link">
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -112,8 +108,8 @@ export default function Footer() {
                   </svg>
                 </span>
                 <address className="wc-footer__address">
-                  123 Medical Plaza, Health District,<br />
-                  Metro Manila, Philippines
+                  Gov. D. Mangubat Ave., Burol Main,<br />
+                  Dasmariñas City, Cavite
                 </address>
               </li>
 
@@ -128,8 +124,9 @@ export default function Footer() {
                              2.81.7A2 2 0 0 1 22 16.92z" />
                   </svg>
                 </span>
-                <a href="tel:+6328888-9355" className="wc-footer__link">
-                  +63 (2) 8888-9355
+                {/* tel: protocol — <a> is correct, not <Link> */}
+                <a href="tel:+63464167068" className="wc-footer__link">
+                  (046) 416 7068
                 </a>
               </li>
 
@@ -140,8 +137,9 @@ export default function Footer() {
                     <polyline points="22,6 12,13 2,6" />
                   </svg>
                 </span>
-                <a href="mailto:info@wellcare.com.ph" className="wc-footer__link">
-                  info@wellcare.com.ph
+                {/* mailto: protocol — <a> is correct, not <Link> */}
+                <a href="mailto:csrpat.wellcareclinics@gmail.com" className="wc-footer__link">
+                  csrpat.wellcareclinics@gmail.com
                 </a>
               </li>
 
@@ -149,46 +147,18 @@ export default function Footer() {
           </div>
 
           {/* Col 4 — Newsletter */}
-          <div className="wc-footer__col">
-            <h4 className="wc-footer__heading">Newsletter</h4>
-            <p className="wc-footer__newsletter-desc">
-              Subscribe to get health tips and clinic updates.
-            </p>
-            <div className="wc-footer__newsletter-form">
-              {/* Reuses .wc-input and .wc-input-dark from components.css */}
-              <input
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSubscribe()}
-                className="wc-input wc-input-dark wc-footer__newsletter-input"
-                aria-label="Email address for newsletter"
-              />
-              {/* Reuses .wc-btn-primary from components.css */}
-              <button
-                type="button"
-                onClick={handleSubscribe}
-                aria-label="Subscribe to newsletter"
-                className="wc-btn wc-btn-primary wc-btn-icon wc-footer__newsletter-btn"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
-            </div>
-          </div>
+          
 
         </div>
 
-        {/* ── Bottom bar ────────────────────────────────────────────────── */}
+        {/* ── Bottom bar ── */}
         <div className="wc-footer__bottom">
           <span className="wc-footer__copyright">
             © 2026 Wellcare Clinics &amp; Laboratories, Inc. All rights reserved.
           </span>
           <nav className="wc-footer__legal-links" aria-label="Legal links">
             {(["Privacy Policy", "Terms of Service", "Cookie Policy"] as const).map((item) => (
+              // TODO: replace with <Link> once named routes exist for these
               <a key={item} href="#" className="wc-footer__legal-link">
                 {item}
               </a>
