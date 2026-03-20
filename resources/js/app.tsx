@@ -17,7 +17,6 @@ createInertiaApp({
         ),
     setup({ el, App, props }) {
         const root = createRoot(el);
-
         root.render(
             <StrictMode>
                 <TooltipProvider delayDuration={0}>
@@ -31,5 +30,4 @@ createInertiaApp({
     },
 });
 
-// This will set light / dark mode on load...
 initializeTheme();
