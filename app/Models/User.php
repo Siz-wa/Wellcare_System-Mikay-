@@ -2,25 +2,27 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
+     * Only authentication credentials live on this table now.
      *
      * @var list<string>
      */
     protected $fillable = [
-        'name',
         'email',
         'password',
     ];
@@ -45,9 +47,35 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'email_verified_at'       => 'datetime',
+            'password'                => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    // ── Relationships ──────────────────────────────────────────────────────────
+
+    public function profile(): HasOne
+    {
+        return $this->hasOne(PatientProfile::class, 'user_id');
+    }
+
+    public function medical(): HasOneThrough
+{
+    return $this->hasOneThrough(
+        PatientMedical::class,
+        PatientProfile::class,
+        'user_id',    // FK on patient_profiles → users
+        'profile_id', // FK on patient_medical  → patient_profiles
+    );
+}
+    // ── Computed: full name via profile relationship ───────────────────────────
+    // Keeps $user->name working across Fortify, emails, and notifications.
+    public function getNameAttribute(): string
+    {
+        return trim(
+            ($this->profile?->first_name ?? '') . ' ' .
+            ($this->profile?->last_name  ?? '')
+        );
     }
 }
