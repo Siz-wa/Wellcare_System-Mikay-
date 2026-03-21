@@ -5,7 +5,7 @@
 
 import type { ReactElement } from "react";
 import { useInView }         from "@/hooks/useInView";
-import { bookingMeta }       from "../bookingdata";
+import { bookingMeta }       from "@/pages/user/book-appointment/sections/bookingdata";
 
 export default function BookingHero(): ReactElement {
   const { ref, inView } = useInView();

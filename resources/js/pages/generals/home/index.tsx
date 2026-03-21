@@ -6,7 +6,7 @@ import ServicesSection    from "@/pages/generals/home/sections/service-section";
 import WhyUsSection       from "@/pages/generals/home/sections/why-us-section";
 import DoctorsSection     from "@/pages/generals/home/sections/doctors-section";
 import TestimonialsSection from "@/pages/generals/home/sections/testimonials-section";
-import CTASection         from "@/pages/generals/home/sections/CTA-sections";
+import CTASection         from "@/design-system/components/CTA/CTA";
 
 
 export default function HomePage() {

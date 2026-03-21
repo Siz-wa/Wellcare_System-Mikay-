@@ -3,6 +3,8 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        @viteReactRefresh
+        @vite(['resources/css/app.css', 'resources/js/app.tsx'])
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
             (function() {

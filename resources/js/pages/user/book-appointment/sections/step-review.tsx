@@ -3,7 +3,7 @@
 // Step 4 — Review summary, additional info textarea, and submit button.
 
 import type { ReactElement }            from "react";
-import type { BookingFormData, StepId } from "../bookingdata";
+import type { BookingFormData, StepId } from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   genderOptions,
   serviceOptions,
@@ -13,7 +13,7 @@ import {
   REVIEW_LABELS,
   bookingMeta,
   STEP_HEADINGS,
-}                                       from "../bookingdata";
+}                                       from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   ReviewRow,
   ReviewGroup,

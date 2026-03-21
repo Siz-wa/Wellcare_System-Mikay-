@@ -147,14 +147,3 @@ export const processData = {
 };
 
 
-
-// ─── CTA ──────────────────────────────────────────────────────────────────────
-export const servicesCtaData = {
-  pill: "Get Started",
-  heading: { line1: "Ready to Book", line2: "Your Service?" },
-  desc: "Same-day appointments available. Call us or book online in under two minutes.",
-  ctas: {
-    primary:   { label: "Book an Appointment", href: "/book" },
-    secondary: { label: "Call Us Now",          href: "tel:+6328888-9355" },
-  },
-};

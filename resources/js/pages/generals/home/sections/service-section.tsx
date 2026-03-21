@@ -2,6 +2,8 @@
 import type { ReactElement } from "react";
 import { useInView } from "@/hooks/useInView";
 import { servicesData, servicesSectionMeta } from "@/pages/generals/home/sections/homedata";
+import { Link } from "@inertiajs/react";
+import {services} from "@/routes";
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 const ICONS:  Record<string, ReactElement> = {
@@ -83,15 +85,16 @@ export default function ServicesSection() {
                 </div>
                 <h3 className="text-xl mt-5 mb-3 text-[var(--wc-dark)]">{s.title}</h3>
                 <p className="text-sm text-[var(--wc-gray-500)] leading-relaxed mb-5">{s.desc}</p>
-                <a
-                  href={s.href}
+                {/* ✅ internal link → <Link> */}
+                <Link
+                  href={services.url()}
                   className="inline-flex items-center gap-2 text-sm font-bold text-[var(--wc-blue-600)] no-underline transition-all duration-[var(--duration-fast)] hover:text-[var(--wc-sky-500)] hover:gap-3"
                 >
                   Learn more
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                   </svg>
-                </a>
+                </Link>
               </div>
             </div>
           ))}

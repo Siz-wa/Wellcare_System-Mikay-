@@ -5,7 +5,7 @@ import MissionSection        from "@/pages/generals/about/sections/about-mission
 import TimelineSection       from "@/pages/generals/about/sections/about-timeline";
 import TeamSection           from "@/pages/generals/about/sections/about-team";
 import AccreditationsSection from "@/pages/generals/about/sections/about-accredition";
-import AboutCTASection       from "@/pages/generals/about/sections/about-cta";
+import CTAsection       from "@/design-system/components/CTA/CTA";
 
 export default function AboutPage() {
   return (
@@ -15,7 +15,7 @@ export default function AboutPage() {
       <TimelineSection />
       <TeamSection />
       <AccreditationsSection />
-      <AboutCTASection />
+      <CTAsection />
     </WellcareLayout>
   );
 }

@@ -39,7 +39,7 @@ export interface DoctorItem {
   initials: string;
   color: string;
   schedules: { days: string; hours: string }[];
-  href: string;
+  
 }
 
 // ─── Color map per specialty group ────────────────────────────────────────────
@@ -76,7 +76,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Flerida Ambat"),
     color: color("Dermatology"),
     schedules: [{ days: "Mon / Tue / Wed / Fri / Sat", hours: "10AM – 1PM" }],
-    href: "/book?doctor=flerida-ambat",
   },
 
   // Psychiatry
@@ -88,7 +87,7 @@ export const doctorsData: DoctorItem[] = [
     initials: "KB",
     color: color("Psychiatry"),
     schedules: [{ days: "Saturday", hours: "1PM – 5PM" }],
-    href: "/book?doctor=kristine-brania",
+
   },
 
   // Pediatrics
@@ -100,7 +99,7 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Estephany Guerra"),
     color: color("Pediatrics"),
     schedules: [{ days: "Mon / Wed / Fri", hours: "11AM – 1PM" }],
-    href: "/book?doctor=estephany-guerra",
+   
   },
   {
     id: "milagros-capacio",
@@ -110,7 +109,7 @@ export const doctorsData: DoctorItem[] = [
     initials: "MC",
     color: color("Pediatrics"),
     schedules: [{ days: "Tue / Sat", hours: "10AM – 12NN" }],
-    href: "/book?doctor=milagros-capacio",
+    
   },
   {
     id: "aileen-ledesma",
@@ -120,7 +119,7 @@ export const doctorsData: DoctorItem[] = [
     initials: "AL",
     color: color("Pediatrics"),
     schedules: [{ days: "Fri / Sat", hours: "3PM – 5PM" }],
-    href: "/book?doctor=aileen-ledesma",
+
   },
   {
     id: "ronnelaine-arpilleda",
@@ -133,7 +132,7 @@ export const doctorsData: DoctorItem[] = [
       { days: "Sunday", hours: "3PM – 5PM" },
       { days: "Tuesday", hours: "2PM – 5PM" },
     ],
-    href: "/book?doctor=ronnelaine-arpilleda",
+    
   },
   {
     id: "joanna-legaspi",
@@ -143,7 +142,7 @@ export const doctorsData: DoctorItem[] = [
     initials: "JL",
     color: color("Pediatrics"),
     schedules: [{ days: "Thursday", hours: "2PM – 5PM" }],
-    href: "/book?doctor=joanna-legaspi",
+   
   },
   {
     id: "michelle-martinez",
@@ -153,7 +152,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "MM",
     color: color("Pediatrics"),
     schedules: [{ days: "Mon / Wed", hours: "3PM – 5PM" }],
-    href: "/book?doctor=michelle-martinez",
   },
   {
     id: "vellanie-sandoval",
@@ -166,7 +164,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Sunday", hours: "10AM – 1PM" },
       { days: "Thursday", hours: "10AM – 12NN" },
     ],
-    href: "/book?doctor=vellanie-sandoval",
   },
 
   // Internal Medicine — Infectious Disease
@@ -178,7 +175,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Danice Alombro"),
     color: color("Internal Medicine"),
     schedules: [{ days: "Saturday", hours: "2PM – 4PM" }],
-    href: "/book?doctor=danice-alombro",
   },
 
   // Internal Medicine — Geriatrics
@@ -194,7 +190,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Thursday", hours: "2PM – 4PM" },
       { days: "Saturday", hours: "10AM – 12NN" },
     ],
-    href: "/book?doctor=charles-onda",
   },
 
   // Internal Medicine — Pulmonology
@@ -206,7 +201,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "CA",
     color: color("Internal Medicine"),
     schedules: [{ days: "Mon / Wed / Fri", hours: "10AM – 12NN" }],
-    href: "/book?doctor=cristan-alto",
   },
   {
     id: "jesus-ambat",
@@ -216,7 +210,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Jesus Ambat"),
     color: color("Internal Medicine"),
     schedules: [{ days: "Tue / Thu / Sat", hours: "10AM – 1PM" }],
-    href: "/book?doctor=jesus-ambat",
   },
 
   // Internal Medicine — Cardiology
@@ -228,7 +221,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "MA",
     color: color("Internal Medicine"),
     schedules: [{ days: "Mon / Tue", hours: "3PM – 5PM" }],
-    href: "/book?doctor=mon-aguilar",
   },
   {
     id: "kevin-esguerra",
@@ -238,7 +230,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Kevin Esguerra"),
     color: color("Internal Medicine"),
     schedules: [{ days: "Mon / Sat", hours: "2PM – 4PM" }],
-    href: "/book?doctor=kevin-esguerra",
   },
 
   // OM / IM — Diabetology
@@ -253,7 +244,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Friday", hours: "1PM – 3PM" },
       { days: "Wed / Fri", hours: "1PM – 3PM (Gastro)" },
     ],
-    href: "/book?doctor=leah-legaspi",
   },
   {
     id: "maryjane-leones",
@@ -267,7 +257,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Wednesday", hours: "9AM – 11AM" },
       { days: "Friday", hours: "9AM – 12NN" },
     ],
-    href: "/book?doctor=maryjane-leones",
   },
   {
     id: "carl-amante",
@@ -280,7 +269,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Monday", hours: "10AM – 12NN" },
       { days: "Tuesday", hours: "1PM – 3PM" },
     ],
-    href: "/book?doctor=carl-amante",
   },
 
   // Internal Medicine — General
@@ -292,7 +280,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Sheila Quinto"),
     color: color("Internal Medicine"),
     schedules: [{ days: "Sunday", hours: "1PM – 3PM" }],
-    href: "/book?doctor=sheila-quinto",
   },
   {
     id: "vasha-gutierrez",
@@ -302,7 +289,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "VG",
     color: color("Internal Medicine"),
     schedules: [{ days: "Tuesday", hours: "9AM – 12NN" }],
-    href: "/book?doctor=vasha-gutierrez",
   },
 
   // ENT
@@ -314,7 +300,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Rhett Crisostomo"),
     color: color("ENT"),
     schedules: [{ days: "Tuesday", hours: "3PM – 5PM" }],
-    href: "/book?doctor=rhett-crisostomo",
   },
   {
     id: "carolynne-unay",
@@ -324,7 +309,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Carolynne Unay"),
     color: color("ENT"),
     schedules: [{ days: "Mon / Wed", hours: "12NN – 2PM" }],
-    href: "/book?doctor=carolynne-unay",
   },
   {
     id: "karen-bathan",
@@ -337,7 +321,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Wed / Fri", hours: "3PM – 5PM" },
       { days: "Thursday", hours: "10AM – 12NN" },
     ],
-    href: "/book?doctor=karen-bathan",
   },
   {
     id: "wendell-lim",
@@ -350,7 +333,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Tuesday", hours: "10AM – 12NN" },
       { days: "Thursday", hours: "2PM – 4PM" },
     ],
-    href: "/book?doctor=wendell-lim",
   },
   {
     id: "michiko-hosojima",
@@ -360,7 +342,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "MH",
     color: color("ENT"),
     schedules: [{ days: "Saturday", hours: "10AM – 12NN" }],
-    href: "/book?doctor=michiko-hosojima",
   },
 
   // Surgery — Orthopedic
@@ -372,7 +353,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "FD",
     color: color("Surgery"),
     schedules: [{ days: "Monday", hours: "2PM – 4PM" }],
-    href: "/book?doctor=francis-dichoso",
   },
 
   // Surgery — General
@@ -384,7 +364,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "RU",
     color: color("Surgery"),
     schedules: [{ days: "Mon / Thu", hours: "2PM – 4PM" }],
-    href: "/book?doctor=ray-umali",
   },
   {
     id: "aylmer-espano",
@@ -394,7 +373,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Aylmer Espano"),
     color: color("Surgery"),
     schedules: [{ days: "Saturday", hours: "10AM – 12NN" }],
-    href: "/book?doctor=aylmer-espano",
   },
   {
     id: "julie-calusim",
@@ -404,7 +382,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "JC",
     color: color("Surgery"),
     schedules: [{ days: "Friday", hours: "10AM – 12NN" }],
-    href: "/book?doctor=julie-calusim",
   },
 
   // Dental
@@ -416,7 +393,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Rodelio Aldueza"),
     color: color("Dental"),
     schedules: [{ days: "Mon / Wed / Sat", hours: "1PM – 4PM (By Appointment)" }],
-    href: "/book?doctor=rodelio-aldueza",
   },
   {
     id: "bettina-limson",
@@ -426,7 +402,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Bettina Limson"),
     color: color("Dental"),
     schedules: [{ days: "Mon / Wed / Sat", hours: "1PM – 4PM (By Appointment)" }],
-    href: "/book?doctor=bettina-limson",
   },
 
   // Ophthalmology
@@ -441,7 +416,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Friday", hours: "3PM – 5PM" },
       { days: "Monday", hours: "10AM – 12NN" },
     ],
-    href: "/book?doctor=perfecto-cagampang",
   },
 
   // OB-GYN
@@ -453,7 +427,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Jean Bonto"),
     color: color("OB-GYN"),
     schedules: [{ days: "Sunday", hours: "1PM – 3PM" }],
-    href: "/book?doctor=jean-bonto",
   },
   {
     id: "genevieve-villela",
@@ -466,7 +439,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Monday", hours: "2PM – 5PM" },
       { days: "Friday", hours: "3PM – 5PM" },
     ],
-    href: "/book?doctor=genevieve-villela",
   },
   {
     id: "grace-palasi",
@@ -481,7 +453,6 @@ export const doctorsData: DoctorItem[] = [
       { days: "Thursday", hours: "3PM – 5:30PM" },
       { days: "Saturday", hours: "2PM – 5:30PM" },
     ],
-    href: "/book?doctor=grace-palasi",
   },
   {
     id: "mitzi-delapaz",
@@ -491,7 +462,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "MD",
     color: color("OB-GYN"),
     schedules: [{ days: "Sunday", hours: "10AM – 12NN" }],
-    href: "/book?doctor=mitzi-delapaz",
   },
   {
     id: "nazarena-mata",
@@ -501,7 +471,6 @@ export const doctorsData: DoctorItem[] = [
     initials: initials("Dr. Nazarena Mata"),
     color: color("OB-GYN"),
     schedules: [{ days: "Thu / Sat", hours: "9AM – 12NN" }],
-    href: "/book?doctor=nazarena-mata",
   },
   {
     id: "annie-cortez",
@@ -511,7 +480,7 @@ export const doctorsData: DoctorItem[] = [
     initials: "AC",
     color: color("OB-GYN"),
     schedules: [{ days: "Wednesday", hours: "2PM – 5PM" }],
-    href: "/book?doctor=annie-cortez",
+   
   },
   {
     id: "trinidad-purugganan",
@@ -521,7 +490,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "TP",
     color: color("OB-GYN"),
     schedules: [{ days: "Tuesday", hours: "2PM – 4PM" }],
-    href: "/book?doctor=trinidad-purugganan",
   },
 
   // In-House
@@ -533,7 +501,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "HY",
     color: color("In-House"),
     schedules: [{ days: "Mon / Tue / Thu", hours: "9AM – 12NN" }],
-    href: "/book?doctor=hansel-ybanez",
   },
   {
     id: "junimyn-miralles",
@@ -543,7 +510,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "JM",
     color: color("In-House"),
     schedules: [{ days: "Wed / Sat", hours: "10AM – 5PM" }],
-    href: "/book?doctor=junimyn-miralles",
   },
   {
     id: "reliever-inhouse",
@@ -553,7 +519,6 @@ export const doctorsData: DoctorItem[] = [
     initials: "RX",
     color: color("In-House"),
     schedules: [{ days: "Fri / Sun", hours: "10AM – 5PM" }],
-    href: "/book?service=inhouse",
   },
 ];
 
@@ -564,22 +529,19 @@ export const whyDoctorsData = {
   desc: "Every Wellcare physician goes through a rigorous credentialing process before seeing their first patient.",
   steps: [
     {
-      icon: "🎓",
       title: "Board Certification",
       desc: "All doctors hold active board certification from the Philippine Medical Association or an equivalent international body.",
     },
     {
-      icon: "🔍",
+
       title: "Background Verified",
       desc: "We verify credentials, training history, and professional standing before extending an invitation to join.",
     },
     {
-      icon: "💬",
       title: "Patient-Centred Interview",
       desc: "Candidates are assessed for communication skills and empathy — not just clinical excellence.",
     },
     {
-      icon: "🔄",
       title: "Continuous Development",
       desc: "All Wellcare doctors complete annual CPD requirements and participate in our in-house quality programme.",
     },

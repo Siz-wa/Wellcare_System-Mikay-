@@ -11,19 +11,7 @@ use Inertia\Response;
 
 class AppointmentController extends Controller
 {
-    /**
-     * Show the booking form.
-     * Renders: resources/js/pages/generals/book-appointment.tsx
-     */
-    public function create(): Response
-    {
-        return Inertia::render('generals/book-appointment');
-    }
 
-    /**
-     * List appointments for the authenticated user.
-     * Renders: resources/js/pages/generals/appointments.tsx
-     */
     public function index(): Response
     {
         $appointments = Appointment::where('user_id', Auth::id())
@@ -32,6 +20,23 @@ class AppointmentController extends Controller
 
         return Inertia::render('generals/appointments', compact('appointments'));
     }
+    /**
+     * Show the booking form.
+     * Renders: resources/js/pages/generals/book-appointment.tsx
+     */
+    public function create(): Response
+    {
+         
+
+        return Inertia::render('user/book-appointment/book-appointment');
+        
+    }
+
+    /**
+     * List appointments for the authenticated user.
+     * Renders: resources/js/pages/generals/appointments.tsx
+     */
+
 
     /**
      * Store a new appointment.

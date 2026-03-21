@@ -132,13 +132,3 @@ export const accreditationsData = {
   ],
 };
 
-// ─── CTA ──────────────────────────────────────────────────────────────────────
-export const aboutCtaData = {
-  pill: "Join Our Community",
-  heading: { line1: "Experience Healthcare", line2: "That Truly Cares." },
-  desc: "Book your first appointment today and discover why over 120,000 Filipinos choose Wellcare.",
-  ctas: {
-    primary:   { label: "Book an Appointment", href: "/book" },
-    secondary: { label: "View Our Services",   href: "/services" },
-  },
-};

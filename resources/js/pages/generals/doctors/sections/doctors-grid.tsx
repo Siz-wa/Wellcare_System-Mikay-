@@ -5,6 +5,7 @@ import { useInView } from "@/hooks/useInView";
 import { doctorsData, specialties } from "./doctors-data";
 import type { Specialty } from "./doctors-data";
 import SearchInput from "@/design-system/components/search-input";
+import { index as bookIndex } from "@/routes/book"; 
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const CalendarIcon = () => (
@@ -38,6 +39,11 @@ export default function DoctorsGridSection() {
       return matchesSpecialty && matchesSearch;
     });
   }, [activeSpecialty, search]);
+
+  function getBookHref(id: string): string {
+  if (id === 'reliever-inhouse') return `${bookIndex.url()}?service=inhouse`;
+  return `${bookIndex.url()}?doctor=${id}`;
+}
 
   return (
     <section className="wc-section bg-[var(--wc-gray-50)]">
@@ -171,7 +177,7 @@ export default function DoctorsGridSection() {
 
                 {/* Book button */}
                 <Link
-                  href={doc.href}
+                  href={getBookHref(doc.id)}
                   className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill w-full justify-center mt-auto"
                 >
                   Book Appointment <ArrowRight />

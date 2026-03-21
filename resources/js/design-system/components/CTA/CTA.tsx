@@ -1,6 +1,11 @@
-// resources/js/pages/user/about/sections/AboutCTASection.tsx
+// resources/js/pages/generals/home/sections/CTA-sections.tsx
+
+import { Link } from "@inertiajs/react";
 import { useInView } from "@/hooks/useInView";
-import { aboutCtaData } from "./about-data";
+import { ctaData } from "@/design-system/components/CTA/CTA-data";
+import { book as appointmentsCreate } from "@/routes";
+
+// ... icons unchanged ...
 
 const ArrowRight = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -8,9 +13,15 @@ const ArrowRight = () => (
   </svg>
 );
 
-export default function AboutCTASection() {
+const PhoneIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.58 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.29 6.29l1.27-.62a2 2 0 0 1 2.11.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
+export default function CTASection() {
   const { ref, inView } = useInView();
-  const { pill, heading, desc, ctas } = aboutCtaData;
+  const { badge, heading, desc, ctas } = ctaData;
 
   return (
     <section className="py-20">
@@ -25,7 +36,6 @@ export default function AboutCTASection() {
             background: "linear-gradient(135deg, var(--wc-blue-700) 0%, var(--wc-blue-600) 40%, var(--wc-sky-500) 100%)",
           }}
         >
-          {/* Radial glows */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
@@ -37,15 +47,17 @@ export default function AboutCTASection() {
           />
 
           <div className="relative z-10 max-w-[600px] mx-auto">
-            {/* Badge */}
             <span
               className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold tracking-[var(--tracking-widest)] uppercase"
-              style={{ background: "rgba(255,255,255,0.22)", color: "#ffffff", border: "1.5px solid #ffffff" }}
+              style={{
+                background: "rgba(255,255,255,0.22)",
+                color: "#ffffff",
+                border: "1.5px solid #ffffff",
+              }}
             >
-              {pill}
+              {badge}
             </span>
 
-            {/* Heading — inline style overrides base.css h2 global */}
             <h2
               className="text-[clamp(1.875rem,4vw,3rem)] mt-5 mb-5 tracking-[-0.04em]"
               style={{ color: "#ffffff" }}
@@ -53,17 +65,26 @@ export default function AboutCTASection() {
               {heading.line1}<br />{heading.line2}
             </h2>
 
-            {/* Desc — inline style overrides base.css p global */}
-            <p className="text-lg mb-8 leading-relaxed" style={{ color: "#ffffff" }}>
+            <p
+              className="text-lg mb-8 leading-relaxed"
+              style={{ color: "#ffffff" }}
+            >
               {desc}
             </p>
 
             <div className="flex flex-wrap justify-center gap-4">
-              <a href={ctas.primary.href} className="wc-btn wc-btn-white wc-btn-lg wc-btn-pill">
+
+              {/* ✅ Only change: <a href="/appointments/create"> → <Link> + Wayfinder */}
+              <Link
+                href={appointmentsCreate.url()}
+                className="wc-btn wc-btn-white wc-btn-lg wc-btn-pill"
+              >
                 {ctas.primary.label} <ArrowRight />
-              </a>
-              <a
-                href={ctas.secondary.href}
+              </Link>
+
+              {/* tel: is external — <a> is correct, unchanged */}
+              
+                <a href={ctas.secondary.href}
                 className="wc-btn wc-btn-lg wc-btn-pill"
                 style={{
                   background: "rgba(255,255,255,0.15)",
@@ -72,8 +93,9 @@ export default function AboutCTASection() {
                   backdropFilter: "blur(8px)",
                 }}
               >
-                {ctas.secondary.label}
+                <PhoneIcon /> {ctas.secondary.label}
               </a>
+
             </div>
           </div>
         </div>

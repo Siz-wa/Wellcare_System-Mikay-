@@ -3,13 +3,13 @@
 // Step 2 — Appointment Details (service, branch, date, time, patient status).
 
 import type { ReactElement }   from "react";
-import type { BookingFormData } from "../bookingdata";
+import type { BookingFormData } from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   serviceOptions,
   patientStatusOptions,
   TIME_SLOTS,
   STEP_HEADINGS,
-}                               from "../bookingdata";
+}                               from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   Field,
   ToggleCard,

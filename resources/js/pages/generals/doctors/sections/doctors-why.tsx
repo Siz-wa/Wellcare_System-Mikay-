@@ -1,6 +1,44 @@
 // resources/js/pages/user/doctors/sections/WhyOurDoctorsSection.tsx
+
 import { useInView } from "@/hooks/useInView";
-import { whyDoctorsData } from "./doctors-data";
+import { whyDoctorsData } from "@/pages/generals/doctors/sections/doctors-data"; // ✅ fixed import path
+
+const GraduationIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+    <path d="M6 12v5c3 3 9 3 12 0v-5" />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const RefreshIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10" />
+    <polyline points="1 20 1 14 7 14" />
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+  </svg>
+);
+
+import type { ReactElement } from "react";
+
+const STEP_ICONS: ReactElement[] = [
+  <GraduationIcon />,
+  <SearchIcon />,
+  <ChatIcon />,
+  <RefreshIcon />,
+];
 
 export default function WhyOurDoctorsSection() {
   const { ref, inView } = useInView();
@@ -41,7 +79,9 @@ export default function WhyOurDoctorsSection() {
               }}
             >
               <div className="wc-card-body">
-                <span className="text-4xl block mb-4">{step.icon}</span>
+                <div className="wc-icon-tile wc-icon-tile-md wc-icon-tile-primary mb-4">
+                  {STEP_ICONS[i]}
+                </div>
                 <h3 className="text-base mb-2">{step.title}</h3>
                 <p className="text-sm leading-relaxed m-0" style={{ color: "var(--wc-gray-500)" }}>
                   {step.desc}

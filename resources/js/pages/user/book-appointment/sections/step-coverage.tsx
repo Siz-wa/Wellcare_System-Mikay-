@@ -3,8 +3,8 @@
 // Step 3 — Mode of Coverage, HMO provider (conditional), preferred doctor.
 
 import type { ReactElement }                    from "react";
-import type { BookingFormData, CoverageOption } from "../bookingdata";
-import { coverageOptions, hmoOptions, STEP_HEADINGS } from "../bookingdata";
+import type { BookingFormData, CoverageOption } from "@/pages/user/book-appointment/sections/bookingdata";
+import { coverageOptions, hmoOptions, STEP_HEADINGS } from "@/pages/user/book-appointment/sections/bookingdata";
 import { Field, ToggleCard, StepNav }           from "../components";  // ← barrel
 
 interface StepCoverageProps {

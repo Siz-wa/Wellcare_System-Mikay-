@@ -1,8 +1,8 @@
 // resources/js/pages/generals/book-appointment/components/step-indicator.tsx
 
 import type { ReactElement } from "react";
-import { STEPS }             from "../bookingdata";
-import type { StepId }       from "../bookingdata";
+import { STEPS }             from "@/pages/user/book-appointment/sections/bookingdata";
+import type { StepId }       from "@/pages/user/book-appointment/sections/bookingdata";
 
 interface StepIndicatorProps {
   current:   StepId;

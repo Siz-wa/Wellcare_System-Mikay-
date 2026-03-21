@@ -4,9 +4,9 @@
 
 import { useEffect }       from "react";
 import WellcareLayout      from "@/layouts/app-gen-layout";
-import BookingHero         from "./book-appointment/sections/booking-hero";
-import BookingForm         from "./book-appointment/sections/booking-form";
-import BookingSuccess      from "./book-appointment/sections/booking-success";
+import BookingHero         from "@/pages/user/book-appointment/sections/booking-hero";
+import BookingForm         from "@/pages/user/book-appointment/sections/booking-form";
+import BookingSuccess      from "@/pages/user/book-appointment/sections/booking-success";
 import { useBookingStore, resetBookingStore } from "@/hooks/use-booking-store";
 
 export default function BookAppointmentPage() {

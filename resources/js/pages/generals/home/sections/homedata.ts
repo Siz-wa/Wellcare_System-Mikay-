@@ -56,7 +56,7 @@ export interface ServiceItem {
   color: IconColor;
   title: string;
   desc: string;
-  href: string;
+
 }
 
 export const servicesData: ServiceItem[] = [
@@ -65,42 +65,42 @@ export const servicesData: ServiceItem[] = [
     color: "primary",
     title: "Diagnostic Imaging",
     desc: "Advanced MRI, CT, and X-ray services with rapid turnaround and expert radiologist review.",
-    href: "/services/imaging",
+   
   },
   {
     iconKey: "flask",
     color: "sky",
     title: "Laboratory Services",
     desc: "ISO-certified lab offering comprehensive blood work, urinalysis, and specialized panels.",
-    href: "/services/laboratory",
+  
   },
   {
     iconKey: "users",
     color: "success",
     title: "Specialist Consultations",
     desc: "Access 50+ board-certified specialists across cardiology, neurology, oncology, and more.",
-    href: "/services/consultations",
+  
   },
   {
     iconKey: "package",
     color: "warning",
     title: "Health Packages",
     desc: "Curated wellness and executive check-up packages tailored for individuals and corporates.",
-    href: "/services/packages",
+
   },
   {
     iconKey: "shield",
     color: "purple",
     title: "Preventive Care",
     desc: "Proactive health monitoring, vaccination programs, and lifestyle medicine consultations.",
-    href: "/services/preventive",
+
   },
   {
     iconKey: "clock",
     color: "cyan",
     title: "24/7 Emergency",
     desc: "Round-the-clock emergency diagnostic support with on-call specialist access.",
-    href: "/services/emergency",
+
   },
 ];
 
@@ -174,13 +174,3 @@ export const testimonialsData = {
   ],
 };
 
-// ─── CTA Banner ───────────────────────────────────────────────────────────────
-export const ctaData = {
-  badge: "Book Today",
-  heading: { line1: "Ready to Take Control", line2: "of Your Health?" },
-  desc: "Schedule your consultation or diagnostic appointment today. Same-day slots available.",
-  ctas: {
-    primary:   { label: "Book an Appointment", href: "/book" },
-    secondary: { label: "Call Us Now",          href: "tel:+6328888-9355" },
-  },
-};

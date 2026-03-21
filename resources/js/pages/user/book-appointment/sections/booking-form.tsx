@@ -8,8 +8,8 @@ import { useForm }                 from "@inertiajs/react";
 import { useInView }               from "@/hooks/useInView";
 import { useBookingStore }         from "@/hooks/use-booking-store";
 import { useStepValidators }       from "@/hooks/use-step-validators";
-import { BOOKING_FORM_DEFAULTS }   from "../bookingdata";
-import type { StepId }             from "../bookingdata";
+import { BOOKING_FORM_DEFAULTS }   from "@/pages/user/book-appointment/sections/bookingdata";
+import type { StepId }             from "@/pages/user/book-appointment/sections/bookingdata";
 import { StepIndicator }           from "../components";
 import StepPersonal                from "./step-personal";
 import StepAppointment             from "./step-appointment";
@@ -18,7 +18,7 @@ import StepReview                  from "./step-review";
 
 // Wayfinder — generated from your named routes in web.php
 // Run `php artisan wayfinder:generate` to regenerate after route changes
-import { store } from "@/routes/appointments";
+import { store } from "@/routes/book";
 
 export default function BookingForm(): ReactElement {
   const { ref, inView }                                   = useInView();

@@ -3,7 +3,7 @@ import WellcareLayout      from "@/layouts/app-gen-layout";
 import ServicesHeroSection from "@/pages/generals/services/sections/service-hero";
 import ServicesGridSection from "@/pages/generals/services/sections/service-grid";
 import ProcessSection      from "@/pages/generals/services/sections/service-process";
-import ServicesCtaSection  from "@/pages/generals/services/sections/service-cta";
+import CTAsection  from "@/design-system/components/CTA/CTA";
 
 export default function ServicesPage() {
   return (
@@ -11,7 +11,7 @@ export default function ServicesPage() {
       <ServicesHeroSection />
       <ServicesGridSection />
       <ProcessSection />
-      <ServicesCtaSection />
+      <CTAsection />
     </WellcareLayout>
   );
 }

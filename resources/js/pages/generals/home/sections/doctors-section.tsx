@@ -1,10 +1,14 @@
 // resources/js/pages/user/home/sections/DoctorsSection.tsx
+
+import { Link } from "@inertiajs/react";
 import { useInView } from "@/hooks/useInView";
 import { doctorsData } from "@/pages/generals/home/sections/homedata";
+import { index as bookIndex } from "@/routes/book";
+import { doctors as doctorsRoute } from "@/routes";
 
 export default function DoctorsSection() {
   const { ref, inView } = useInView();
-  const { pill, heading, desc, viewAllHref, doctors } = doctorsData;
+  const { pill, heading, desc, doctors } = doctorsData;
 
   return (
     <section className="wc-section bg-[var(--wc-gray-50)]">
@@ -51,7 +55,8 @@ export default function DoctorsSection() {
                 <p className="text-sm text-[var(--wc-gray-400)] mb-5">{doc.specialty}</p>
                 <div className="flex items-center justify-between">
                   <span className="wc-badge wc-badge-primary">Available</span>
-                  <a href="/book" className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Book</a>
+                  {/* ✅ internal link → <Link> + Wayfinder */}
+                  <Link href={bookIndex.url()} className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Book</Link>
                 </div>
               </div>
             </div>
@@ -60,9 +65,10 @@ export default function DoctorsSection() {
 
         {/* View all */}
         <div className="text-center">
-          <a href={viewAllHref} className="wc-btn wc-btn-ghost wc-btn-md">
+          {/* ✅ internal link → <Link> + Wayfinder */}
+          <Link href={doctorsRoute.url()} className="wc-btn wc-btn-ghost wc-btn-md">
             View all specialists →
-          </a>
+          </Link>
         </div>
 
       </div>

@@ -4,8 +4,8 @@
 // Receives form data + setData + errors as props. No navigation logic.
 
 import type { ReactElement }            from "react";
-import type { BookingFormData }         from "../bookingdata";
-import { genderOptions, STEP_HEADINGS } from "../bookingdata";
+import type { BookingFormData }         from "@/pages/user/book-appointment/sections/bookingdata";
+import { genderOptions, STEP_HEADINGS } from "@/pages/user/book-appointment/sections/bookingdata";
 import { Field, StepNav }               from "../components";   // ← barrel
 
 interface StepPersonalProps {
