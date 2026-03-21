@@ -92,6 +92,26 @@ export const TIME_SLOTS: string[] = [
   "3:00 PM",  "3:30 PM",  "4:00 PM",  "4:30 PM",
 ];
 
+// ── Service → Doctor specialty mapping ───────────────────────────────────────
+// Maps each service value to the matching specialty labels in doctorsData.
+// null means "show all doctors" (e.g. laboratory/imaging have no specific dept).
+// Update this map whenever services or doctor specialties change.
+
+export type Specialty =
+  | "Dermatology" | "Psychiatry" | "Pediatrics" | "Internal Medicine"
+  | "ENT" | "Surgery" | "Dental" | "Ophthalmology" | "OB-GYN" | "In-House";
+
+export const SERVICE_TO_SPECIALTIES: Record<string, Specialty[] | null> = {
+  "general":          null,                        // all doctors
+  "cardiology":       ["Internal Medicine"],        // IM-Cardiology sub-spec
+  "dermatology":      ["Dermatology"],
+  "pediatrics":       ["Pediatrics"],
+  "ob-gyne":          ["OB-GYN"],
+  "laboratory":       null,                        // no specific doctor dept
+  "imaging":          null,                        // no specific doctor dept
+  "physical-therapy": null,                        // no specific doctor dept
+};
+
 export const REVIEW_LABELS: Record<string, string> = {
   fullName:        "Full Name",
   email:           "Email",
