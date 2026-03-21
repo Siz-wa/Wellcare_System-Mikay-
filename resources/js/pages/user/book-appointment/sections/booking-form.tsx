@@ -1,40 +1,60 @@
 // resources/js/pages/generals/book-appointment/sections/booking-form.tsx
-// ──────────────────────────────────────────────────────────────────────────
-// Orchestrator — owns the Inertia form, wires step state, renders the
-// correct step component. Does NOT contain any field JSX itself.
 
-import type { ReactElement }       from "react";
-import { useForm }                 from "@inertiajs/react";
-import { useInView }               from "@/hooks/useInView";
-import { useBookingStore }         from "@/hooks/use-booking-store";
-import { useStepValidators }       from "@/hooks/use-step-validators";
-import { BOOKING_FORM_DEFAULTS }   from "@/pages/user/book-appointment/sections/bookingdata";
-import type { StepId }             from "@/pages/user/book-appointment/sections/bookingdata";
-import { StepIndicator }           from "../components";
-import StepPersonal                from "./step-personal";
-import StepAppointment             from "./step-appointment";
-import StepCoverage                from "./step-coverage";
-import StepReview                  from "./step-review";
-
-// Wayfinder — generated from your named routes in web.php
-// Run `php artisan wayfinder:generate` to regenerate after route changes
-import { store } from "@/routes/book";
+import type { ReactElement }     from "react";
+import { useState }              from "react";
+import { useForm }               from "@inertiajs/react";
+import { useInView }             from "@/hooks/useInView";
+import { useBookingStore }       from "@/hooks/use-booking-store";
+import { useStepValidators }     from "@/hooks/use-step-validators";
+import { BOOKING_FORM_DEFAULTS } from "@/pages/user/book-appointment/sections/bookingdata";
+import type { StepId }           from "@/pages/user/book-appointment/sections/bookingdata";
+import { StepIndicator }         from "../components";
+import StepPersonal              from "./step-personal";
+import StepAppointment           from "./step-appointment";
+import StepCoverage              from "./step-coverage";
+import StepReview                from "./step-review";
+import { store }                 from "@/routes/book";
 
 export default function BookingForm(): ReactElement {
-  const { ref, inView }                                   = useInView();
-  const { step, completed, goTo, markDone, setSubmitted } = useBookingStore();
-  const { data, setData, post, processing, errors }       = useForm(BOOKING_FORM_DEFAULTS);
-  const { step1Valid, step2Valid, step3Valid }             = useStepValidators(data);
+  const { ref, inView }                                           = useInView();
+  const { step, completed, goTo, markDone, setSubmitted }         = useBookingStore();
+  const { data, setData, post, processing, errors: serverErrors } = useForm(BOOKING_FORM_DEFAULTS);
 
-  // ── Advance to next step only when valid ──────────────────────────────
+  // Errors are hidden until the user first attempts to proceed from that step.
+  // This prevents a red form on first load before the user has done anything.
+  const [attempted1, setAttempted1] = useState(false);
+  const [attempted2, setAttempted2] = useState(false);
+  const [attempted3, setAttempted3] = useState(false);
 
-  const advance = (current: StepId, next: StepId, valid: boolean) => {
-    if (!valid) return;
-    markDone(current);
-    goTo(next);
+  const {
+    step1Valid, step2Valid, step3Valid,
+    errors1, errors2, errors3,
+  } = useStepValidators(data);
+
+  // ── Navigation handlers ────────────────────────────────────────────────
+
+  const handleNext1 = () => {
+    setAttempted1(true);
+    if (!step1Valid) return;
+    markDone(1);
+    goTo(2);
   };
 
-  // ── Form submit — posts to POST /appointments (appointments.store) ────
+  const handleNext2 = () => {
+    setAttempted2(true);
+    if (!step2Valid) return;
+    markDone(2);
+    goTo(3);
+  };
+
+  const handleNext3 = () => {
+    setAttempted3(true);
+    if (!step3Valid) return;
+    markDone(3);
+    goTo(4);
+  };
+
+  // ── Submit ─────────────────────────────────────────────────────────────
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +62,6 @@ export default function BookingForm(): ReactElement {
       onSuccess: () => setSubmitted(true),
     });
   };
-
-  // ── Card entrance animation ────────────────────────────────────────────
 
   const cardStyle: React.CSSProperties = {
     opacity:         inView ? 1 : 0,
@@ -64,20 +82,20 @@ export default function BookingForm(): ReactElement {
             {step === 1 && (
               <StepPersonal
                 data={data}
-                errors={errors}
+                errors={attempted1 ? errors1 : {}}
                 setData={setData}
                 valid={step1Valid}
-                onNext={() => advance(1, 2, step1Valid)}
+                onNext={handleNext1}
               />
             )}
 
             {step === 2 && (
               <StepAppointment
                 data={data}
-                errors={errors}
+                errors={attempted2 ? errors2 : {}}
                 setData={setData}
                 valid={step2Valid}
-                onNext={() => advance(2, 3, step2Valid)}
+                onNext={handleNext2}
                 onBack={() => goTo(1)}
               />
             )}
@@ -85,10 +103,10 @@ export default function BookingForm(): ReactElement {
             {step === 3 && (
               <StepCoverage
                 data={data}
-                errors={errors}
+                errors={attempted3 ? errors3 : {}}
                 setData={setData}
                 valid={step3Valid}
-                onNext={() => advance(3, 4, step3Valid)}
+                onNext={handleNext3}
                 onBack={() => goTo(2)}
               />
             )}
@@ -97,7 +115,7 @@ export default function BookingForm(): ReactElement {
               <form onSubmit={handleSubmit} noValidate>
                 <StepReview
                   data={data}
-                  errors={errors}
+                  errors={serverErrors}
                   setData={setData}
                   isProcessing={processing}
                   onBack={() => goTo(3)}

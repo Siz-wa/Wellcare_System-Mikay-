@@ -1,44 +1,54 @@
 // resources/js/pages/generals/book-appointment/sections/step-appointment.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2 — Appointment Details (service, branch, date, time, patient status).
 
-import type { ReactElement }   from "react";
-import type { BookingFormData } from "@/pages/user/book-appointment/sections/bookingdata";
+import type { ReactElement }    from "react";
+import type { BookingFormData }  from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   serviceOptions,
   patientStatusOptions,
   TIME_SLOTS,
   STEP_HEADINGS,
-}                               from "@/pages/user/book-appointment/sections/bookingdata";
+}                                from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   Field,
   ToggleCard,
   TimeSlotPicker,
   StepNav,
   IconCalendar,
-}                               from "../components";  // ← barrel
+}                                from "../components";
+import type { Step2Errors }      from "@/hooks/use-step-validators";
 
 interface StepAppointmentProps {
   data:    BookingFormData;
-  errors:  Partial<Record<keyof BookingFormData, string>>;
+  errors:  Step2Errors;
   setData: <K extends keyof BookingFormData>(field: K, value: BookingFormData[K]) => void;
   valid:   boolean;
   onNext:  () => void;
   onBack:  () => void;
 }
 
+const BOOKING_MAX_DAYS = 365;
+
 export default function StepAppointment({
-  data,
-  errors,
-  setData,
-  valid,
-  onNext,
-  onBack,
+  data, errors, setData, valid, onNext, onBack,
 }: StepAppointmentProps): ReactElement {
   const { title, subtitle } = STEP_HEADINGS[2];
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().split("T")[0];
 
-  const col: React.CSSProperties    = { display: "flex", flexDirection: "column", gap: "var(--space-5)" };
+  // ── Date bounds ────────────────────────────────────────────────────────
+  // min = tomorrow, max = today + 365 days
+  // Both enforced in HTML (prevents picker from showing invalid dates)
+  // AND in the validator (catches any bypass via manual typing)
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  const minDate = tomorrow.toISOString().split("T")[0];
+
+  const maxDateObj = new Date();
+  maxDateObj.setDate(maxDateObj.getDate() + BOOKING_MAX_DAYS);
+  maxDateObj.setHours(0, 0, 0, 0);
+  const maxDate = maxDateObj.toISOString().split("T")[0];
+
+  const col: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "var(--space-5)" };
 
   return (
     <div>
@@ -51,6 +61,7 @@ export default function StepAppointment({
       </div>
 
       <div style={col}>
+
         {/* Service */}
         <Field label="Service to be Availed" required error={errors.service}>
           <select
@@ -64,7 +75,7 @@ export default function StepAppointment({
           </select>
         </Field>
 
-        {/* Patient status — icon toggle cards */}
+        {/* Patient status */}
         <Field label="Patient Record Status" required error={errors.patientStatus}>
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
             {patientStatusOptions.map((o) => (
@@ -80,12 +91,15 @@ export default function StepAppointment({
           </div>
         </Field>
 
-        {/* Date */}
+        {/* Date — min + max enforced in HTML AND in validator */}
         <Field
           label="Preferred Date"
           required
           error={errors.appointmentDate}
-          hint="Select a date at least 1 day from today."
+          hint={!errors.appointmentDate
+            ? `Select a date between tomorrow and ${BOOKING_MAX_DAYS} days from now.`
+            : undefined
+          }
         >
           <div style={{ position: "relative" }}>
             <span
@@ -94,7 +108,7 @@ export default function StepAppointment({
                 left:          "var(--space-3)",
                 top:           "50%",
                 transform:     "translateY(-50%)",
-                color:         "var(--wc-gray-400)",
+                color:         errors.appointmentDate ? "var(--wc-error)" : "var(--wc-gray-400)",
                 pointerEvents: "none",
                 display:       "flex",
               }}
@@ -104,11 +118,14 @@ export default function StepAppointment({
             <input
               className={`wc-input${errors.appointmentDate ? " wc-input-error" : ""}`}
               type="date"
-              min={tomorrow}
+              min={minDate}
+              max={maxDate}
               value={data.appointmentDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setData("appointmentDate", e.target.value)
-              }
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const val = e.target.value;
+                // Strip if user somehow bypasses the picker and types manually
+                setData("appointmentDate", val);
+              }}
               style={{ paddingLeft: "calc(var(--space-3) + 22px)" }}
             />
           </div>
@@ -119,7 +136,7 @@ export default function StepAppointment({
           label="Preferred Time"
           required
           error={errors.appointmentTime}
-          hint="Select an available time slot."
+          hint={!errors.appointmentTime ? "Select an available time slot." : undefined}
         >
           <TimeSlotPicker
             slots={TIME_SLOTS}
@@ -127,13 +144,14 @@ export default function StepAppointment({
             onChange={(v) => setData("appointmentTime", v)}
           />
         </Field>
+
       </div>
 
       <StepNav
         onBack={onBack}
         onNext={onNext}
         nextLabel="Continue to Coverage"
-        nextDisabled={!valid}
+        nextDisabled={false}
       />
     </div>
   );

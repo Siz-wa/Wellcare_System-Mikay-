@@ -4,7 +4,7 @@
 // Module-level singleton shared across all components on the same page.
 
 import { useState, useEffect, useRef } from "react";
-import type { StepId }                 from "@/pages/generals/book-appointment/bookingdata";
+import type { StepId }                 from "@/pages/user/book-appointment/sections/bookingdata";
 
 interface BookingStore {
   step:         StepId;

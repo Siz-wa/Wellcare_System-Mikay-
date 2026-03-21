@@ -1,27 +1,21 @@
 // resources/js/pages/generals/book-appointment/sections/step-personal.tsx
-// ──────────────────────────────────────────────────────────────────────────
-// Step 1 — Personal Information fields only.
-// Receives form data + setData + errors as props. No navigation logic.
 
 import type { ReactElement }            from "react";
 import type { BookingFormData }         from "@/pages/user/book-appointment/sections/bookingdata";
 import { genderOptions, STEP_HEADINGS } from "@/pages/user/book-appointment/sections/bookingdata";
-import { Field, StepNav }               from "../components";   // ← barrel
+import { Field, StepNav }               from "../components";
+import type { Step1Errors }             from "@/hooks/use-step-validators";
 
 interface StepPersonalProps {
   data:    BookingFormData;
-  errors:  Partial<Record<keyof BookingFormData, string>>;
+  errors:  Step1Errors;
   setData: <K extends keyof BookingFormData>(field: K, value: BookingFormData[K]) => void;
   valid:   boolean;
   onNext:  () => void;
 }
 
 export default function StepPersonal({
-  data,
-  errors,
-  setData,
-  valid,
-  onNext,
+  data, errors, setData, valid, onNext,
 }: StepPersonalProps): ReactElement {
   const { title, subtitle } = STEP_HEADINGS[1];
 
@@ -30,7 +24,6 @@ export default function StepPersonal({
 
   return (
     <div>
-      {/* Step heading */}
       <div style={{ marginBottom: "var(--space-8)" }}>
         <span className="wc-label" style={{ color: "var(--wc-sky-500)", display: "block", marginBottom: "var(--space-2)" }}>
           Step 1 of 4
@@ -39,7 +32,6 @@ export default function StepPersonal({
         <p style={{ margin: 0 }}>{subtitle}</p>
       </div>
 
-      {/* Fields */}
       <div style={col}>
         <div style={twoCol}>
           <Field label="First Name" required error={errors.firstName}>
@@ -48,7 +40,12 @@ export default function StepPersonal({
               type="text"
               placeholder="e.g. Maria"
               value={data.firstName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData("firstName", e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const clean = e.target.value
+                  .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s'\-]/g, "")
+                  .slice(0, 50);
+                setData("firstName", clean);
+              }}
             />
           </Field>
           <Field label="Last Name" required error={errors.lastName}>
@@ -57,7 +54,12 @@ export default function StepPersonal({
               type="text"
               placeholder="e.g. Santos"
               value={data.lastName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData("lastName", e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const clean = e.target.value
+                  .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s'\-]/g, "")
+                  .slice(0, 50);
+                setData("lastName", clean);
+              }}
             />
           </Field>
         </div>
@@ -68,15 +70,22 @@ export default function StepPersonal({
               className={`wc-input${errors.email ? " wc-input-error" : ""}`}
               type="email"
               placeholder="you@example.com"
+              maxLength={255}
               value={data.email}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData("email", e.target.value)}
             />
           </Field>
-          <Field label="Contact Number" required error={errors.contactNumber} hint="e.g. +63 9XX XXX XXXX">
+          <Field
+            label="Contact Number"
+            required
+            error={errors.contactNumber}
+            hint={!errors.contactNumber ? "e.g. +639XXXXXXXXX or 09XXXXXXXXX" : undefined}
+          >
             <input
               className={`wc-input${errors.contactNumber ? " wc-input-error" : ""}`}
               type="tel"
-              placeholder="+63 9XX XXX XXXX"
+              placeholder="+639XXXXXXXXX"
+              maxLength={13}
               value={data.contactNumber}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData("contactNumber", e.target.value)}
             />
@@ -92,7 +101,15 @@ export default function StepPersonal({
               min={1}
               max={120}
               value={data.age}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData("age", e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const raw = e.target.value;
+                // Allow empty string (so user can clear the field)
+                if (raw === "") { setData("age", ""); return; }
+                // Only allow whole numbers, clamp to 1-120
+                const n = parseInt(raw, 10);
+                if (isNaN(n)) return;
+                setData("age", String(Math.min(120, Math.max(1, n))));
+              }}
             />
           </Field>
           <Field label="Biological Sex" required error={errors.gender}>
@@ -111,7 +128,7 @@ export default function StepPersonal({
 
       <StepNav
         nextLabel="Continue to Appointment"
-        nextDisabled={!valid}
+        nextDisabled={false}
         onNext={onNext}
       />
     </div>
