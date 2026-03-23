@@ -4,6 +4,8 @@
 
 import type { ReactElement } from "react";
 import { images } from "@/hooks/images";
+import { book as appointmentsCreate } from "@/routes";
+
 
 export type IconColor =
   | "primary" | "sky" | "success" | "warning"
@@ -15,7 +17,7 @@ export const servicesHeroData = {
   heading: { plain: "Complete Care,", gradient: "One Destination." },
   body: "From routine check-ups to complex specialist consultations — every service at Wellcare is backed by ISO-certified standards, experienced clinicians, and genuine compassion.",
   ctas: {
-    primary:   { label: "Book an Appointment", href: "/book" },
+    primary:   { label: "Book an Appointment", href: appointmentsCreate.url() },
     secondary: { label: "View Health Packages", href: "#packages" },
   },
   image: {

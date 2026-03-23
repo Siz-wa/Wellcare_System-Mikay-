@@ -6,6 +6,7 @@ import { doctorsData, specialties } from "./doctors-data";
 import type { Specialty } from "./doctors-data";
 import SearchInput from "@/design-system/components/search-input";
 import { index as bookIndex } from "@/routes/book"; 
+import {book as Appointment} from "@/routes";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const CalendarIcon = () => (
@@ -177,7 +178,7 @@ export default function DoctorsGridSection() {
 
                 {/* Book button */}
                 <Link
-                  href={getBookHref(doc.id)}
+                  href={Appointment.url()}
                   className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill w-full justify-center mt-auto"
                 >
                   Book Appointment <ArrowRight />
