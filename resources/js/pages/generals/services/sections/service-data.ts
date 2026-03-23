@@ -3,6 +3,7 @@
 // Swap text here without touching any component files.
 
 import type { ReactElement } from "react";
+import { images } from "@/hooks/images";
 
 export type IconColor =
   | "primary" | "sky" | "success" | "warning"
@@ -18,7 +19,7 @@ export const servicesHeroData = {
     secondary: { label: "View Health Packages", href: "#packages" },
   },
   image: {
-    src: "https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=900&q=85&auto=format&fit=crop",
+    src: images.servicesLab,
     alt: "Wellcare laboratory and clinical services",
   },
 };
@@ -145,5 +146,3 @@ export const processData = {
     },
   ],
 };
-
-

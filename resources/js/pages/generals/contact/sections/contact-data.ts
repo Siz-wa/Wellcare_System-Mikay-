@@ -10,9 +10,9 @@ export const contactHeroData = {
 
 // ─── Location ─────────────────────────────────────────────────────────────────
 export const locationData = {
-  address: "Gov. D. Mangubat Ave., Burol Main, Dasmariñas City, Cavite",
+  address: "2nd floor, Waltermart Aguinaldo Highway, Dasmariñas City, Cavite",
   mapEmbedUrl:
-    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3868.0!2d120.9369!3d14.3294!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zWellcare+Clinics!5e0!3m2!1sen!2sph!4v1",
+    "https://www.google.com/maps/place/Wellcare+Clinics+%26+Lab.,+Inc+-+Waltermart+Dasmari%C3%B1as/data=!4m7!3m6!1s0x3397d50074a5781b:0x79b0315628df33eb!8m2!3d14.32551!4d120.9415407!16s%2Fg%2F11bx2l0_8s!19sChIJG3ildADVlzMR6zPfKFYxsHk?authuser=0&hl=en&rclk=1",
 };
 
 // ─── Contact channels ─────────────────────────────────────────────────────────
@@ -31,8 +31,8 @@ export const contactChannels: ContactChannel[] = [
     label: "Customer Service — Admin",
     department: "Administrative Inquiries",
     lines: [
-      { text: "(046) 416 7068", href: "tel:+63464167068" },
-      { text: "09478920419",    href: "tel:+639478920419" },
+      { text: "(046) 450-5116 / 424-9312", href: "tel:+63464505116" },
+      { text: " 0917-185-6604 / 0998-982-2384",    href: "tel:+639478920419" },
     ],
   },
   {
@@ -44,22 +44,14 @@ export const contactChannels: ContactChannel[] = [
       { text: "csrpat.wellcareclinics@gmail.com", href: "mailto:csrpat.wellcareclinics@gmail.com" },
     ],
   },
-  {
-    id: "waltermart",
-    icon: "chat",
-    label: "CSR — WalterMart Dasma",
-    department: "Customer Service — Clinics",
-    lines: [
-      { text: "0920 918 6645", href: "tel:+639209186645" },
-    ],
-  },
+ 
   {
     id: "location",
     icon: "location",
     label: "Clinic Address",
     department: "Visit Us",
     lines: [
-      { text: "Gov. D. Mangubat Ave., Burol Main,\nDasmariñas City, Cavite", href: "https://maps.google.com/?q=Wellcare+Clinics+Dasmarinas+Cavite" },
+      { text: "Waltermart Aguinaldo Highway, Dasmariñas City, Cavite", href: "https://www.google.com/maps/place/Wellcare+Clinics+%26+Lab.,+Inc+-+Waltermart+Dasmari%C3%B1as/data=!4m7!3m6!1s0x3397d50074a5781b:0x79b0315628df33eb!8m2!3d14.32551!4d120.9415407!16s%2Fg%2F11bx2l0_8s!19sChIJG3ildADVlzMR6zPfKFYxsHk?authuser=0&hl=en&rclk=1" },
     ],
   },
 ];

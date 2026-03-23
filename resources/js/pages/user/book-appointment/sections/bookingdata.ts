@@ -72,7 +72,6 @@ export const coverageOptions: CoverageOption[] = [
   { value: "cash",       label: "Cash / Self-Pay", icon: "cash"       },
   { value: "hmo",        label: "HMO",             icon: "hmo"        },
   { value: "philhealth", label: "PhilHealth",      icon: "philhealth" },
-  { value: "corporate",  label: "Corporate",       icon: "corporate"  },
 ];
 
 export const hmoOptions: SelectOption[] = [

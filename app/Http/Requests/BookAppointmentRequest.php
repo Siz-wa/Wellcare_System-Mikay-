@@ -30,7 +30,7 @@ class BookAppointmentRequest extends FormRequest
             'patientStatus'   => ['required', 'in:new,returning'],
 
             // Step 3 — Coverage
-            'coverage'        => ['required', 'in:cash,hmo,philhealth,corporate'],
+            'coverage'        => ['required', 'in:cash,hmo,philhealth'],
             'hmo'             => ['nullable', 'required_if:coverage,hmo', 'string', 'max:100'],
             'hmoId'           => ['nullable', 'required_if:coverage,hmo', 'string', 'max:100'],
             'preferredDoctor' => ['nullable', 'string', 'max:150'],
