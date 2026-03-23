@@ -37,5 +37,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/appointments', 'index')->name('book.index');
         Route::get('/appointments/create', 'create')->name('book');
         Route::post('/appointments', 'store')->name('book.store');
+        Route::get('/AppointmentView', 'AppointmentView')->name('AppointmentView');
     });
 });

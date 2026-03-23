@@ -21,5 +21,15 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
+
+    // server: {
+    //     host: '0.0.0.0',
+    //     port: 5173,
+    //     hmr: {
+    //         host: 'nondepreciatory-hungrily-werner.ngrok-free.dev',
+    //         protocol: 'wss',   // wss = WebSocket Secure
+    //         clientPort: 443,   // tell browser to connect on HTTPS port
+    //     },
+    // },
    
 });

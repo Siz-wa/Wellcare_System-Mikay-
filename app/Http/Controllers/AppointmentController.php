@@ -24,6 +24,14 @@ class AppointmentController extends Controller
      * Show the booking form.
      * Renders: resources/js/pages/generals/book-appointment.tsx
      */
+    public function AppointmentView(): Response
+    {
+         
+
+        return Inertia::render('user/appointments/index');
+        
+    }
+
     public function create(): Response
     {
          
