@@ -181,7 +181,7 @@ export default function StepCoverage({
               display:   "inline-block",
             }}
           >
-            View full list of doctors per branch →
+            View full list of doctors of Walter – Dasmariñas →
           </a>
         </Field>
 

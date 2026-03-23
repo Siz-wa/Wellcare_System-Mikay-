@@ -38,7 +38,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "How do I book an appointment?",
-        a: "You can book online through our website, call our admin line at (046) 416 7068, or visit us directly at our clinic in Dasmariñas City, Cavite. Same-day slots are often available for laboratory services.",
+        a: "You can book online through our website, call our admin line at Tel# (046) 450-5116/424-9312, 0917-185-6604/0998-982-2384, or visit us directly at our clinic in 2nd floor, Waltermart Aguinaldo Highway, Dasmariñas City, Cavite. Same-day slots are often available for laboratory services.",
       },
       {
         q: "Can I walk in without an appointment?",
@@ -46,7 +46,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "How do I reschedule or cancel an appointment?",
-        a: "Call our admin line at (046) 416 7068 or 09478920419 at least 24 hours before your scheduled appointment. Cancellations made within 24 hours may forfeit any pre-paid booking fees.",
+        a: "Call our admin line at (046) 450-5116/424-9312 or 0917-185-6604/0998-982-2384 at least 24 hours before your scheduled appointment. Cancellations made within 24 hours may forfeit any pre-paid booking fees.",
       },
       {
         q: "Are same-day appointments available?",
@@ -119,7 +119,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "What payment methods do you accept?",
-        a: "We accept cash, major credit and debit cards, GCash, Maya, and bank transfers. For corporate accounts, we also accommodate purchase orders and billing arrangements.",
+        a: "We prioritize Cash and Self-Pay transactions. Even if you view your bill online, please be advised that we do not have an automated click-to-pay system. Payment must be settled manually via GCash, Maya, Bank Transfer, or Cards, just as you would at our physical counter.",
       },
       {
         q: "Can I use my HMO at Wellcare?",
@@ -161,11 +161,11 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Where is Wellcare Clinics located?",
-        a: "We are located at Gov. D. Mangubat Ave., Burol Main, Dasmariñas City, Cavite. We also have a branch at WalterMart Dasma — call 0920 918 6645 for that branch.",
+        a: "Our main clinic is located at the 2nd Floor, WalterMart Aguinaldo Highway, Dasmariñas City, Cavite. you may reach us at (046) 450-5116 / 424-9312 or via mobile at 0917-185-6604 / 0998-982-2384.",
       },
       {
         q: "What are your clinic hours?",
-        a: "Our clinic is open Monday to Saturday from 8:00 AM to 5:00 PM, and Sunday from 10:00 AM to 5:00 PM. Individual doctor schedules vary — check the Doctors page for specific availability.",
+        a: "Our clinic is open daily from Monday to Sunday, 7:00 AM to 6:00 PM. Individual doctor schedules vary — check the Doctors page for specific availability.",
       },
       {
         q: "Is there parking available?",

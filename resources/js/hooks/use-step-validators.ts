@@ -5,6 +5,10 @@
 // Pure functions — no UI, no side effects.
 
 import type { BookingFormData } from "@/pages/user/book-appointment/sections/bookingdata";
+import { doctorsData }          from "@/pages/generals/doctors/sections/doctors-data";
+
+// Build a Set of valid doctor names from the real roster — O(1) lookup
+const VALID_DOCTOR_NAMES = new Set(doctorsData.map((d) => d.name));
 
 // ── Exported error shapes ─────────────────────────────────────────────────────
 
@@ -51,9 +55,6 @@ const PH_PHONE_RE = /^(\+639|09)\d{9}$/;
 // Real examples: MC-123456 (Maxicare), IC-987654321 (Intellicare), MD-00123456 (Medicard)
 const HMO_ID_RE = /^[A-Z0-9\-]{6,20}$/;
 
-// Doctor name: Filipino names — letters, spaces, dots, hyphens, apostrophes
-const DOCTOR_NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿ\s.\-']{3,80}$/;
-
 // Booking window: min tomorrow, max 1 year from today
 const BOOKING_MAX_DAYS = 365;
 
@@ -64,7 +65,7 @@ const VALID_SERVICES = new Set([
 ]);
 
 // Valid coverage values
-const VALID_COVERAGE = new Set(["cash", "hmo", "philhealth", "corporate"]);
+const VALID_COVERAGE = new Set(["cash", "hmo", "philhealth"]);
 
 // Valid HMO values
 const VALID_HMO = new Set([
@@ -219,12 +220,12 @@ function validateStep3(data: BookingFormData): Step3Errors {
       e.hmoId = "HMO ID must be 6–20 characters — letters and numbers only (e.g. MC-123456).";
   }
 
-  // Preferred doctor — optional but must be valid if provided
+  // Preferred doctor — optional, but if provided must exactly match a roster entry.
+  // The DoctorPicker component only allows selecting from the list, so this is
+  // a safety net against any direct state manipulation.
   const doc = data.preferredDoctor.trim();
-  if (doc.length > 0) {
-    if (!DOCTOR_NAME_RE.test(doc))
-      e.preferredDoctor = "Doctor's name may only contain letters, spaces, dots, hyphens, or apostrophes (3–80 characters).";
-  }
+  if (doc.length > 0 && !VALID_DOCTOR_NAMES.has(doc))
+    e.preferredDoctor = "Please select a doctor from the list.";
 
   return e;
 }

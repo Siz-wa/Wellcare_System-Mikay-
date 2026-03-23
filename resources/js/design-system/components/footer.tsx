@@ -108,7 +108,7 @@ export default function Footer() {
                   </svg>
                 </span>
                 <address className="wc-footer__address">
-                  Gov. D. Mangubat Ave., Burol Main,<br />
+                  Waltermart Aguinaldo Highway,<br />
                   Dasmariñas City, Cavite
                 </address>
               </li>
@@ -126,7 +126,7 @@ export default function Footer() {
                 </span>
                 {/* tel: protocol — <a> is correct, not <Link> */}
                 <a href="tel:+63464167068" className="wc-footer__link">
-                  (046) 416 7068
+                  Tel# (046) 450-5116/424-9312 <br /> 0917-185-6604/0998-982-2384
                 </a>
               </li>
 
