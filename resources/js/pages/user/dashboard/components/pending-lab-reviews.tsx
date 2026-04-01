@@ -1,21 +1,20 @@
-// resources/js/pages/user/dashboard/components/AppointmentList.tsx
+// resources/js/pages/user/dashboard/components/pending-lab-reviews.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Today's appointment list with avatar, service, time, and status badge.
+// Pending Lab Reviews card — avatar, test name, time, review button.
 
-import type { ReactElement }        from "react";
-import { todayAppointments, dashboardMeta } from "../dashboard-data";
-import type { TodayAppointment }    from "../dashboard-data";
-import { StatusBadge }              from "../icons/index";
-import { IconClock, IconArrowRight } from "../icons";
+import type { ReactElement }                from "react";
+import { pendingLabReviews, dashboardMeta } from "../dashboard-data";
+import type { LabReview }                   from "../dashboard-data";
+import { IconArrowRight }                   from "../icons";
 
 // ── Single row ────────────────────────────────────────────────────────────────
 
-function AppointmentRow({ appt }: { appt: TodayAppointment }): ReactElement {
+function LabReviewRow({ review, reviewLabel }: { review: LabReview; reviewLabel: string }): ReactElement {
   return (
     <div style={{
       display:      "flex",
       alignItems:   "center",
-      gap:          "var(--space-4)",
+      gap:          "var(--space-3)",
       padding:      "var(--space-4) 0",
       borderBottom: "1px solid var(--wc-gray-100)",
     }}>
@@ -23,8 +22,8 @@ function AppointmentRow({ appt }: { appt: TodayAppointment }): ReactElement {
       <div style={{
         width:          40,
         height:         40,
-        borderRadius:   "var(--radius-full)",
-        background:     appt.color,
+        borderRadius:   "var(--radius-lg)",
+        background:     review.color,
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
@@ -33,28 +32,46 @@ function AppointmentRow({ appt }: { appt: TodayAppointment }): ReactElement {
         fontWeight:     700,
         flexShrink:     0,
       }}>
-        {appt.initials}
+        {review.initials}
       </div>
 
-      {/* Name + service */}
+      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--wc-dark)", lineHeight: 1.3 }}>
-          {appt.name}
+        <p style={{
+          margin:     0,
+          fontSize:   "var(--text-sm)",
+          fontWeight: 600,
+          color:      "var(--wc-dark)",
+          lineHeight: 1.3,
+        }}>
+          {review.name}
         </p>
-        <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--wc-gray-400)", lineHeight: 1.3 }}>
-          {appt.service}
+        <p style={{
+          margin:     0,
+          fontSize:   "var(--text-xs)",
+          color:      "var(--wc-gray-400)",
+          lineHeight: 1.3,
+        }}>
+          {review.test}
         </p>
       </div>
 
-      {/* Time */}
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", color: "var(--wc-gray-400)", fontSize: "var(--text-xs)", flexShrink: 0 }}>
-        <IconClock />
-        {appt.time}
-      </div>
-
-      {/* Status */}
-      <div style={{ flexShrink: 0 }}>
-        <StatusBadge status={appt.status} />
+      {/* Right: time + review link */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-1)", flexShrink: 0 }}>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--wc-gray-400)" }}>
+          {review.timeAgo}
+        </span>
+        <a
+          href={`/lab-reviews/${review.id}`}
+          style={{
+            fontSize:       "var(--text-xs)",
+            fontWeight:     600,
+            color:          "var(--wc-sky-500)",
+            textDecoration: "none",
+          }}
+        >
+          {reviewLabel}
+        </a>
       </div>
     </div>
   );
@@ -62,7 +79,7 @@ function AppointmentRow({ appt }: { appt: TodayAppointment }): ReactElement {
 
 // ── Card wrapper ──────────────────────────────────────────────────────────────
 
-export function AppointmentList(): ReactElement {
+export function PendingLabReviews(): ReactElement {
   const meta = dashboardMeta;
 
   return (
@@ -75,10 +92,10 @@ export function AppointmentList(): ReactElement {
         marginBottom:   "var(--space-2)",
       }}>
         <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--wc-dark)" }}>
-          {meta.todayAppointmentsTitle}
+          {meta.pendingLabTitle}
         </h2>
         <a
-          href="/appointments"
+          href="/lab-reviews"
           style={{
             display:        "flex",
             alignItems:     "center",
@@ -95,8 +112,8 @@ export function AppointmentList(): ReactElement {
 
       {/* Rows */}
       <div>
-        {todayAppointments.map((appt) => (
-          <AppointmentRow key={appt.id} appt={appt} />
+        {pendingLabReviews.map((review) => (
+          <LabReviewRow key={review.id} review={review} reviewLabel={meta.reviewLabel} />
         ))}
       </div>
     </div>

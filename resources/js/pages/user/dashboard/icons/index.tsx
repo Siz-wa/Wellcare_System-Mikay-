@@ -1,8 +1,10 @@
 // resources/js/pages/user/dashboard/icons/index.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// All SVG icon components used across the dashboard.
+// All SVG icon components + Resolvers + StatusBadge used across the dashboard.
 
 import type { ReactElement } from "react";
+// Import types for the resolvers
+import type { NavItem, StatCard, AppointmentStatus, WorkflowStep } from "../dashboard-data";
 
 // ── Nav icons ─────────────────────────────────────────────────────────────────
 
@@ -13,10 +15,11 @@ export const IconDashboard = (): ReactElement => (
   </svg>
 );
 
-export const IconAppointments = (): ReactElement => (
+export const IconSchedule = (): ReactElement => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2" />
     <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+    <circle cx="12" cy="16" r="2" />
   </svg>
 );
 
@@ -27,13 +30,19 @@ export const IconPatients = (): ReactElement => (
   </svg>
 );
 
-export const IconDoctors = (): ReactElement => (
+export const IconConsultations = (): ReactElement => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 );
 
-export const IconReports = (): ReactElement => (
+export const IconLabReviews = (): ReactElement => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" />
+  </svg>
+);
+
+export const IconRecords = (): ReactElement => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
@@ -58,6 +67,57 @@ export const IconLogout = (): ReactElement => (
 export const IconSearch = (): ReactElement => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+export const IconFilter = (): ReactElement => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+  </svg>
+);
+
+export const IconX = (): ReactElement => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+ 
+export const IconXSmall = (): ReactElement => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+ 
+export const IconSoap = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+);
+
+export const IconVitals = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+  </svg>
+);
+
+export const IconPrescription = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" />
+  </svg>
+);
+ 
+export const IconHistory = (): ReactElement => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="1 4 1 10 7 10" />
+    <path d="M3.51 15a9 9 0 1 0 .49-4.95" />
+  </svg>
+);
+
+export const IconCheck = (): ReactElement => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
   </svg>
 );
 
@@ -100,27 +160,134 @@ export const IconArrowRight = (): ReactElement => (
 // ── Stat icons ────────────────────────────────────────────────────────────────
 
 export const IconUsers = (): ReactElement => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
     <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 );
 
 export const IconCalendar = (): ReactElement => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2" />
     <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 );
 
-export const IconStar = (): ReactElement => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+export const IconConsultationStat = (): ReactElement => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
 );
 
-export const IconTrending = (): ReactElement => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
+export const IconLabStat = (): ReactElement => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 3l-1 8H4l8 10 8-10h-4L15 3z" />
   </svg>
 );
+
+// ── Workflow step icons ───────────────────────────────────────────────────────
+
+export const IconWorkflowLab = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 3l-1 8H4l8 10 8-10h-4L15 3z" />
+  </svg>
+);
+
+export const IconWorkflowNurse = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+export const IconWorkflowNotification = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
+export const IconWorkflowReview = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+  </svg>
+);
+
+export const IconWorkflowRecord = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+
+export const IconWorkflowRelease = (): ReactElement => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
+// ── Nav icon resolver ─────────────────────────────────────────────────────────
+
+export function NavIcon({ iconKey }: { iconKey: NavItem["iconKey"] }): ReactElement {
+  const map: Record<NavItem["iconKey"], ReactElement> = {
+    dashboard:     <IconDashboard />,
+    schedule:      <IconSchedule />,
+    patients:      <IconPatients />,
+    consultations: <IconConsultations />,
+    labreviews:    <IconLabReviews />,
+    records:       <IconRecords />,
+    settings:      <IconSettings />,
+  };
+  return map[iconKey];
+}
+
+// ── Stat icon resolver ────────────────────────────────────────────────────────
+
+export function StatIcon({ iconKey }: { iconKey: StatCard["iconKey"] }): ReactElement {
+  const map: Record<StatCard["iconKey"], ReactElement> = {
+    users:        <IconUsers />,
+    calendar:     <IconCalendar />,
+    consultation: <IconConsultationStat />,
+    lab:          <IconLabStat />,
+  };
+  return map[iconKey];
+}
+
+// ── Workflow icon resolver ────────────────────────────────────────────────────
+
+export function WorkflowIcon({ iconKey }: { iconKey: WorkflowStep["iconKey"] }): ReactElement {
+  const map: Record<WorkflowStep["iconKey"], ReactElement> = {
+    labstep:      <IconWorkflowLab />,
+    nurse:        <IconWorkflowNurse />,
+    notification: <IconWorkflowNotification />,
+    review:       <IconWorkflowReview />,
+    record:       <IconWorkflowRecord />,
+    release:      <IconWorkflowRelease />,
+  };
+  return map[iconKey];
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+export function StatusBadge({ status }: { status: AppointmentStatus }): ReactElement {
+  const config: Record<AppointmentStatus, { label: string; bg: string; color: string }> = {
+    confirmed: { label: "Confirmed", bg: "#dcfce7", color: "#15803d" },
+    pending:   { label: "Pending",   bg: "#fef9c3", color: "#a16207" },
+    cancelled: { label: "Cancelled", bg: "#fee2e2", color: "#b91c1c" },
+  };
+  const { label, bg, color } = config[status];
+  return (
+    <span style={{
+      display:       "inline-flex",
+      alignItems:    "center",
+      padding:       "var(--space-1) var(--space-3)",
+      borderRadius:  "var(--radius-full)",
+      background:    bg,
+      color:         color,
+      fontSize:      "var(--text-xs)",
+      fontWeight:    700,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+    }}>
+      {label}
+    </span>
+  );
+}

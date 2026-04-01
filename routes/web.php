@@ -29,10 +29,33 @@ Route::controller(GenController::class)->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
-    // Auth-only settings usually belong inside the middleware group
+
+    Route::get('/dashboard/my-schedule', function () {
+        return inertia('user/dashboard/my-schedule/my-schedule'); 
+    })->name('my-schedule');
     require __DIR__.'/settings.php';
+
+     Route::get('/dashboard/my-patients', function () {
+        return inertia('user/dashboard/my-patients/my-patients'); 
+    })->name('my-patients');
+    require __DIR__.'/settings.php';
+
+    Route::get('/dashboard/consultations', function () {
+        return inertia('user/dashboard/consultations/consultations'); 
+    })->name('consultations');
+    require __DIR__.'/settings.php';
+
+     Route::get('/dashboard/patient-records', function () {
+        return inertia('user/dashboard/patient-records/patient-records'); 
+    })->name('patient-records');
+    require __DIR__.'/settings.php';
+
+    Route::get('/dashboard/lab-reviews', function () {
+        return inertia('user/dashboard/lab-reviews/lab-reviews'); 
+    })->name('lab-reviews');
     
+
+
      Route::controller(\App\Http\Controllers\AppointmentController::class)->group(function () {
         Route::get('/appointments', 'index')->name('book.index');
         Route::get('/appointments/create', 'create')->name('book');

@@ -11,7 +11,7 @@ import { IconArrowRight }         from "../icons";
 
 function ActivityRow({ item }: { item: ActivityItem }): ReactElement {
   return (
-    <div style={{
+    <div style={{ 
       display:      "flex",
       alignItems:   "center",
       gap:          "var(--space-3)",
