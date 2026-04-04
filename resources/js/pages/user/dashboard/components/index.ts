@@ -1,12 +1,12 @@
 // resources/js/pages/user/dashboard/components/index.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Barrel export — import any component from this single path.
+// Barrel export for dashboard page components.
+//
 
-export { Sidebar }         from "./sidebar";
-export { Topbar }          from "./topbar";
-export { StatCards }       from "./stat-cards";
-export { AppointmentList } from "./appointment-list";
-export { ClinicActivity }  from "./clinic-activity";
-export { UpgradeCard }     from "./upgrade-card";
-export { WellcareLogo }    from "./well-care-logo";
-export { NavIcon, StatIcon, StatusBadge } from "./shared";
+export { StatCards }         from "./stat-cards";
+export { PatientActivity }   from "./patient-activity";
+export { ClinicWorkflow }    from "./clinic-workflow";
+export { AppointmentList }   from "./appointment-list";
+export { PendingLabReviews } from "./pending-lab-reviews";
+export { WellcareLogo }      from "./well-care-logo";
+export { NavIcon, StatIcon, WorkflowIcon, StatusBadge } from "../icons/index";

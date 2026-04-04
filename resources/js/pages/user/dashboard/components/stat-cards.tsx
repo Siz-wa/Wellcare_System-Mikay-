@@ -1,11 +1,11 @@
-// resources/js/pages/user/dashboard/components/StatCards.tsx
+// resources/js/pages/user/dashboard/components/stat-cards.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Responsive 4-column stat card grid.
 
 import type { ReactElement } from "react";
 import { statCards }         from "../dashboard-data";
 import type { StatCard }     from "../dashboard-data";
-import { StatIcon }          from "./shared";
+import { StatIcon }          from "../icons/index";
 
 // ── Single card ───────────────────────────────────────────────────────────────
 
@@ -20,8 +20,8 @@ function StatCardItem({ card }: { card: StatCard }): ReactElement {
       }}>
         {/* Icon tile */}
         <div style={{
-          width:          48,
-          height:         48,
+          width:          52,
+          height:         52,
           borderRadius:   "var(--radius-xl)",
           background:     card.iconBg,
           display:        "flex",
@@ -49,17 +49,24 @@ function StatCardItem({ card }: { card: StatCard }): ReactElement {
         </span>
       </div>
 
-      <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-sm)", color: "var(--wc-gray-500)", fontWeight: 500 }}>
+      <p style={{
+        margin:     "0 0 var(--space-1)",
+        fontSize:   "var(--text-xs)",
+        color:      "var(--wc-gray-500)",
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
+      }}>
         {card.label}
       </p>
       <p style={{
-        margin:      0,
-        fontSize:    "var(--text-3xl)",
-        fontWeight:  800,
-        color:       "var(--wc-dark)",
-        fontFamily:  "var(--font-display)",
+        margin:        0,
+        fontSize:      "var(--text-3xl)",
+        fontWeight:    800,
+        color:         "var(--wc-dark)",
+        fontFamily:    "var(--font-display)",
         letterSpacing: "-0.03em",
-        lineHeight:  1,
+        lineHeight:    1,
       }}>
         {card.value}
       </p>

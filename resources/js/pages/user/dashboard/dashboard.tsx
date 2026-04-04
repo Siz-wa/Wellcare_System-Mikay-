@@ -1,24 +1,24 @@
-// resources/js/pages/user/dashboard.tsx
+// resources/js/pages/user/dashboard/dashboard.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Dashboard page — lean entry point.
-// All layout is delegated to DashboardLayout; all sections are self-contained.
+// Dashboard page — thin composer. Uses shared DashboardLayout.
 
-import type { ReactElement } from "react";
-import { dashboardMeta }     from "./dashboard-data";
-import { DashboardLayout }   from "./dashboard-layout";
-import { StatCards }         from "./components/stat-cards";
-import { AppointmentList }   from "./components/appointment-list";
-import { ClinicActivity }    from "./components/clinic-activity";
-import { UpgradeCard }       from "./components/upgrade-card";
-import { IconPlus }          from "./icons";
+import type { ReactElement }   from "react";
+import { DashboardLayout }     from "./layout/dashboard-layout";
+import { dashboardMeta }       from "./dashboard-data";
+import { StatCards }           from "./components/stat-cards";
+import { PatientActivity }     from "./components/patient-activity";
+import { ClinicWorkflow }      from "./components/clinic-workflow";
+import { AppointmentList }     from "./components/appointment-list";
+import { PendingLabReviews }   from "./components/pending-lab-reviews";
+import { IconPlus }            from "./icons";
 
 export default function DashboardPage(): ReactElement {
   const meta = dashboardMeta;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout activeId="dashboard">
 
-      {/* Page header */}
+      {/* ── Page header ──────────────────────────────────────────────────── */}
       <div style={{
         display:        "flex",
         alignItems:     "flex-start",
@@ -26,13 +26,19 @@ export default function DashboardPage(): ReactElement {
         marginBottom:   "var(--space-8)",
       }}>
         <div>
-          <h1 style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-3xl)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+          <h1 style={{
+            margin:        "0 0 var(--space-1)",
+            fontSize:      "var(--text-3xl)",
+            fontWeight:    800,
+            letterSpacing: "-0.03em",
+            lineHeight:    1.15,
+          }}>
             {meta.greeting}{" "}
             <span style={{
-              background:            "linear-gradient(135deg, var(--wc-blue-600), var(--wc-sky-500))",
-              WebkitBackgroundClip:  "text",
-              WebkitTextFillColor:   "transparent",
-              backgroundClip:        "text",
+              background:           "linear-gradient(135deg, var(--wc-blue-600), var(--wc-sky-500))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor:  "transparent",
+              backgroundClip:       "text",
             }}>
               {meta.greetingName}
             </span>
@@ -41,7 +47,6 @@ export default function DashboardPage(): ReactElement {
             {meta.subtitle}
           </p>
         </div>
-
         <button
           type="button"
           className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
@@ -52,24 +57,30 @@ export default function DashboardPage(): ReactElement {
         </button>
       </div>
 
-      {/* Stat cards */}
+      {/* ── Stat cards ───────────────────────────────────────────────────── */}
       <StatCards />
 
-      {/* Bottom two-column grid */}
+      {/* ── Row 1: Patient Activity + Clinic Workflow ────────────────────── */}
       <div style={{
         display:             "grid",
-        gridTemplateColumns: "1fr 340px",
+        gridTemplateColumns: "1fr 380px",
+        gap:                 "var(--space-5)",
+        alignItems:          "start",
+        marginBottom:        "var(--space-5)",
+      }}>
+        <PatientActivity />
+        <ClinicWorkflow />
+      </div>
+
+      {/* ── Row 2: Today's Appointments + Pending Lab Reviews ────────────── */}
+      <div style={{
+        display:             "grid",
+        gridTemplateColumns: "1fr 380px",
         gap:                 "var(--space-5)",
         alignItems:          "start",
       }}>
-        {/* Left: Today's Appointments */}
         <AppointmentList />
-
-        {/* Right: Activity + Upgrade */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
-          <ClinicActivity />
-          <UpgradeCard />
-        </div>
+        <PendingLabReviews />
       </div>
 
     </DashboardLayout>

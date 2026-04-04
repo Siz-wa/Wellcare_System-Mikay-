@@ -1,12 +1,18 @@
-// resources/js/pages/user/dashboard/components/Topbar.tsx
+// resources/js/layouts/app/AppTopbar.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Sticky top header: search bar, notification bell, user chip.
+// ✅ SINGLE shared topbar for every dashboard page.
+// Replaces: topbar.tsx (dashboard) AND schedule-topbar.tsx (schedule).
+// Zero props needed — user info is read from shared meta.
 
 import type { ReactElement } from "react";
-import { dashboardMeta }     from "../dashboard-data";
-import { IconSearch, IconBell, IconChevronDown } from "../icons";
+import { dashboardMeta }     from "@/pages/user/dashboard/dashboard-data";
+import {
+  IconSearch,
+  IconBell,
+  IconChevronDown,
+} from "@/pages/user/dashboard/icons";
 
-export function Topbar(): ReactElement {
+export function AppTopbar(): ReactElement {
   const meta = dashboardMeta;
 
   return (
@@ -22,10 +28,11 @@ export function Topbar(): ReactElement {
         borderBottom: "1px solid var(--wc-gray-100)",
         position:     "sticky",
         top:          0,
-        zIndex:       "var(--z-nav)",
+        zIndex:       "var(--z-nav)" as React.CSSProperties["zIndex"],
+        flexShrink:   0,
       }}
     >
-      {/* Search */}
+      {/* ── Search ──────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, position: "relative", maxWidth: 420 }}>
         <span style={{
           position:      "absolute",
@@ -52,9 +59,10 @@ export function Topbar(): ReactElement {
       </div>
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-        {/* Bell */}
+        {/* ── Notification bell ─────────────────────────────────────────── */}
         <button
           type="button"
+          aria-label="Notifications"
           style={{
             display:        "flex",
             alignItems:     "center",
@@ -67,9 +75,11 @@ export function Topbar(): ReactElement {
             cursor:         "pointer",
             color:          "var(--wc-gray-500)",
             position:       "relative",
+            flexShrink:     0,
           }}
         >
           <IconBell />
+          {/* Unread dot */}
           <span style={{
             position:     "absolute",
             top:          8,
@@ -82,8 +92,9 @@ export function Topbar(): ReactElement {
           }} />
         </button>
 
-        {/* User chip */}
+        {/* ── User chip ─────────────────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", cursor: "pointer" }}>
+          {/* Avatar */}
           <div style={{
             width:          40,
             height:         40,
@@ -96,18 +107,31 @@ export function Topbar(): ReactElement {
             fontSize:       "var(--text-xs)",
             fontWeight:     700,
             flexShrink:     0,
+            letterSpacing:  "0.04em",
           }}>
             DM
           </div>
+
+          {/* Name + role */}
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--wc-dark)", lineHeight: 1.2 }}>
+            <span style={{
+              fontSize:   "var(--text-sm)",
+              fontWeight: 600,
+              color:      "var(--wc-dark)",
+              lineHeight: 1.2,
+            }}>
               {meta.userName}
             </span>
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--wc-gray-400)", lineHeight: 1.2 }}>
+            <span style={{
+              fontSize:   "var(--text-xs)",
+              color:      "var(--wc-gray-400)",
+              lineHeight: 1.2,
+            }}>
               {meta.userRole}
             </span>
           </div>
-          <span style={{ color: "var(--wc-gray-400)" }}>
+
+          <span style={{ color: "var(--wc-gray-400)", flexShrink: 0 }}>
             <IconChevronDown />
           </span>
         </div>
