@@ -39,4 +39,16 @@ class GenController extends Controller
     {
         return Inertia::render('generals/faq/index');
     }
+    public function terms(): Response
+    {
+        return Inertia::render('generals/terms/index');
+    }
+    public function privacy(): Response
+    {
+        return Inertia::render('generals/privacy/index');
+    }
+    public function cookies(): Response
+    {
+        return Inertia::render('generals/cookies/index');
+    }
 }

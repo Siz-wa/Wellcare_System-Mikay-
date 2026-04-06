@@ -2,13 +2,19 @@
 import { useState } from "react";
 import { Link } from "@inertiajs/react";
 import { WellcareLogo } from "./navbar";
-import { about, services, contact, doctors } from "@/routes";
+import { about, services, contact, doctors, privacy, terms, cookies } from "@/routes";
 
 const QUICK_LINKS = [
   { label: "About Us",            href: about.url() },
   { label: "Our Specialists",     href: doctors.url() },
   { label: "Health Services",     href: services.url() },
   { label: "Contact Us",          href: contact.url() },
+] as const;
+
+const LEGALS = [
+  { label: "Privacy Policy",            href: privacy.url() },
+  { label: "Terms of Use",              href: terms.url() },
+  { label: "Cookie Policy",             href: cookies.url() },
 ] as const;
 
 const SOCIAL_LINKS = [
@@ -157,12 +163,19 @@ export default function Footer() {
             © 2026 Wellcare Clinics &amp; Laboratories, Inc. All rights reserved.
           </span>
           <nav className="wc-footer__legal-links" aria-label="Legal links">
-            {(["Privacy Policy", "Terms of Service", "Cookie Policy"] as const).map((item) => (
-              // TODO: replace with <Link> once named routes exist for these
-              <a key={item} href="#" className="wc-footer__legal-link">
-                {item}
-              </a>
-            ))}
+            {LEGALS.map((s) => (
+                // External URLs — <a> with target="_blank" is correct
+                <Link
+                  key={s.label}
+                  href={s.href}
+                  className="wc-footer__legal-link"
+                  aria-label={s.label}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {s.label}
+                </Link>
+              ))}
           </nav>
         </div>
 

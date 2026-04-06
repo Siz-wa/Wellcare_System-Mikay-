@@ -1,17 +1,19 @@
-// resources/js/pages/auth/register/sections/RegisterFormPanel.tsx
-import { Form } from "@inertiajs/react";
-import { Link } from "@inertiajs/react";
+// resources/js/pages/auth/register/sections/register-form-panel.tsx
+import { useEffect, useRef } from "react";
+import { Form, Link, router, usePage } from "@inertiajs/react";
 import TextLink from "@/components/text-link";
 import { Spinner } from "@/components/ui/spinner";
 import { WellcareLogo } from "@/design-system/components/navbar";
 import { login, home } from "@/routes";
 import { store } from "@/routes/register";
 import { onboardingSteps } from "@/pages/auth/register/sections/register-data";
-import { useRegisterForm } from "@/pages/auth/register/hooks/use-register-form";
+import { useRegisterForm, STEP_FIELDS } from "@/pages/auth/register/hooks/use-register-form";
+import type { StepErrors } from "@/pages/auth/register/hooks/use-register-form";
 import { StepProgressBar } from "@/pages/auth/register/components/register-ui";
 import StepAccount  from "@/pages/auth/register/steps/step-account";
 import StepPersonal from "@/pages/auth/register/steps/step-personal";
 import StepMedical  from "@/pages/auth/register/steps/step-medical";
+
 interface RegisterFormPanelProps {
   onStepChange: (step: number) => void;
 }
@@ -23,11 +25,71 @@ export default function RegisterFormPanel({ onStepChange }: RegisterFormPanelPro
     set, setRadio,
     handleNext, handleBack,
     handleSubmitValidation,
+    goToStep,
   } = useRegisterForm(onStepChange);
 
-  // Merge client errors with any server errors passed via form render prop
-  // Client errors take priority while navigating between steps
-  const mergeErrors = (serverErrors: Record<string, string>) => ({
+  // ── Server error redirection ──────────────────────────────────────────────
+  //
+  // Inertia returns Laravel 422 validation errors by updating usePage().props.errors
+  // directly — router.on("error") does NOT fire for these (that's only for network
+  // errors). So we must watch the errors prop via usePage().
+  //
+  // Problem with naive JSON-key approach:
+  //   Submitting the same invalid email twice produces the same JSON string →
+  //   useEffect dependency doesn't change → the step redirect never fires again.
+  //
+  // Fix: track a submission counter via router.on("before") so every new
+  // submission increments a ref. The effect depends on BOTH the error content
+  // AND the submission count, so it always fires on a fresh submit even if
+  // the error bag is identical to the last one.
+
+  const pageErrors = (usePage().props as { errors?: Record<string, string> }).errors ?? {};
+  const submitCount = useRef(0);
+  const effectKey   = `${submitCount.current}:${JSON.stringify(pageErrors)}`;
+  const isFirstMount = useRef(true);
+
+  // Increment the counter before every Inertia visit so effectKey is always
+  // unique for a new submission — even when the error bag doesn't change.
+  useEffect(() => {
+    const unsubscribe = router.on("before", () => {
+      submitCount.current += 1;
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Skip the very first render — no submission has happened yet.
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+
+    if (Object.keys(pageErrors).length === 0) return;
+
+    // Walk steps 1 → 2 in priority order.
+    // Jump to the first step that owns at least one returned error key.
+    for (let s = 1; s <= totalSteps - 1; s++) {
+      const stepErrors: StepErrors = {};
+
+      for (const field of STEP_FIELDS[s]) {
+        if (pageErrors[field]) {
+          stepErrors[field] = pageErrors[field];
+        }
+      }
+
+      if (Object.keys(stepErrors).length > 0) {
+        goToStep(s, stepErrors);
+        return;
+      }
+    }
+
+    // Step 3 errors (payment_method, classification, etc.) are already
+    // rendered inline by the Form render prop — nothing extra needed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectKey]);
+
+  // Merge client-side errors with server errors so step 3 always shows both
+  const mergeErrors = (serverErrors: Record<string, string>): StepErrors => ({
     ...serverErrors,
     ...clientErrors,
   });
@@ -136,17 +198,18 @@ export default function RegisterFormPanel({ onStepChange }: RegisterFormPanelPro
                     Hidden inputs carry over Step 1 + 2 field values
                     since they live outside this Form element.
                   */}
-                  <input type="hidden" name="first_name"     value={fields.first_name} />
-                  <input type="hidden" name="last_name"      value={fields.last_name} />
-                  <input type="hidden" name="email"          value={fields.email} />
-                  <input type="hidden" name="password"       value={fields.password} />
+                  <input type="hidden" name="first_name"            value={fields.first_name} />
+                  <input type="hidden" name="last_name"             value={fields.last_name} />
+                  <input type="hidden" name="email"                 value={fields.email} />
+                  <input type="hidden" name="password"              value={fields.password} />
                   <input type="hidden" name="password_confirmation" value={fields.password_confirmation} />
-                  <input type="hidden" name="address"        value={fields.address} />
-                  <input type="hidden" name="company"        value={fields.company} />
-                  <input type="hidden" name="contact_number" value={fields.contact_number} />
-                  <input type="hidden" name="gender"         value={fields.gender} />
-                  <input type="hidden" name="birthdate"      value={fields.birthdate} />
-                  <input type="hidden" name="civil_status"   value={fields.civil_status} />
+                  <input type="hidden" name="address"               value={fields.address} />
+                  <input type="hidden" name="company"               value={fields.company} />
+                  <input type="hidden" name="contact_number"        value={fields.contact_number} />
+                  <input type="hidden" name="gender"                value={fields.gender} />
+                  <input type="hidden" name="birthdate"             value={fields.birthdate} />
+                  <input type="hidden" name="civil_status"          value={fields.civil_status} />
+                  {/* payment_method and preferred_doctor intentionally omitted — collected post-registration */}
 
                   {/* Step 3 visible fields */}
                   <StepMedical

@@ -1,4 +1,4 @@
-// resources/js/pages/auth/register/hooks/useRegisterForm.ts
+// resources/js/pages/auth/register/hooks/use-register-form.ts
 import { useState } from "react";
 import type { ChangeEvent } from "react";
 import { onboardingSteps } from "@/pages/auth/register/sections/register-data";
@@ -25,8 +25,6 @@ export interface RegisterFields {
   weight: string;
   blood_pressure: string;
   hmo: string;
-  preferred_doctor: string;
-  payment_method: string;
   classification: string;
 }
 
@@ -46,9 +44,14 @@ const INITIAL_FIELDS: RegisterFields = {
   weight: "",
   blood_pressure: "",
   hmo: "",
-  preferred_doctor: "",
-  payment_method: "",
   classification: "new",
+};
+
+// ─── Step field map — used to route server errors back to the right step ──────
+export const STEP_FIELDS: Record<number, (keyof RegisterFields)[]> = {
+  1: ["first_name", "last_name", "email", "password", "password_confirmation"],
+  2: ["address", "company", "birthdate", "contact_number", "gender", "civil_status"],
+  3: ["height", "weight", "blood_pressure", "hmo", "classification"],
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -147,9 +150,6 @@ function validateStep3(f: RegisterFields): StepErrors {
   if (f.blood_pressure && !/^\d{2,3}\/\d{2,3}$/.test(f.blood_pressure))
     e.blood_pressure = "BP must be in format 120/80.";
 
-  if (!f.payment_method)
-    e.payment_method = "Please select a payment method.";
-
   if (!f.classification)
     e.classification = "Please select a patient classification.";
 
@@ -158,13 +158,13 @@ function validateStep3(f: RegisterFields): StepErrors {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useRegisterForm(onStepChange: (step: number) => void) {
-  const [step, setStep]               = useState(1);
-  const [fields, setFields]           = useState<RegisterFields>(INITIAL_FIELDS);
+  const [step, setStep]                 = useState(1);
+  const [fields, setFields]             = useState<RegisterFields>(INITIAL_FIELDS);
   const [clientErrors, setClientErrors] = useState<StepErrors>({});
 
   const totalSteps = onboardingSteps.length;
 
-  // Controlled input handler — clears error on change
+  // Controlled input handler — clears that field's error on change
   const set = (key: keyof RegisterFields) =>
     (e: ChangeEvent<HTMLInputElement>) => {
       setFields((prev) => ({ ...prev, [key]: e.target.value }));
@@ -200,6 +200,17 @@ export function useRegisterForm(onStepChange: (step: number) => void) {
     onStepChange(prev);
   };
 
+  /**
+   * Jump to a specific step and optionally seed client errors.
+   * Used by RegisterFormPanel to surface server-side errors that
+   * belong to step 1 or 2 fields after the final form submission.
+   */
+  const goToStep = (target: number, errors: StepErrors = {}) => {
+    setStep(target);
+    setClientErrors(errors);
+    onStepChange(target);
+  };
+
   // Runs before final submit — blocks if step 3 is invalid
   const handleSubmitValidation = (): boolean => {
     const errors = validateStep3(fields);
@@ -220,5 +231,6 @@ export function useRegisterForm(onStepChange: (step: number) => void) {
     handleNext,
     handleBack,
     handleSubmitValidation,
+    goToStep,
   };
 }

@@ -36,9 +36,8 @@ class CreateNewUser implements CreatesNewUsers
             'weight'           => ['nullable', 'numeric', 'min:1', 'max:300'],
             'blood_pressure'   => ['nullable', 'string', 'regex:/^\d{2,3}\/\d{2,3}$/'],
             'hmo'              => ['nullable', 'string', 'max:255'],
-            'preferred_doctor' => ['nullable', 'string', 'max:255'],
             'classification'   => ['nullable', Rule::in(['new', 'old'])],
-            'payment_method'   => ['nullable', Rule::in(['cash', 'pwd', 'senior', 'mwc', 'hmo'])],
+            // payment_method and preferred_doctor collected post-registration
         ], [
             'first_name.required'  => 'First name is required.',
             'first_name.min'       => 'First name must be at least 2 characters.',
@@ -71,14 +70,13 @@ class CreateNewUser implements CreatesNewUsers
                 'classification' => $input['classification'] ?? 'new',
             ]);
 
-            // 3. Create the medical record (always create a row so it exists)
+            // 3. Create the medical record
+            //    payment_method and preferred_doctor left null — collected post-registration
             $profile->medical()->create([
-                'height'           => $input['height']           ?? null,
-                'weight'           => $input['weight']           ?? null,
-                'blood_pressure'   => $input['blood_pressure']   ?? null,
-                'hmo'              => $input['hmo']              ?? null,
-                'preferred_doctor' => $input['preferred_doctor'] ?? null,
-                'payment_method'   => $input['payment_method']   ?? null,
+                'height'         => $input['height']         ?? null,
+                'weight'         => $input['weight']         ?? null,
+                'blood_pressure' => $input['blood_pressure'] ?? null,
+                'hmo'            => $input['hmo']            ?? null,
             ]);
 
             return $user;

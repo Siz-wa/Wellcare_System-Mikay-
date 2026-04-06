@@ -6,10 +6,28 @@
 //   export default function SomePage() {
 //     return <UnderConstruction title="Page Title" />;
 //   }
-
+import { LogOut, Settings } from 'lucide-react'
 import WellcareLayout from "@/layouts/app-gen-layout";
-import { Link } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import type { NavLabel } from "@/design-system/components/navbar";
+import {logout, contact, home} from "@/routes";
+import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
+import type { PageProps } from '@/types';
+
+function LogoutOrContact({ size = "md" }: { size?: "md" | "lg" }) {
+  const { auth } = usePage<PageProps>().props;
+  const isAuthenticated = !!auth?.user;
+
+  return (
+    <Link
+      href={isAuthenticated ? logout() : contact.url()}
+      className={`wc-btn wc-btn-outline wc-btn-${size} wc-btn-pill`}
+    >
+      {isAuthenticated ? "Log Out" : "Contact"}
+    </Link>
+  );
+}
+
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface UnderConstructionProps {
@@ -118,6 +136,12 @@ export default function UnderConstruction({
   activeNav,
   eta,
 }: UnderConstructionProps) {
+const cleanup = useMobileNavigation();
+  const handleLogout = () => {
+        cleanup();
+        router.flushAll();
+    };
+  
   return (
     <WellcareLayout activeNav={activeNav}>
       <section className="wc-section">
@@ -168,12 +192,10 @@ export default function UnderConstruction({
 
           {/* Actions */}
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/" className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill">
+            <Link href={home.url()} className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill">
               <ArrowLeftIcon /> Back to Home
             </Link>
-            <Link href="/contact" className="wc-btn wc-btn-outline wc-btn-md wc-btn-pill">
-              Contact Us
-            </Link>
+             <LogoutOrContact size='lg'/>
           </div>
 
         </div>

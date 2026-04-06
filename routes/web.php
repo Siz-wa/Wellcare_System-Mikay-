@@ -18,6 +18,9 @@ Route::controller(GenController::class)->group(function () {
     Route::get('/doctors', 'doctors')->name('doctors');
     Route::get('/contact', 'contact')->name('contact');
     Route::get('/faqs', 'faqs')->name('faqs');
+    Route::get('/terms', 'terms')->name('terms');
+    Route::get('/privacy', 'privacy')->name('privacy');
+    Route::get('/cookies', 'cookies')->name('cookies');
 });
 
 /*
