@@ -1125,3 +1125,375 @@
     radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 60%),
     radial-gradient(circle at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 50%);
 }
+
+/* ==========================================================================
+   WELLCARE SIDEBAR
+   Class prefix: wc-sb
+
+   PILL STYLE: Full capsule (border-radius: 9999px), margin on BOTH left and
+   right (12px each side). Active = deep indigo-blue bg + white text/icon +
+   chevron. Inactive = transparent bg + medium-gray text/icon.
+   ========================================================================== */
+
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
+
+:root {
+  --sb-width:          256px;
+  --sb-bg:             #ffffff;
+  --sb-border:         #eaeaea;
+  --sb-font:           'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Active pill — deep indigo-blue from the screenshot */
+  --sb-active-bg:      #3d52a0;
+  --sb-active-text:    #ffffff;
+  --sb-active-hover:   #334490;
+
+  /* Inactive */
+  --sb-inactive-text:  #4a5073;
+  --sb-hover-bg:       #f0f1f8;
+  --sb-hover-text:     #3d52a0;
+
+  /* Group labels */
+  --sb-label-color:    #9396a8;
+
+  /* Logo */
+  --sb-logo-bg:        #3d52a0;
+
+  /* Spacing */
+  --sb-pill-mx:        12px;   /* margin on both left AND right sides */
+  --sb-link-px:        14px;   /* internal horizontal padding of the link */
+  --sb-link-py:        10px;   /* internal vertical padding */
+  --sb-icon-size:      20px;
+  --sb-icon-gap:       12px;
+}
+
+/* ── Shell ───────────────────────────────────────────────────────────────── */
+
+.wc-sb {
+  display:         flex;
+  flex-direction:  column;
+  width:           var(--sb-width);
+  min-width:       var(--sb-width);
+  height:          100vh;
+  position:        sticky;
+  top:             0;
+  flex-shrink:     0;
+  background:      #ffffff;
+  border-right:    1px solid var(--sb-border);
+  overflow-y:      auto;
+  overflow-x:      hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d3e8 transparent;
+}
+
+.wc-sb::-webkit-scrollbar       { width: 4px; }
+.wc-sb::-webkit-scrollbar-track { background: transparent; }
+.wc-sb::-webkit-scrollbar-thumb { background: #d0d3e8; border-radius: 4px; }
+
+/* ── Logo ────────────────────────────────────────────────────────────────── */
+
+.wc-sb__logo {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  padding:     20px 16px 16px;
+  flex-shrink: 0;
+}
+
+.wc-sb__logo-mark {
+  width:           36px;
+  height:          36px;
+  border-radius:   10px;
+  background:      var(--sb-logo-bg);
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  flex-shrink:     0;
+}
+
+.wc-sb__logo-text {
+  display:        flex;
+  flex-direction: column;
+  gap:            1px;
+  line-height:    1;
+}
+
+.wc-sb__logo-name {
+  font-family:    var(--sb-font);
+  font-size:      14px;
+  font-weight:    800;
+  letter-spacing: 0.04em;
+  color:          #1a1d2e;
+  text-transform: uppercase;
+  line-height:    1.2;
+  margin:         0;
+}
+
+.wc-sb__logo-sub {
+  font-family:    var(--sb-font);
+  font-size:      10px;
+  font-weight:    700;
+  letter-spacing: 0.1em;
+  color:          var(--sb-active-bg);
+  text-transform: uppercase;
+  line-height:    1.2;
+}
+
+/* ── Nav wrapper ─────────────────────────────────────────────────────────── */
+
+.wc-sb__nav {
+  flex:           1;
+  padding:        6px 0;
+  display:        flex;
+  flex-direction: column;
+  gap:            20px;
+}
+
+/* ── Group ───────────────────────────────────────────────────────────────── */
+
+.wc-sb__group {
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+}
+
+/* ── Group label ─────────────────────────────────────────────────────────── */
+
+.wc-sb__group-label {
+  margin:         0;
+  padding:        0 0 6px 16px;
+  font-family:    var(--sb-font);
+  font-size:      10px;
+  font-weight:    600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color:          var(--sb-label-color);
+  line-height:    1;
+  user-select:    none;
+}
+
+/* ── Item wrapper ────────────────────────────────────────────────────────── */
+/*
+   Both sides get equal margin — this creates the full floating capsule.
+   padding-left AND padding-right = --sb-pill-mx (12px each).
+*/
+
+.wc-sb__item {
+  display:         block;
+  padding-left:    var(--sb-pill-mx);
+  padding-right:   var(--sb-pill-mx);
+}
+
+/* ── Nav link base ───────────────────────────────────────────────────────── */
+
+.wc-sb__link {
+  display:         flex;
+  align-items:     center;
+  gap:             var(--sb-icon-gap);
+  padding:         var(--sb-link-py) var(--sb-link-px);
+  border-radius:   9999px;         /* full capsule */
+  font-family:     var(--sb-font);
+  font-size:       14px;
+  font-weight:     500;
+  color:           var(--sb-inactive-text) !important;
+  background:      transparent;
+  text-decoration: none !important;
+  border:          none;
+  width:           100%;
+  text-align:      left;
+  cursor:          pointer;
+  line-height:     1.3;
+  box-sizing:      border-box;
+  outline:         none;
+  transition:      background 150ms ease, color 150ms ease;
+}
+
+.wc-sb__link:hover {
+  background: var(--sb-hover-bg);
+  color:      var(--sb-hover-text) !important;
+}
+
+/* ── Active — full capsule, deep blue, white text ────────────────────────── */
+
+.wc-sb__link--active,
+.wc-sb__link--active:link,
+.wc-sb__link--active:visited {
+  background:  var(--sb-active-bg) !important;
+  color:       var(--sb-active-text) !important;
+  font-weight: 600;
+}
+
+.wc-sb__link--active:hover {
+  background: var(--sb-active-hover) !important;
+  color:      var(--sb-active-text) !important;
+}
+
+/* ── Chevron — only visible on active link ───────────────────────────────── */
+
+.wc-sb__chevron {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  margin-left:     auto;
+  opacity:         0;
+  flex-shrink:     0;
+  transition:      opacity 150ms ease;
+}
+
+.wc-sb__link--active .wc-sb__chevron {
+  opacity: 1;
+}
+
+/* ── Icon ────────────────────────────────────────────────────────────────── */
+
+.wc-sb__icon {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  width:           var(--sb-icon-size);
+  height:          var(--sb-icon-size);
+  flex-shrink:     0;
+  /* color inherited from .wc-sb__link — do NOT override */
+}
+
+/* ── Label ───────────────────────────────────────────────────────────────── */
+
+.wc-sb__label {
+  flex:          1;
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  /* color inherited from .wc-sb__link — do NOT override */
+}
+
+/* ── Bottom actions ──────────────────────────────────────────────────────── */
+
+.wc-sb__bottom {
+  border-top:     1px solid var(--sb-border);
+  padding:        8px 0 16px;
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+  flex-shrink:    0;
+}
+
+/* Logout — red on hover */
+.wc-sb__link--logout:hover {
+  background: #fce8e6 !important;
+  color:      #c5221f !important;
+}
+
+/* ── Focus ring ──────────────────────────────────────────────────────────── */
+
+.wc-sb__link:focus-visible {
+  outline:        2px solid var(--sb-active-bg);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   WELLCARE MODAL — PREMIUM & SPACIOUS LAYOUT (Refined)
+  
+   ========================================================================== */
+
+/* ── Backdrop ────────────────────────────────────────────── */
+.wc-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15, 23, 42, 0.45); /* Semi-transparent dark slate */
+  backdrop-filter: blur(6px);         /* Mas malakas na blur para sa premium feel */
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-6);
+  animation: wc-fade-in 0.2s ease;
+}
+
+/* ── Main Modal Shell ────────────────────────────────────── */
+.wc-modal-content {
+  background: var(--wc-white);
+  border-radius: var(--radius-3xl);
+  width: 100%; max-width: 860px; /* Mas malawak para sa breathing room */
+  height: 85vh; /* Fixed height para sa consistent structure */
+  display: flex; flex-direction: column;
+  box-shadow: var(--shadow-2xl); /* Mas malalim na shadow */
+  overflow: hidden;
+  animation: wc-slide-up 0.25s var(--ease-out);
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.wc-modal-header {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-8); /* Malaking padding para sa breathing room */
+  border-bottom: 1px solid var(--wc-gray-100);
+  flex-shrink: 0;
+}
+
+/* ── Body Structure ──────────────────────────────────────── */
+.wc-modal-body {
+  display: flex; flex: 1; overflow: hidden; /* Crucial para sa scrolling */
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.wc-archive-sidebar {
+  width: 250px; /* Saktong lapad */
+  flex-shrink: 0;
+  padding: var(--space-8) var(--space-6); /* Spacious padding */
+  border-right: 1px solid var(--wc-gray-100);
+  background: var(--wc-gray-50); /* Konting tint para sa hiwalay na section */
+  display: flex; flex-direction: column;
+  gap: var(--space-12); /* Malaking gap sa pagitan ng sections */
+  overflow-y: auto;
+}
+
+/* ── Stat Card (Docs, Visits, Status) ────────────────────── */
+.wc-stat-card {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: var(--space-4); /* Spacious internal padding */
+  background: var(--wc-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--wc-gray-100);
+  margin-bottom: var(--space-3); /* Gap sa pagitan ng cards */
+}
+
+/* ── Main List Area ──────────────────────────────────────── */
+.wc-archive-main {
+  flex: 1; display: flex; flex-direction: column;
+  background: var(--wc-white); overflow: hidden;
+}
+
+.wc-archive-list {
+  flex: 1; overflow-y: auto;
+  padding: var(--space-3) var(--space-8) var(--space-8); /* Malaking side/bottom padding */
+}
+
+/* ── List Item (Record Row) ──────────────────────────────── */
+.wc-archive-item {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-5); /* Spacious padding para sa list items */
+  border-radius: var(--radius-2xl);
+  transition: all var(--duration-base) ease;
+  cursor: pointer;
+  border: 1.5px solid transparent; /* Para sa clean focus state */
+  margin-bottom: var(--space-2); /* Sakto lang na gap sa pagitan ng items */
+}
+
+/* ── Hover and Active States (IMPORTANT) ───────────────── */
+.wc-archive-item:hover { 
+  background: var(--wc-blue-50); 
+  border-color: var(--wc-gray-100);
+}
+
+.wc-archive-item--active { 
+  background: var(--wc-blue-50); 
+  border-color: var(--wc-blue-200); 
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Footer ──────────────────────────────────────────────── */
+.wc-modal-footer {
+  padding: var(--space-6) var(--space-8); /* spacious vertical padding */
+  border-top: 1px solid var(--wc-gray-100);
+  display: flex; justify-content: flex-end; gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes wc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wc-slide-up { from { transform: translateY(16px); opacity: 0; } to { opacity: 1; } }
