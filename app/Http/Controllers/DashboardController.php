@@ -11,7 +11,7 @@ class DashboardController extends Controller
     {
         return Inertia::render('doctor/dashboard');
     }
-
+    
     public function book(): Response
     {
         return Inertia::render('generals/book/index');

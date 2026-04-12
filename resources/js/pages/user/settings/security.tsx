@@ -1,27 +1,26 @@
-// resources/js/pages/settings/security.tsx
-// Route: /settings/security  (doctor)
+// resources/js/pages/user/settings/security.tsx
+// Route: /user/settings/security  →  inertia('user/settings/security')
 
-import type { ReactElement } from "react";
-import { Head }              from "@inertiajs/react";
-import { SettingsLayout }    from "./components/settings-layout";
-import { doctorTabs }        from "./settings-data";
-import SecurityForm          from "./components/shared/security-form";
+import type { ReactElement }      from "react";
+import { Head }                   from "@inertiajs/react";
+import { PatientSettingsLayout }  from "./patient-settings-layout";
+import SecurityForm               from "@/pages/settings/components/shared/security-form";
 
 interface Props {
-  canManageTwoFactor?:  boolean;
+  canManageTwoFactor?:   boolean;
   requiresConfirmation?: boolean;
-  twoFactorEnabled?:    boolean;
+  twoFactorEnabled?:     boolean;
 }
 
-export default function Security({
+export default function PatientSecurity({
   canManageTwoFactor = false, requiresConfirmation = false, twoFactorEnabled = false,
 }: Props): ReactElement {
   return (
     <>
-      <Head title="Security Settings" />
-      <SettingsLayout
-        tabs={doctorTabs}
-        activeHref="/settings/security"
+      <Head title="Settings — Security" />
+      <PatientSettingsLayout
+        activeId="security"
+        pageTitle="Settings"
         panelIcon={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -35,7 +34,7 @@ export default function Security({
           canManageTwoFactor={canManageTwoFactor}
           requiresConfirmation={requiresConfirmation}
         />
-      </SettingsLayout>
+      </PatientSettingsLayout>
     </>
   );
 }
