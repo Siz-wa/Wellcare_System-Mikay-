@@ -12,6 +12,7 @@ import { register, home } from "@/routes";
 import { store } from "@/routes/login";
 import { request } from "@/routes/password";
 import { loginFormData } from "./login-data";
+import { errorBorder } from "@/pages/auth/register/components/register-ui"; // ← same helper as register
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface LoginFormPanelProps {
@@ -95,6 +96,7 @@ export default function LoginFormPanel({
                   autoComplete="email"
                   placeholder={d.emailPlaceholder}
                   className="wc-input"
+                  style={errorBorder(errors.email)} // ← red border when error
                 />
                 <InputError message={errors.email} />
               </div>
@@ -124,6 +126,7 @@ export default function LoginFormPanel({
                   autoComplete="current-password"
                   placeholder={d.passwordPlaceholder}
                   className="wc-input"
+                  style={errorBorder(errors.password)} // ← red border when error
                 />
                 <InputError message={errors.password} />
               </div>

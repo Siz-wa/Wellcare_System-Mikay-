@@ -1,4 +1,9 @@
 // resources/js/pages/generals/book-appointment/sections/booking-form.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Changes from previous version:
+//   - Accepts `doctors: DoctorOption[]` as a prop (from the Inertia page).
+//   - Passes `doctors` down to StepCoverage.
+//   - No other changes.
 
 import type { ReactElement }     from "react";
 import { useState }              from "react";
@@ -7,21 +12,29 @@ import { useInView }             from "@/hooks/useInView";
 import { useBookingStore }       from "@/hooks/use-booking-store";
 import { useStepValidators }     from "@/hooks/use-step-validators";
 import { BOOKING_FORM_DEFAULTS } from "@/pages/user/book-appointment/sections/bookingdata";
-import type { StepId }           from "@/pages/user/book-appointment/sections/bookingdata";
+import type { StepId, DoctorOption } from "@/pages/user/book-appointment/sections/bookingdata";
 import { StepIndicator }         from "../components";
 import StepPersonal              from "./step-personal";
 import StepAppointment           from "./step-appointment";
 import StepCoverage              from "./step-coverage";
 import StepReview                from "./step-review";
-import { store }                 from "@/routes/book";
+// Wayfinder generates route files keyed by the first segment of the route name.
+// Route `appointments.store` → file @/routes/appointments, named export `store`.
+// Run `php artisan wayfinder:generate` after adding the routes.
+import { store } from "@/routes/appointments";
 
-export default function BookingForm(): ReactElement {
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+interface BookingFormProps {
+  /** Active doctors from doctor_profiles, passed via Inertia page prop */
+  doctors: DoctorOption[];
+}
+
+export default function BookingForm({ doctors }: BookingFormProps): ReactElement {
   const { ref, inView }                                           = useInView();
   const { step, completed, goTo, markDone, setSubmitted }         = useBookingStore();
   const { data, setData, post, processing, errors: serverErrors } = useForm(BOOKING_FORM_DEFAULTS);
 
-  // Errors are hidden until the user first attempts to proceed from that step.
-  // This prevents a red form on first load before the user has done anything.
   const [attempted1, setAttempted1] = useState(false);
   const [attempted2, setAttempted2] = useState(false);
   const [attempted3, setAttempted3] = useState(false);
@@ -31,7 +44,7 @@ export default function BookingForm(): ReactElement {
     errors1, errors2, errors3,
   } = useStepValidators(data);
 
-  // ── Navigation handlers ────────────────────────────────────────────────
+  // ── Navigation handlers ────────────────────────────────────────────────────
 
   const handleNext1 = () => {
     setAttempted1(true);
@@ -54,7 +67,7 @@ export default function BookingForm(): ReactElement {
     goTo(4);
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────────────────
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +121,7 @@ export default function BookingForm(): ReactElement {
                 valid={step3Valid}
                 onNext={handleNext3}
                 onBack={() => goTo(2)}
+                doctors={doctors}      
               />
             )}
 
@@ -120,6 +134,7 @@ export default function BookingForm(): ReactElement {
                   isProcessing={processing}
                   onBack={() => goTo(3)}
                   onGoToStep={(s: StepId) => goTo(s)}
+                  doctors={doctors}          
                 />
               </form>
             )}

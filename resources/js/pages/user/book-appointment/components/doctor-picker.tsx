@@ -1,17 +1,16 @@
 // resources/js/pages/generals/book-appointment/components/doctor-picker.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Searchable dropdown that restricts doctor selection to the real roster.
-// No free-text accepted — eliminates validation loops entirely.
-// Reusable: pass any doctorsData-shaped list via the `doctors` prop.
+// Searchable dropdown driven by the DB doctor_profiles prop.
+// Uses numeric id (user_id) as value — not display name strings.
 
-import type { ReactElement }  from "react";
-import { useState, useRef, useEffect } from "react";
-import type { DoctorItem }    from "@/pages/generals/doctors/sections/doctors-data";
+import type { ReactElement }            from "react";
+import { useState, useRef, useEffect }  from "react";
+import type { DoctorOption }            from "@/pages/user/book-appointment/sections/bookingdata";
 
 export interface DoctorPickerProps {
-  doctors:  DoctorItem[];   // the roster to search — pass doctorsData
-  value:    string;         // currently selected doctor name (or "" for none)
-  onChange: (name: string) => void;
+  doctors:  DoctorOption[];       // from Inertia page prop (DB-driven)
+  value:    number | null;        // selected doctor's user_id, null = no preference
+  onChange: (id: number | null) => void;
   error?:   string;
 }
 
@@ -21,42 +20,47 @@ export function DoctorPicker({
   onChange,
   error,
 }: DoctorPickerProps): ReactElement {
-  const [query, setQuery] = useState(value);
-  const [open, setOpen]   = useState(false);
-  const containerRef      = useRef<HTMLDivElement>(null);
+  // Derive the display string for the current value
+  const selectedDoctor = doctors.find((d) => d.id === value) ?? null;
 
-  // Keep display query in sync when parent resets the value (e.g. form reset)
-  useEffect(() => { setQuery(value); }, [value]);
+  const [query, setQuery]   = useState(selectedDoctor?.name ?? "");
+  const [open,  setOpen]    = useState(false);
+  const containerRef        = useRef<HTMLDivElement>(null);
 
-  // Close and revert unconfirmed text when clicking outside
+  // Sync display when parent resets the value
+  useEffect(() => {
+    setQuery(doctors.find((d) => d.id === value)?.name ?? "");
+  }, [value, doctors]);
+
+  // Close on outside click
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
       if (containerRef.current?.contains(e.target as Node)) return;
       setOpen(false);
-      if (!doctors.some((d) => d.name === query)) {
-        setQuery(value); // revert to last confirmed value
-      }
+      // Revert to last confirmed display name if user typed but didn't select
+      setQuery(doctors.find((d) => d.id === value)?.name ?? "");
     };
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [query, value, doctors]);
+  }, [value, doctors]);
 
-  const filtered = doctors.filter(
-    (d) =>
-      d.name.toLowerCase().includes(query.toLowerCase()) ||
-      d.specialization.toLowerCase().includes(query.toLowerCase())
+  // Filter by name or specialization — both guarded against null
+  const q = query.toLowerCase();
+  const filtered = doctors.filter((d) =>
+    (d.name           ?? "").toLowerCase().includes(q) ||
+    (d.specialization ?? "").toLowerCase().includes(q)
   );
 
-  const handleSelect = (name: string) => {
-    setQuery(name || "");
-    onChange(name);
+  const handleSelect = (id: number | null, name: string) => {
+    setQuery(name);
+    onChange(id);
     setOpen(false);
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     setQuery("");
-    onChange("");
+    onChange(null);
     setOpen(false);
   };
 
@@ -74,7 +78,7 @@ export function DoctorPicker({
           style={{ paddingRight: query ? "var(--space-10)" : undefined }}
           onChange={(e) => {
             setQuery(e.target.value);
-            onChange("");   // clear confirmed selection while user is typing
+            onChange(null);   // clear confirmed selection while typing
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -105,7 +109,7 @@ export function DoctorPicker({
         )}
       </div>
 
-      {/* Dropdown list */}
+      {/* Dropdown */}
       {open && query.length > 0 && (
         <div
           role="listbox"
@@ -123,7 +127,6 @@ export function DoctorPicker({
             overflowY:    "auto",
           }}
         >
-          {/* Matched doctors */}
           {filtered.length === 0 ? (
             <div style={{
               padding:  "var(--space-4) var(--space-5)",
@@ -134,14 +137,14 @@ export function DoctorPicker({
             </div>
           ) : (
             filtered.map((doc) => {
-              const isSelected = value === doc.name;
+              const isSelected = value === doc.id;
               return (
                 <button
                   key={doc.id}
                   type="button"
                   role="option"
                   aria-selected={isSelected}
-                  onClick={() => handleSelect(doc.name)}
+                  onClick={() => handleSelect(doc.id, doc.name ?? "")}
                   style={{
                     display:      "flex",
                     alignItems:   "center",
@@ -169,7 +172,7 @@ export function DoctorPicker({
                     width:          32,
                     height:         32,
                     borderRadius:   "var(--radius-full)",
-                    background:     doc.color,
+                    background:     doc.color ?? "#0056b3",
                     color:          "#ffffff",
                     display:        "flex",
                     alignItems:     "center",
@@ -178,7 +181,7 @@ export function DoctorPicker({
                     fontWeight:     700,
                     flexShrink:     0,
                   }}>
-                    {doc.initials}
+                    {doc.initials ?? (doc.name ?? "?")[0]}
                   </div>
 
                   {/* Name + specialization */}
@@ -194,16 +197,17 @@ export function DoctorPicker({
                     }}>
                       {doc.name}
                     </p>
-                    <p style={{
-                      fontSize: "var(--text-xs)",
-                      color:    "var(--wc-gray-400)",
-                      margin:   0,
-                    }}>
-                      {doc.specialization}
-                    </p>
+                    {doc.specialization && (
+                      <p style={{
+                        fontSize: "var(--text-xs)",
+                        color:    "var(--wc-gray-400)",
+                        margin:   0,
+                      }}>
+                        {doc.specialization}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Selected checkmark */}
                   {isSelected && (
                     <span style={{
                       color:      "var(--wc-blue-600)",
@@ -219,18 +223,18 @@ export function DoctorPicker({
             })
           )}
 
-          {/* No preference — always at the bottom */}
+          {/* No preference option */}
           <button
             type="button"
             role="option"
-            aria-selected={value === ""}
-            onClick={() => handleSelect("")}
+            aria-selected={value === null}
+            onClick={() => handleSelect(null, "")}
             style={{
               display:    "flex",
               alignItems: "center",
               width:      "100%",
               padding:    "var(--space-3) var(--space-4)",
-              background: value === "" ? "var(--wc-blue-50)" : "transparent",
+              background: value === null ? "var(--wc-blue-50)" : "transparent",
               border:     "none",
               cursor:     "pointer",
               textAlign:  "left",

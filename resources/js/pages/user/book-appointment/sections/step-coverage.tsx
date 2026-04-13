@@ -1,21 +1,26 @@
-// resources/js/pages/user/book-appointment/sections/step-coverage.tsx
+// resources/js/pages/generals/book-appointment/sections/step-coverage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 3 — Mode of Coverage, HMO fields (conditional), preferred doctor picker.
-// Doctor list is filtered to match the service selected in Step 2.
+// Changes from previous version:
+//   - Receives `doctors: DoctorOption[]` as a prop (from Inertia page prop)
+//     instead of importing the hardcoded doctorsData array.
+//   - `data.doctorId` (number | null) replaces `data.preferredDoctor` (string).
+//   - DoctorPicker now receives `value: number | null` and calls back with
+//     the doctor's numeric id, not their display name.
+//   - Filtering still uses SERVICE_TO_SPECIALTIES but matches against the
+//     `specialty` field on DoctorOption (same string values as doctorsData).
 
-import type { ReactElement }                    from "react";
-import { useMemo }                              from "react";
-import type { BookingFormData, CoverageOption } from "./bookingdata";
+import type { ReactElement }                          from "react";
+import { useMemo }                                    from "react";
+import type { BookingFormData, CoverageOption, DoctorOption } from "./bookingdata";
 import {
   coverageOptions,
   hmoOptions,
   STEP_HEADINGS,
   SERVICE_TO_SPECIALTIES,
-}                                               from "./bookingdata";
-import { Field, ToggleCard, StepNav, DoctorPicker } from "../components";
-import { sanitizeHmoId, makePasteHandler }      from "../utils/sanitizers";
-import { doctorsData }                          from "@/pages/generals/doctors/sections/doctors-data";
-import type { Step3Errors }                     from "@/hooks/use-step-validators";
+}                                                     from "./bookingdata";
+import { Field, ToggleCard, StepNav, DoctorPicker }   from "../components";
+import { sanitizeHmoId, makePasteHandler }            from "../utils/sanitizers";
+import type { Step3Errors }                           from "@/hooks/use-step-validators";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +31,8 @@ interface StepCoverageProps {
   valid:   boolean;
   onNext:  () => void;
   onBack:  () => void;
+  /** Active doctors fetched from the DB, passed down from the Inertia page prop */
+  doctors: DoctorOption[];
 }
 
 const HMO_MAX = 20;
@@ -33,27 +40,24 @@ const HMO_MAX = 20;
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function StepCoverage({
-  data, errors, setData, valid, onNext, onBack,
+  data, errors, setData, valid, onNext, onBack, doctors,
 }: StepCoverageProps): ReactElement {
   const { title, subtitle } = STEP_HEADINGS[3];
 
-  // ── Filter doctors by the service chosen in Step 2 ──────────────────────
-  const filteredDoctors = useMemo(() => {
+  // ── Filter doctors by the service chosen in Step 2 ────────────────────────
+  const filteredDoctors = useMemo<DoctorOption[]>(() => {
     const specialties = SERVICE_TO_SPECIALTIES[data.service] ?? null;
 
-    // null = no specific mapping → show all doctors
-    if (!specialties) return doctorsData;
+    if (!specialties) return doctors;   // null = show all
 
-    // Filter to matching specialties, but always include In-House doctors
-    return doctorsData.filter(
+    return doctors.filter(
       (d) =>
-        specialties.includes(d.specialty as typeof specialties[number]) ||
+        specialties.includes(d.specialty as (typeof specialties)[number]) ||
         d.specialty === "In-House"
     );
-  }, [data.service]);
+  }, [data.service, doctors]);
 
-  // Derived label for the field hint
-  const serviceLabel = filteredDoctors.length < doctorsData.length
+  const serviceLabel = filteredDoctors.length < doctors.length
     ? `Showing ${filteredDoctors.length} doctor${filteredDoctors.length !== 1 ? "s" : ""} for your selected service`
     : "Optional — search our roster or leave blank for next available.";
 
@@ -65,19 +69,18 @@ export default function StepCoverage({
     }
   };
 
-  // If the previously selected doctor is no longer in the filtered list, clear
-  // (happens when user goes back and changes their service)
+  // If the previously selected doctor is no longer in the filtered list, clear.
+  // (Happens when user goes back and changes service.)
   const doctorIsValid =
-    data.preferredDoctor === "" ||
-    filteredDoctors.some((d) => d.name === data.preferredDoctor);
+    data.doctorId === null ||
+    filteredDoctors.some((d) => d.id === data.doctorId);
 
   if (!doctorIsValid) {
-    setData("preferredDoctor", "");
+    setData("doctorId", null);
   }
 
   return (
     <div>
-      {/* Step heading */}
       <div style={{ marginBottom: "var(--space-8)" }}>
         <span className="wc-label" style={{ color: "var(--wc-sky-500)", display: "block", marginBottom: "var(--space-2)" }}>
           Step 3 of 4
@@ -104,16 +107,14 @@ export default function StepCoverage({
           </div>
         </Field>
 
-        {/* ── HMO fields — shown only when HMO is selected ── */}
+        {/* ── HMO fields ── */}
         {data.coverage === "hmo" && (
           <>
             <Field label="HMO Provider" required error={errors.hmo}>
               <select
                 className={`wc-input wc-select${errors.hmo ? " wc-input-error" : ""}`}
                 value={data.hmo}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setData("hmo", e.target.value)
-                }
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setData("hmo", e.target.value)}
               >
                 {hmoOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -125,10 +126,7 @@ export default function StepCoverage({
               label="HMO ID Number"
               required
               error={errors.hmoId}
-              hint={!errors.hmoId
-                ? `6–${HMO_MAX} chars — letters and numbers (e.g. MC-123456).`
-                : undefined
-              }
+              hint={!errors.hmoId ? `6–${HMO_MAX} chars — letters and numbers (e.g. MC-123456).` : undefined}
             >
               <input
                 className={`wc-input${errors.hmoId ? " wc-input-error" : ""}`}
@@ -141,11 +139,8 @@ export default function StepCoverage({
                 onPaste={makePasteHandler(sanitizeHmoId, (v) => setData("hmoId", v))}
               />
               <span style={{
-                display:    "block",
-                textAlign:  "right",
-                marginTop:  "2px",
-                fontSize:   "var(--text-xs)",
-                fontWeight: 600,
+                display: "block", textAlign: "right", marginTop: "2px",
+                fontSize: "var(--text-xs)", fontWeight: 600,
                 color: data.hmoId.length >= HMO_MAX
                   ? "var(--wc-error)"
                   : data.hmoId.length >= HMO_MAX - 3
@@ -158,17 +153,17 @@ export default function StepCoverage({
           </>
         )}
 
-        {/* ── Preferred Doctor — filtered by service ── */}
+        {/* ── Preferred Doctor (DB-driven) ── */}
         <Field
           label="Name of Preferred Doctor"
-          error={errors.preferredDoctor}
-          hint={!errors.preferredDoctor ? serviceLabel : undefined}
+          error={errors.doctorId}
+          hint={!errors.doctorId ? serviceLabel : undefined}
         >
           <DoctorPicker
             doctors={filteredDoctors}
-            value={data.preferredDoctor}
-            onChange={(name) => setData("preferredDoctor", name)}
-            error={errors.preferredDoctor}
+            value={data.doctorId}
+            onChange={(id) => setData("doctorId", id)}
+            error={errors.doctorId}
           />
           <a
             href="/doctors"
@@ -181,7 +176,7 @@ export default function StepCoverage({
               display:   "inline-block",
             }}
           >
-            View full list of doctors of Walter – Dasmariñas →
+            View full list of doctors →
           </a>
         </Field>
 

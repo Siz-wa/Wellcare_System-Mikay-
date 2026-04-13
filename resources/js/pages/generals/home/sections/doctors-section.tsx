@@ -3,7 +3,7 @@
 import { Link } from "@inertiajs/react";
 import { useInView } from "@/hooks/useInView";
 import { doctorsData } from "@/pages/generals/home/sections/homedata";
-import { index as bookIndex } from "@/routes/book";
+import { index as bookIndex } from "@/routes/appointments";
 import { doctors as doctorsRoute } from "@/routes";
 
 export default function DoctorsSection() {

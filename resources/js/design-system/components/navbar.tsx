@@ -2,7 +2,9 @@
 import { useState, useEffect } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { home, about, services, doctors, contact, faqs, login, book } from "@/routes";
+import {dashboard} from "@/routes/user";
 import type { PageProps } from "@/types";
+ import { NotificationBell } from "@/design-system/components/notification-bell";
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 interface WellcareLogoProps {
@@ -10,6 +12,7 @@ interface WellcareLogoProps {
 }
 
 export function WellcareLogo({ dark = false }: WellcareLogoProps) {
+
   return (
     <Link href={home.url()} className="wc-logo" aria-label="Wellcare Clinics — Home">
       <div className="wc-logo__icon">
@@ -65,10 +68,10 @@ function CtaButton({ size = "md" }: { size?: "md" | "lg" }) {
 
   return (
     <Link
-      href={isAuthenticated ? book.url() : login.url()}
+      href={isAuthenticated ? dashboard.url() : login.url()}
       className={`wc-btn wc-btn-primary wc-btn-${size} wc-btn-pill`}
     >
-      {isAuthenticated ? "Book Appointment" : "Log In"}
+      {isAuthenticated ? "Dashboard" : "Log In"}
     </Link>
   );
 }
@@ -128,7 +131,9 @@ export default function Navbar({ active }: NavbarProps) {
   useEffect(() => {
     setMobileOpen(false);
   }, [url]);
-
+    
+ const { auth } = usePage<PageProps>().props;
+  const isAuthenticated = !!auth?.user;
   return (
     <>
       {/* ── Header bar ── */}
@@ -153,6 +158,8 @@ export default function Navbar({ active }: NavbarProps) {
 
           <div className="wc-navbar__actions">
             {/* Desktop CTA — hidden on mobile via wc-navbar__cta CSS rule */}
+           {isAuthenticated && <NotificationBell />}          {/* ADD THIS */}
+
             <span className="wc-navbar__cta">
               <CtaButton size="md" />
             </span>

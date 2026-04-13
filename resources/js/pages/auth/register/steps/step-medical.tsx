@@ -1,6 +1,5 @@
 // resources/js/pages/auth/register/steps/StepMedical.tsx
-import { Field, RadioGroup, errorBorder } from "@/pages/auth/register/components/register-ui";
-import { paymentOptions, classificationOptions } from "@/pages/auth/register/sections/register-data";
+import { Field, errorBorder } from "@/pages/auth/register/components/register-ui";
 import type { RegisterFields, StepErrors } from "@/pages/auth/register/hooks/use-register-form";
 import type { ChangeEvent } from "react";
 
@@ -11,7 +10,7 @@ interface StepMedicalProps {
   setRadio: (key: keyof RegisterFields) => (v: string) => void;
 }
 
-export default function StepMedical({ fields, errors, set, setRadio }: StepMedicalProps) {
+export default function StepMedical({ fields, errors, set }: StepMedicalProps) {
   return (
     <>
       <div className="grid grid-cols-3 gap-4">
@@ -68,38 +67,6 @@ export default function StepMedical({ fields, errors, set, setRadio }: StepMedic
           tabIndex={4}
           placeholder="e.g. Maxicare, Medicard (optional)"
           className="wc-input"
-        />
-      </Field>
-
-      <Field label="Preferred Doctor" error={errors.preferred_doctor}>
-        <input
-          type="text"
-          name="preferred_doctor"
-          value={fields.preferred_doctor}
-          onChange={set("preferred_doctor")}
-          tabIndex={5}
-          placeholder="e.g. Dr. Maria Santos (optional)"
-          className="wc-input"
-        />
-      </Field>
-
-      <Field label="Payment Method" required>
-        <RadioGroup
-          name="payment_method"
-          options={paymentOptions}
-          value={fields.payment_method}
-          onChange={setRadio("payment_method")}
-          error={errors.payment_method}
-        />
-      </Field>
-
-      <Field label="Patient Classification" required>
-        <RadioGroup
-          name="classification"
-          options={classificationOptions}
-          value={fields.classification}
-          onChange={setRadio("classification")}
-          error={errors.classification}
         />
       </Field>
     </>

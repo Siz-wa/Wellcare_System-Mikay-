@@ -1,3 +1,7 @@
+import axios from 'axios';
+axios.defaults.headers.common['ngrok-skip-browser-warning'] = '69420';
+axios.defaults.withCredentials = true;
+
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
