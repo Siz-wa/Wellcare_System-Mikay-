@@ -13,6 +13,8 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
+use App\Http\Responses\Auth\LoginResponse;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 class FortifyServiceProvider extends ServiceProvider
 {
     /**
@@ -20,14 +22,16 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
-    }
+
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);    
+        }
 
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();

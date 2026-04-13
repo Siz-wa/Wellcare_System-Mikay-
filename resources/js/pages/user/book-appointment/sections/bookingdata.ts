@@ -1,4 +1,10 @@
-// resources/js/pages/generals/book-appointment/bookingdata.ts
+// resources/js/pages/generals/book-appointment/sections/bookingdata.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Changes from previous version:
+//   - `preferredDoctor: string` replaced with `doctorId: number | null`
+//   - DoctorOption interface added (shape returned by the Inertia prop)
+//   - BOOKING_FORM_DEFAULTS updated accordingly
+//   - Everything else is unchanged
 
 export const bookingMeta = {
   label:          "Book an Appointment",
@@ -33,6 +39,19 @@ export interface SelectOption {
 
 export interface CoverageOption extends SelectOption {
   icon: "cash" | "hmo" | "philhealth" | "corporate";
+}
+
+// ── Doctor shape returned by the Inertia `doctors` prop ──────────────────────
+// Mirrors DoctorResource::toArray() on the server.
+// `id` = user_id of the doctor account (= doctor_id FK in appointments table).
+export interface DoctorOption {
+  id:             number;
+  name:           string;
+  specialty:      string;
+  specialization: string;
+  initials:       string;
+  color:          string;
+  is_active:      boolean;
 }
 
 export const genderOptions: SelectOption[] = [
@@ -92,23 +111,21 @@ export const TIME_SLOTS: string[] = [
 ];
 
 // ── Service → Doctor specialty mapping ───────────────────────────────────────
-// Maps each service value to the matching specialty labels in doctorsData.
-// null means "show all doctors" (e.g. laboratory/imaging have no specific dept).
-// Update this map whenever services or doctor specialties change.
-
+// Maps each service value to the matching specialty strings in doctor_profiles.
+// null = show all doctors.
 export type Specialty =
   | "Dermatology" | "Psychiatry" | "Pediatrics" | "Internal Medicine"
   | "ENT" | "Surgery" | "Dental" | "Ophthalmology" | "OB-GYN" | "In-House";
 
 export const SERVICE_TO_SPECIALTIES: Record<string, Specialty[] | null> = {
-  "general":          null,                        // all doctors
-  "cardiology":       ["Internal Medicine"],        // IM-Cardiology sub-spec
+  "general":          null,
+  "cardiology":       ["Internal Medicine"],
   "dermatology":      ["Dermatology"],
   "pediatrics":       ["Pediatrics"],
   "ob-gyne":          ["OB-GYN"],
-  "laboratory":       null,                        // no specific doctor dept
-  "imaging":          null,                        // no specific doctor dept
-  "physical-therapy": null,                        // no specific doctor dept
+  "laboratory":       null,
+  "imaging":          null,
+  "physical-therapy": null,
 };
 
 export const REVIEW_LABELS: Record<string, string> = {
@@ -127,6 +144,8 @@ export const REVIEW_LABELS: Record<string, string> = {
   preferredDoctor: "Preferred Doctor",
 };
 
+// ── Form data ─────────────────────────────────────────────────────────────────
+
 export interface BookingFormData {
   firstName:       string;
   lastName:        string;
@@ -141,8 +160,10 @@ export interface BookingFormData {
   patientStatus:   string;
   coverage:        string;
   hmo:             string;
-  hmoId:           string;   // ← HMO ID number, shown when coverage === "hmo"
-  preferredDoctor: string;
+  hmoId:           string;
+  // ── CHANGED: was `preferredDoctor: string` (display name) ─────────────────
+  // Now an integer FK (user_id of the doctor). null = "next available".
+  doctorId:        number | null;
   additionalInfo:  string;
 }
 
@@ -160,7 +181,7 @@ export const BOOKING_FORM_DEFAULTS: BookingFormData = {
   patientStatus:   "",
   coverage:        "",
   hmo:             "",
-  hmoId:           "",   // ← default empty
-  preferredDoctor: "",
+  hmoId:           "",
+  doctorId:        null,   // ← was preferredDoctor: ""
   additionalInfo:  "",
 };

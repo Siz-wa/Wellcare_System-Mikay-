@@ -21,17 +21,17 @@ export const navGroups: NavGroup[] = [
   {
     groupLabel: "OVERVIEW",
     items: [
-      { id: "dashboard", label: "Dashboard",   href: "/dashboard", iconKey: "dashboard" },
-      { id: "schedule", label: "My Schedule", href: "/dashboard/my-schedule", iconKey: "schedule" },
+      { id: "dashboard", label: "Dashboard",   href: "/doctor/appointments", iconKey: "dashboard" },
+      // { id: "schedule", label: "Pending Appointments", href: "doctor/appointments", iconKey: "schedule" },
     ],
   },
   {
     groupLabel: "MEDICAL MANAGEMENT",
     items: [
-      { id: "patients", label: "My Patients", href: "/dashboard/my-patients", iconKey: "patients" },
-      { id: "consultations", label: "Consultations", href: "/dashboard/consultations", iconKey: "consultations" },
-      { id: "labreviews",    label: "Lab Reviews",     href: "/dashboard/lab-reviews",   iconKey: "labreviews"    },
-      { id: "records",       label: "Patient Records", href: "/dashboard/patient-records",       iconKey: "records"       },
+      // { id: "patients", label: "My Patients", href: "/doctor/my-patients", iconKey: "patients" },
+      { id: "consultations", label: "Consultations", href: "/doctor/consultations", iconKey: "consultations" },
+      // { id: "labreviews",    label: "Lab Reviews",     href: "/doctor/lab-reviews",   iconKey: "labreviews"    },
+      { id: "records",       label: "Patient Records", href: "/doctor/patient-records",       iconKey: "records"       },
     ],
   },
   {

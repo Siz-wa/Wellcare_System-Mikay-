@@ -8,7 +8,6 @@ import type { BookingFormData } from "@/pages/user/book-appointment/sections/boo
 import { doctorsData }          from "@/pages/generals/doctors/sections/doctors-data";
 
 // Build a Set of valid doctor names from the real roster — O(1) lookup
-const VALID_DOCTOR_NAMES = new Set(doctorsData.map((d) => d.name));
 
 // ── Exported error shapes ─────────────────────────────────────────────────────
 
@@ -32,7 +31,7 @@ export interface Step3Errors {
   coverage?:        string;
   hmo?:             string;
   hmoId?:           string;
-  preferredDoctor?: string;
+  doctorId?: string;
 }
 
 export interface StepValidators {
@@ -223,9 +222,9 @@ function validateStep3(data: BookingFormData): Step3Errors {
   // Preferred doctor — optional, but if provided must exactly match a roster entry.
   // The DoctorPicker component only allows selecting from the list, so this is
   // a safety net against any direct state manipulation.
-  const doc = data.preferredDoctor.trim();
-  if (doc.length > 0 && !VALID_DOCTOR_NAMES.has(doc))
-    e.preferredDoctor = "Please select a doctor from the list.";
+  if (data.doctorId !== null && typeof data.doctorId !== "number") {
+  e.doctorId = "Please select a doctor from the list.";
+  }
 
   return e;
 }

@@ -1,57 +1,39 @@
-// resources/js/pages/user/consultations/consultations-data.ts
+// resources/js/pages/doctor/dashboard/consultations/consultations-data.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Types, interfaces and static meta only.
+// Actual consultation records come from the Inertia `consultations` prop
+// served by DoctorConsultationController — NOT hardcoded here.
+
+// ── Status ────────────────────────────────────────────────────────────────────
 
 export type ConsultationStatus = "finalized" | "in-progress" | "draft";
 
-export interface ConsultationRecord {
-  id:        string;
-  patientId: string;
-  patient:   string;
-  initials:  string;
-  color:     string;
-  date:      string;
-  time:      string;
-  diagnosis: string;
-  status:    ConsultationStatus;
-}
+// ── Consultation record shape (mirrors DoctorConsultationController output) ───
 
-export const recentConsultations: ConsultationRecord[] = [
-  {
-    id: "c-001", patientId: "C-001", patient: "Sarah Jenkins",
-    initials: "SJ", color: "var(--wc-blue-600)",
-    date: "24 Mar 2026", time: "09:00 AM",
-    diagnosis: "Acute Pharyngitis", status: "finalized",
-  },
-  {
-    id: "c-002", patientId: "C-002", patient: "Michael Chen",
-    initials: "MC", color: "#7c3aed",
-    date: "22 Mar 2026", time: "10:30 AM",
-    diagnosis: "Hypertension Follow-up", status: "finalized",
-  },
-  {
-    id: "c-003", patientId: "C-003", patient: "Emma Wilson",
-    initials: "EW", color: "#16a34a",
-    date: "20 Mar 2026", time: "01:15 PM",
-    diagnosis: "Dental Abscess", status: "finalized",
-  },
-  {
-    id: "c-004", patientId: "C-004", patient: "Robert Taylor",
-    initials: "RT", color: "#ca8a04",
-    date: "18 Mar 2026", time: "03:45 PM",
-    diagnosis: "Osteoarthritis", status: "finalized",
-  },
-  {
-    id: "c-005", patientId: "C-005", patient: "Lisa Gomez",
-    initials: "LG", color: "var(--wc-sky-500)",
-    date: "15 Mar 2026", time: "11:00 AM",
-    diagnosis: "Type 2 Diabetes Review", status: "finalized",
-  },
-  {
-    id: "c-006", patientId: "C-006", patient: "James Reyes",
-    initials: "JR", color: "#dc2626",
-    date: "12 Mar 2026", time: "02:00 PM",
-    diagnosis: "Chest Pain — Workup", status: "finalized",
-  },
-];
+export interface ConsultationRecord {
+  id:             number;
+  patientId:      string;   // "C-001" formatted
+  patient:        string;   // "First Last"
+  initials:       string;   // "FL"
+  color:          string;   // hex color per service
+  date:           string;   // "24 Mar 2026"
+  time:           string;   // "10:00 AM"
+  diagnosis:      string;   // service label e.g. "General Consultation"
+  status:         ConsultationStatus;
+  rawStatus:      string;   // actual DB value: checked_in | in_progress | completed
+  coverage:       string;
+  patientStatus:  string;
+  additionalInfo: string | null;
+  email:          string;
+  contactNumber:  string;
+  age:            number;
+  gender:         string;
+  // ── Session data (from consultation_sessions table) ───────────────────────
+  sessionId?:     number | null;
+  soap?:          { subjective: string; objective: string; assessment: string; plan: string } | null;
+  vitals?:        { bloodPressure: string; heartRate: string; temperature: string; oxygenSaturation: string; weight: string; height: string } | null;
+  prescriptions?: { medication: string; dosage: string; duration: string }[];
+}
 
 // ── SOAP notes ────────────────────────────────────────────────────────────────
 
@@ -95,12 +77,12 @@ export interface VitalsFields {
 }
 
 export const defaultVitals: VitalsFields = {
-  bloodPressure:    "120/80",
-  heartRate:        "72",
-  temperature:      "36.5",
-  oxygenSaturation: "98",
-  weight:           "70",
-  height:           "175",
+  bloodPressure:    "",
+  heartRate:        "",
+  temperature:      "",
+  oxygenSaturation: "",
+  weight:           "",
+  height:           "",
 };
 
 export interface VitalField {
@@ -127,9 +109,7 @@ export interface Medication {
   instructions: string;
 }
 
-export const defaultMedications: Medication[] = [
-  { id: "med-1", name: "Amoxicillin 500mg", instructions: "Twice daily after meals • 7 Days" },
-];
+export const defaultMedications: Medication[] = [];
 
 // ── Session editor tabs ───────────────────────────────────────────────────────
 
@@ -146,6 +126,13 @@ export const sessionTabs: TabItem[] = [
   { key: "vitals",       label: "Patient Vitals", iconKey: "vitals"       },
   { key: "prescription", label: "Prescription",   iconKey: "prescription" },
 ];
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+
+export interface ConsultationFilters {
+  search: string;
+  status: string;
+}
 
 // ── Page meta ─────────────────────────────────────────────────────────────────
 
@@ -174,4 +161,6 @@ export const consultationsMeta = {
   addMedicineLabel:    "+ ADD MEDICINE",
   newMedNamePlaceholder:  "Medicine name & dosage",
   newMedInstrPlaceholder: "Instructions (e.g. Twice daily • 7 Days)",
+  emptyState:          "No consultations found.",
+  emptyStateFiltered:  "No consultations match your search.",
 };

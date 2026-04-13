@@ -56,6 +56,8 @@ class CreateNewUser implements CreatesNewUsers
                 'password' => Hash::make($input['password']),
             ]);
 
+             $user->assignRole('user'); 
+
             // 2. Create the personal profile
             //    client_number is auto-generated in PatientProfile::booted()
             $profile = $user->profile()->create([

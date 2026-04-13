@@ -12,6 +12,7 @@ import {
   IconBell,
   IconChevronDown,
 } from "@/pages/doctor/icons";
+import { NotificationBell } from "@/design-system/components/notification-bell";
 
 export function AppTopbar(): ReactElement {
   const meta = dashboardMeta;
@@ -66,36 +67,7 @@ export function AppTopbar(): ReactElement {
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
         {/* ── Notification bell ─────────────────────────────────────────── */}
-        <button
-          type="button"
-          aria-label="Notifications"
-          style={{
-            display:        "flex",
-            alignItems:     "center",
-            justifyContent: "center",
-            width:          40,
-            height:         40,
-            borderRadius:   "var(--radius-full)",
-            border:         "1px solid var(--wc-gray-200)",
-            background:     "rgba(255, 255, 255, 0.5)",
-            cursor:         "pointer",
-            color:          "var(--wc-gray-500)",
-            position:       "relative",
-            flexShrink:     0,
-          }}
-        >
-          <IconBell />
-          <span style={{
-            position:     "absolute",
-            top:          8,
-            right:        8,
-            width:        8,
-            height:       8,
-            borderRadius: "var(--radius-full)",
-            background:   "var(--wc-error, #dc2626)",
-            border:       "2px solid white",
-          }} />
-        </button>
+        <NotificationBell />
 
         {/* ── User chip ─────────────────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", cursor: "pointer" }}>

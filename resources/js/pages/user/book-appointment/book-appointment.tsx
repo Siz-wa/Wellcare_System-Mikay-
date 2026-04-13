@@ -1,32 +1,39 @@
-// resources/js/pages/generals/book-appointment.tsx
-// ─────────────────────────────────────────────────
-// Composer — only imports layout + sections. Nothing else.
+// resources/js/pages/user/book-appointment/book-appointment.tsx
 
-import { useEffect }       from "react";
-import WellcareLayout      from "@/layouts/app-gen-layout";
-import BookingHero         from "@/pages/user/book-appointment/sections/booking-hero";
-import BookingForm         from "@/pages/user/book-appointment/sections/booking-form";
-import BookingSuccess      from "@/pages/user/book-appointment/sections/booking-success";
-import { useBookingStore, resetBookingStore } from "@/hooks/use-booking-store";
+import type { ReactElement }     from "react";
+import { useEffect }             from "react";
+import { usePage }               from "@inertiajs/react";
+import WellcareLayout            from "@/layouts/app-gen-layout";
+import BookingHero               from "./sections/booking-hero";
+import BookingForm               from "./sections/booking-form";
+import BookingSuccess            from "./sections/booking-success";
+import { useBookingStore }       from "@/hooks/use-booking-store";
+import type { DoctorOption }     from "./sections/bookingdata";
+import type { PageProps }        from "@/types";
 
-export default function BookAppointmentPage() {
-  const { submitted } = useBookingStore();
+interface BookAppointmentProps extends PageProps {
+  doctors: DoctorOption[];
+}
 
-  // Reset store on unmount so next visit starts fresh at step 1
+export default function BookAppointmentPage(): ReactElement {
+  const { props }                   = usePage<BookAppointmentProps>();
+  const { submitted, setSubmitted } = useBookingStore();
+
+  // When Laravel redirects back to /book with a success flash after booking,
+  // trigger the success screen instead of re-showing the form.
   useEffect(() => {
-    return () => { resetBookingStore(); };
-  }, []);
+    if (props.flash?.success) {
+      setSubmitted(true);
+    }
+  }, [props.flash?.success]);
 
   return (
     <WellcareLayout>
-      {submitted ? (
-        <BookingSuccess />
-      ) : (
-        <>
-          <BookingHero />
-          <BookingForm />
-        </>
-      )}
+      <BookingHero />
+      {submitted
+        ? <BookingSuccess />
+        : <BookingForm doctors={props.doctors} />
+      }
     </WellcareLayout>
   );
 }

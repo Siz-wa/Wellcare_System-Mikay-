@@ -1,9 +1,12 @@
 // resources/js/pages/generals/book-appointment/sections/step-review.tsx
-// ────────────────────────────────────────────────────────────────────────────
-// Step 4 — Review summary, additional info textarea, and submit button.
+// ─────────────────────────────────────────────────────────────────────────────
+// Changes from previous version:
+//   - Receives `doctors: DoctorOption[]` prop to resolve the display name
+//     from `data.doctorId` (number | null) instead of reading a string.
+//   - ReviewRow for preferred doctor now looks up the name by id.
 
 import type { ReactElement }            from "react";
-import type { BookingFormData, StepId } from "@/pages/user/book-appointment/sections/bookingdata";
+import type { BookingFormData, StepId, DoctorOption } from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   genderOptions,
   serviceOptions,
@@ -32,6 +35,11 @@ function resolveLabel(
   return options.find((o) => o.value === value)?.label ?? value;
 }
 
+function resolveDoctorName(id: number | null, doctors: DoctorOption[]): string {
+  if (id === null) return "Next available";
+  return doctors.find((d) => d.id === id)?.name ?? "Unknown";
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface StepReviewProps {
@@ -41,20 +49,16 @@ interface StepReviewProps {
   isProcessing: boolean;
   onBack:       () => void;
   onGoToStep:   (s: StepId) => void;
+  /** Passed from the Inertia page prop to resolve display name from doctorId */
+  doctors:      DoctorOption[];
 }
 
 export default function StepReview({
-  data,
-  errors,
-  setData,
-  isProcessing,
-  onBack,
-  onGoToStep,
+  data, errors, setData, isProcessing, onBack, onGoToStep, doctors,
 }: StepReviewProps): ReactElement {
   const { title, subtitle }   = STEP_HEADINGS[4];
   const { disclaimer, hipaa } = bookingMeta;
 
-  // 2-col inner grid used inside review group cards
   const twoColGrid: React.CSSProperties = {
     display:             "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -63,8 +67,24 @@ export default function StepReview({
 
   return (
     <div>
-      {/* Step heading */}
       <div style={{ marginBottom: "var(--space-8)" }}>
+        {errors.appointmentTime && (
+            <div style={{
+              display:      "flex",
+              alignItems:   "center",
+              gap:          "var(--space-3)",
+              marginBottom: "var(--space-6)",
+              padding:      "var(--space-4) var(--space-5)",
+              borderRadius: "var(--radius-lg)",
+              background:   "#fee2e2",
+              border:       "1px solid var(--wc-error)",
+              fontSize:     "var(--text-sm)",
+              color:        "var(--wc-error)",
+              fontWeight:   600,
+            }}>
+              ⚠ {errors.appointmentTime}
+            </div>
+          )}
         <span
           className="wc-label"
           style={{ color: "var(--wc-sky-500)", display: "block", marginBottom: "var(--space-2)" }}
@@ -75,38 +95,24 @@ export default function StepReview({
         <p style={{ margin: 0 }}>{subtitle}</p>
       </div>
 
-      {/* ── Summary cards ── */}
-      <div
-        style={{
-          display:             "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap:                 "var(--space-5)",
-          marginBottom:        "var(--space-6)",
-        }}
-      >
+      <div style={{
+        display:             "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap:                 "var(--space-5)",
+        marginBottom:        "var(--space-6)",
+      }}>
         {/* ── Personal Info ── */}
-        <ReviewGroup
-          iconKey="personal"
-          title="Personal Info"
-          onEdit={() => onGoToStep(1)}
-        >
+        <ReviewGroup iconKey="personal" title="Personal Info" onEdit={() => onGoToStep(1)}>
           <div style={twoColGrid}>
-            <ReviewRow
-              label={REVIEW_LABELS.fullName}
-              value={`${data.firstName} ${data.lastName}`.trim()}
-            />
-            <ReviewRow label={REVIEW_LABELS.ageGender} value={`${data.age} yrs · ${resolveLabel(data.gender, genderOptions)}`} />
+            <ReviewRow label={REVIEW_LABELS.fullName}      value={`${data.firstName} ${data.lastName}`.trim()} />
+            <ReviewRow label={REVIEW_LABELS.ageGender}     value={`${data.age} yrs · ${resolveLabel(data.gender, genderOptions)}`} />
             <ReviewRow label={REVIEW_LABELS.email}         value={data.email}         />
             <ReviewRow label={REVIEW_LABELS.contactNumber} value={data.contactNumber} />
           </div>
         </ReviewGroup>
 
         {/* ── Appointment ── */}
-        <ReviewGroup
-          iconKey="appointment"
-          title="Appointment"
-          onEdit={() => onGoToStep(2)}
-        >
+        <ReviewGroup iconKey="appointment" title="Appointment" onEdit={() => onGoToStep(2)}>
           <div style={twoColGrid}>
             <ReviewRow label={REVIEW_LABELS.service}         value={resolveLabel(data.service, serviceOptions)}             />
             <ReviewRow label={REVIEW_LABELS.patientStatus}   value={resolveLabel(data.patientStatus, patientStatusOptions)} />
@@ -116,29 +122,20 @@ export default function StepReview({
         </ReviewGroup>
 
         {/* ── Coverage & Doctor — full width ── */}
-        <ReviewGroup
-          iconKey="coverage"
-          title="Coverage & Doctor"
-          onEdit={() => onGoToStep(3)}
-          fullWidth
-        >
+        <ReviewGroup iconKey="coverage" title="Coverage & Doctor" onEdit={() => onGoToStep(3)} fullWidth>
           <div style={twoColGrid}>
-            <ReviewRow
-              label={REVIEW_LABELS.coverage}
-              value={resolveLabel(data.coverage, coverageOptions)}
-            />
+            <ReviewRow label={REVIEW_LABELS.coverage} value={resolveLabel(data.coverage, coverageOptions)} />
             {data.hmo && (
-              <ReviewRow
-                label={REVIEW_LABELS.hmo}
-                value={resolveLabel(data.hmo, hmoOptions)}
-              />
+              <ReviewRow label={REVIEW_LABELS.hmo}   value={resolveLabel(data.hmo, hmoOptions)} />
             )}
             {data.hmoId && (
               <ReviewRow label={REVIEW_LABELS.hmoId} value={data.hmoId} />
             )}
-            {data.preferredDoctor && (
-              <ReviewRow label={REVIEW_LABELS.preferredDoctor} value={data.preferredDoctor} />
-            )}
+            {/* Always show preferred doctor row; displays "Next available" if null */}
+            <ReviewRow
+              label={REVIEW_LABELS.preferredDoctor}
+              value={resolveDoctorName(data.doctorId, doctors)}
+            />
           </div>
         </ReviewGroup>
       </div>
@@ -161,28 +158,20 @@ export default function StepReview({
       </Field>
 
       {/* ── Disclaimer ── */}
-      <div
-        style={{
-          display:      "flex",
-          alignItems:   "center",
-          gap:          "var(--space-3)",
-          marginTop:    "var(--space-5)",
-          marginBottom: "var(--space-2)",
-          padding:      "var(--space-4) var(--space-5)",
-          borderRadius: "var(--radius-lg)",
-          background:   "var(--wc-blue-50)",
-          border:       "1px solid var(--wc-blue-100)",
-          fontSize:     "var(--text-sm)",
-          color:        "var(--wc-blue-700)",
-        }}
-      >
-        <span style={{ color: "var(--wc-blue-600)", flexShrink: 0 }}>
-          <IconMail />
-        </span>
+      <div style={{
+        display: "flex", alignItems: "center", gap: "var(--space-3)",
+        marginTop: "var(--space-5)", marginBottom: "var(--space-2)",
+        padding:      "var(--space-4) var(--space-5)",
+        borderRadius: "var(--radius-lg)",
+        background:   "var(--wc-blue-50)",
+        border:       "1px solid var(--wc-blue-100)",
+        fontSize:     "var(--text-sm)",
+        color:        "var(--wc-blue-700)",
+      }}>
+        <span style={{ color: "var(--wc-blue-600)", flexShrink: 0 }}><IconMail /></span>
         {disclaimer}
       </div>
 
-      {/* ── Nav ── */}
       <StepNav
         onBack={onBack}
         nextLabel="Submit Appointment Request"
@@ -190,18 +179,11 @@ export default function StepReview({
         isProcessing={isProcessing}
       />
 
-      {/* HIPAA note */}
-      <p
-        style={{
-          display:        "flex",
-          alignItems:     "center",
-          justifyContent: "flex-end",
-          gap:            "var(--space-1)",
-          marginTop:      "var(--space-3)",
-          fontSize:       "var(--text-xs)",
-          color:          "var(--wc-gray-400)",
-        }}
-      >
+      <p style={{
+        display: "flex", alignItems: "center", justifyContent: "flex-end",
+        gap: "var(--space-1)", marginTop: "var(--space-3)",
+        fontSize: "var(--text-xs)", color: "var(--wc-gray-400)",
+      }}>
         <IconLock /> {hipaa}
       </p>
     </div>

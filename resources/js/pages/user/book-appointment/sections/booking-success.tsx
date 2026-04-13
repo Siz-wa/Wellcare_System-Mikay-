@@ -6,7 +6,7 @@ import { useInView }         from "@/hooks/useInView";
 import { bookingMeta }       from "@/pages/user/book-appointment/sections/bookingdata";
 
 // Wayfinder — generated from AppointmentController in web.php
-import { AppointmentView as appointmentsIndex } from "@/routes";
+import { index as appointmentsIndex } from "@/routes/appointments";
 
 
 const IconCheckCircle = () => (

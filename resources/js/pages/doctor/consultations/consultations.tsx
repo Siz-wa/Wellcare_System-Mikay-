@@ -1,37 +1,74 @@
-// resources/js/pages/user/consultations/consultations.tsx
+// resources/js/pages/doctor/dashboard/consultations/consultations.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Changes from mockup version:
+//   - Receives `consultations` and `filters` from Inertia props (DB-driven)
+//   - Search filter uses Inertia router to send server-side query
+//   - "Start New Session" opens the SessionEditor with the selected patient
+//   - No hardcoded recentConsultations array
 
-import { useState, useCallback } from "react";
-import type { ReactElement }     from "react";
-import { DashboardLayout }       from "../layout/dashboard-layout";
-import { consultationsMeta, recentConsultations } from "../consultations/consultations-data";
-import type { ConsultationRecord }                from "../consultations/consultations-data";
-import { ConsultationsTable } from "./components/consultation-table";
-import { SessionEditor }      from "./session-editor/session-editor";
+import { useState, useCallback }  from "react";
+import type { ReactElement }       from "react";
+import { router, usePage }         from "@inertiajs/react";
+import { DashboardLayout }         from "../layout/dashboard-layout";
+import {
+  consultationsMeta,
+}                                  from "./consultations-data";
+import type {
+  ConsultationRecord,
+  ConsultationFilters,
+}                                  from "./consultations-data";
+import { ConsultationsTable }      from "./components/consultation-table";
+import { SessionEditor }           from "./session-editor/session-editor";
 import { ConsultationDetailModal } from "./components/consultation-detail-modal";
+import type { PageProps }          from "@/types";
+
+// ── Inertia page props ────────────────────────────────────────────────────────
+
+interface ConsultationsPageProps extends PageProps {
+  consultations: ConsultationRecord[];
+  filters:       ConsultationFilters;
+}
 
 export default function ConsultationsPage(): ReactElement {
-  const meta = consultationsMeta;
+  const { props }  = usePage<ConsultationsPageProps>();
+  const meta       = consultationsMeta;
 
-  const [query,               setQuery]               = useState("");
-  const [editorOpen,          setEditorOpen]          = useState(false);
+  const [editorOpen,           setEditorOpen]           = useState(false);
+  const [editorConsultation,   setEditorConsultation]   = useState<ConsultationRecord | null>(null);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationRecord | null>(null);
+  const [search,               setSearch]               = useState(props.filters.search ?? "");
 
-  const filtered: ConsultationRecord[] = recentConsultations.filter((r) => {
-    if (!query.trim()) return true;
-    const q = query.toLowerCase();
-    return r.patient.toLowerCase().includes(q) || r.diagnosis.toLowerCase().includes(q);
-  });
+  // ── Server-side search ────────────────────────────────────────────────────
 
-  const handleOpenEditor   = useCallback((): void => setEditorOpen(true),  []);
-  const handleCloseEditor  = useCallback((): void => setEditorOpen(false), []);
-  const handleViewSummary  = useCallback((record: ConsultationRecord): void => {
+  const handleSearch = useCallback((value: string) => {
+    setSearch(value);
+    router.get(
+      window.location.pathname,
+      { search: value, status: props.filters.status },
+      { preserveState: true, replace: true }
+    );
+  }, [props.filters.status]);
+
+  // ── Session editor ────────────────────────────────────────────────────────
+
+  const handleOpenEditor = useCallback((record?: ConsultationRecord) => {
+    setEditorConsultation(record ?? null);
+    setEditorOpen(true);
+  }, []);
+
+  const handleCloseEditor = useCallback(() => {
+    setEditorOpen(false);
+    setEditorConsultation(null);
+  }, []);
+
+  const handleViewSummary = useCallback((record: ConsultationRecord) => {
     setSelectedConsultation(record);
   }, []);
 
   return (
     <DashboardLayout activeId="consultations">
 
-      {/* ── Page header ───────────────────────────────────────────────────── */}
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div style={{
         display:        "flex",
         alignItems:     "flex-start",
@@ -55,10 +92,9 @@ export default function ConsultationsPage(): ReactElement {
           </p>
         </div>
 
-        {/* Dark navy pill button — matches image exactly */}
         <button
           type="button"
-          onClick={handleOpenEditor}
+          onClick={() => handleOpenEditor()}
           style={{
             display:       "inline-flex",
             alignItems:    "center",
@@ -77,7 +113,7 @@ export default function ConsultationsPage(): ReactElement {
             transition:    "background 0.15s ease",
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#133686"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#0056b3" }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#0056b3"; }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -86,7 +122,7 @@ export default function ConsultationsPage(): ReactElement {
         </button>
       </div>
 
-      {/* ── Search bar — full-width, outside the card ─────────────────────── */}
+      {/* ── Search bar ──────────────────────────────────────────────────────── */}
       <div style={{
         display:      "flex",
         alignItems:   "center",
@@ -107,8 +143,8 @@ export default function ConsultationsPage(): ReactElement {
         <input
           type="text"
           placeholder={meta.searchPlaceholder}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={search}
+          onChange={(e) => handleSearch(e.target.value)}
           style={{
             flex:       1,
             border:     "none",
@@ -120,56 +156,62 @@ export default function ConsultationsPage(): ReactElement {
           }}
         />
 
-        <button
-          type="button"
-          style={{
-            display:      "inline-flex",
-            alignItems:   "center",
-            gap:          "var(--space-2)",
-            flexShrink:   0,
-            background:   "none",
-            border:       "none",
-            cursor:       "pointer",
-            fontSize:     "var(--text-sm)",
-            fontWeight:   600,
-            color:        "var(--wc-gray-500)",
-            padding:      "var(--space-1) var(--space-2)",
-            borderRadius: "var(--radius-md)",
-            transition:   "color 0.15s ease",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--wc-blue-600)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--wc-gray-500)"; }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-          </svg>
-          {meta.filtersLabel}
-        </button>
+        {/* Status filter pills */}
+        <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+          {["", "in_progress", "checked_in", "completed"].map((s) => {
+            const label = s === "" ? "All" : s === "in_progress" ? "In Progress" : s === "checked_in" ? "Checked In" : "Completed";
+            const active = (props.filters.status ?? "") === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => router.get(window.location.pathname, { search, status: s }, { preserveState: true, replace: true })}
+                style={{
+                  fontSize:      "var(--text-xs)",
+                  fontWeight:    700,
+                  padding:       "4px 12px",
+                  borderRadius:  "var(--radius-full)",
+                  border:        `1px solid ${active ? "var(--wc-blue-600)" : "var(--wc-gray-200)"}`,
+                  background:    active ? "var(--wc-blue-600)" : "transparent",
+                  color:         active ? "#fff" : "var(--wc-gray-500)",
+                  cursor:        "pointer",
+                  transition:    "all 0.15s ease",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ── Consultations table ────────────────────────────────────────────── */}
+      {/* ── Consultations table ──────────────────────────────────────────────── */}
       <ConsultationsTable
-        records={filtered}
+        records={props.consultations}
         onViewSummary={handleViewSummary}
+        onStartSession={handleOpenEditor}
       />
 
       {/* Session editor modal */}
       {editorOpen && (
-        <SessionEditor onClose={handleCloseEditor} />
+        <SessionEditor
+          consultation={editorConsultation}
+          onClose={handleCloseEditor}
+        />
       )}
 
-      {/* Consultation detail modal */}
+      {/* Detail modal — passes full session data (SOAP, vitals, prescriptions) */}
       {selectedConsultation && (
         <ConsultationDetailModal
           consultation={{
             ...selectedConsultation,
             patientName:   selectedConsultation.patient,
             avatarColor:   selectedConsultation.color,
-            type:          "Follow-up",
-            notes:         "Patient is responding well to treatment. Continue observation.",
-            prescriptions: [
-              { medication: "Amoxicillin", dosage: "500mg", duration: "7 days" },
-            ],
+            type:          selectedConsultation.patientStatus === "new" ? "New Patient" : "Follow-up",
+            notes:         selectedConsultation.additionalInfo ?? "",
+            soap:          selectedConsultation.soap          ?? null,
+            vitals:        selectedConsultation.vitals        ?? null,
+            prescriptions: selectedConsultation.prescriptions ?? [],
           }}
           onClose={() => setSelectedConsultation(null)}
         />

@@ -1,10 +1,14 @@
-// resources/js/pages/user/consultations/components/consultations-table.tsx
+// resources/js/pages/doctor/dashboard/consultations/components/consultation-table.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Changes from mockup:
+//   - `id` is now a number (from DB), not a string
+//   - Added `onStartSession` prop — opens the session editor for in-progress records
+//   - Status badge now handles rawStatus from DB
+//   - Empty state shows when no records returned from server
 
 import type { ReactElement }                           from "react";
 import { consultationsMeta }                           from "../consultations-data";
 import type { ConsultationRecord, ConsultationStatus } from "../consultations-data";
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
 
 function IconCalendar(): ReactElement {
   return (
@@ -30,15 +34,13 @@ function IconChevronRight(): ReactElement {
   );
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-function ConsultationStatusBadge({ status }: { status: ConsultationStatus }): ReactElement {
-  const config: Record<ConsultationStatus, { label: string; bg: string; color: string }> = {
-    finalized:     { label: "Finalized",   bg: "#dcfce7", color: "#15803d" },
-    "in-progress": { label: "In Progress", bg: "#dbeafe", color: "#1d4ed8" },
+function ConsultationStatusBadge({ status, rawStatus }: { status: ConsultationStatus; rawStatus: string }): ReactElement {
+  const config: Record<string, { label: string; bg: string; color: string }> = {
+    finalized:     { label: "Completed",   bg: "#dcfce7", color: "#15803d" },
+    "in-progress": { label: rawStatus === "checked_in" ? "Checked In" : "In Progress", bg: "#dbeafe", color: "#1d4ed8" },
     draft:         { label: "Draft",       bg: "#fef9c3", color: "#a16207" },
   };
-  const { label, bg, color } = config[status];
+  const { label, bg, color } = config[status] ?? config["draft"];
   return (
     <span style={{
       display:       "inline-flex",
@@ -57,33 +59,43 @@ function ConsultationStatusBadge({ status }: { status: ConsultationStatus }): Re
   );
 }
 
-// ── Table row ─────────────────────────────────────────────────────────────────
-
 function ConsultationRow({
   record,
   onViewSummary,
+  onStartSession,
 }: {
-  record:        ConsultationRecord;
-  onViewSummary: (record: ConsultationRecord) => void;
+  record:         ConsultationRecord;
+  onViewSummary:  (record: ConsultationRecord) => void;
+  onStartSession: (record: ConsultationRecord) => void;
 }): ReactElement {
   const meta = consultationsMeta;
 
   return (
-    <tr style={{
-      borderBottom: "1px solid var(--wc-gray-100)",
-      transition:   "background 0.15s ease",
-    }}
+    <tr
+      style={{ borderBottom: "1px solid var(--wc-gray-100)", transition: "background 0.15s ease" }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "var(--wc-gray-50)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent"; }}
     >
-      {/* Patient — name + ID only, no avatar */}
+      {/* Patient */}
       <td style={{ padding: "var(--space-5) var(--space-6)" }}>
-        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--wc-dark)", lineHeight: 1.3 }}>
-          {record.patient}
-        </p>
-        <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--wc-gray-400)", lineHeight: 1.3 }}>
-          ID: {record.patientId}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: "var(--radius-lg)",
+            background: record.color, color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0,
+          }}>
+            {record.initials}
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--wc-dark)", lineHeight: 1.3 }}>
+              {record.patient}
+            </p>
+            <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--wc-gray-400)", lineHeight: 1.3 }}>
+              {record.patientId}
+            </p>
+          </div>
+        </div>
       </td>
 
       {/* Date / Time */}
@@ -93,66 +105,93 @@ function ConsultationRow({
           {record.date}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", color: "var(--wc-gray-400)", fontSize: "var(--text-xs)" }}>
-          <IconClock />
-          {record.time}
+          <IconClock /> {record.time}
         </div>
       </td>
 
-      {/* Diagnosis — bold, larger */}
+      {/* Diagnosis / Service */}
       <td style={{ padding: "var(--space-5) var(--space-6)" }}>
         <p style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 600, color: "var(--wc-dark)" }}>
           {record.diagnosis}
+        </p>
+        <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--wc-gray-400)", textTransform: "capitalize" }}>
+          {record.coverage} · {record.patientStatus} patient
         </p>
       </td>
 
       {/* Status */}
       <td style={{ padding: "var(--space-5) var(--space-6)" }}>
-        <ConsultationStatusBadge status={record.status} />
+        <ConsultationStatusBadge status={record.status} rawStatus={record.rawStatus} />
       </td>
 
       {/* Actions */}
       <td style={{ padding: "var(--space-5) var(--space-6)", textAlign: "right" }}>
-        <button
-          type="button"
-          onClick={() => onViewSummary(record)}
-          style={{
-            display:       "inline-flex",
-            alignItems:    "center",
-            gap:           "4px",
-            fontSize:      "var(--text-sm)",
-            fontWeight:    700,
-            color:         "var(--wc-blue-600)",
-            background:    "none",
-            border:        "none",
-            cursor:        "pointer",
-            padding:       0,
-            letterSpacing: "0.02em",
-            transition:    "opacity 0.15s ease",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-        >
-          {meta.viewSummaryLabel}
-          <IconChevronRight />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-3)" }}>
+          {/* Start/Continue session button — only for active consultations */}
+          {(record.rawStatus === "checked_in" || record.rawStatus === "in_progress") && (
+            <button
+              type="button"
+              onClick={() => onStartSession(record)}
+              style={{
+                display:       "inline-flex",
+                alignItems:    "center",
+                gap:           "4px",
+                fontSize:      "var(--text-xs)",
+                fontWeight:    700,
+                color:         "#fff",
+                background:    "var(--wc-blue-600)",
+                border:        "none",
+                cursor:        "pointer",
+                padding:       "6px 14px",
+                borderRadius:  "var(--radius-full)",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {record.rawStatus === "checked_in" ? "Start" : "Continue"}
+            </button>
+          )}
+
+          {/* View summary */}
+          <button
+            type="button"
+            onClick={() => onViewSummary(record)}
+            style={{
+              display:       "inline-flex",
+              alignItems:    "center",
+              gap:           "4px",
+              fontSize:      "var(--text-sm)",
+              fontWeight:    700,
+              color:         "var(--wc-blue-600)",
+              background:    "none",
+              border:        "none",
+              cursor:        "pointer",
+              padding:       0,
+              letterSpacing: "0.02em",
+              transition:    "opacity 0.15s ease",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+          >
+            {meta.viewSummaryLabel}
+            <IconChevronRight />
+          </button>
+        </div>
       </td>
     </tr>
   );
 }
 
-// ── Table wrapper ─────────────────────────────────────────────────────────────
-
 interface ConsultationsTableProps {
-  records:       ConsultationRecord[];
-  onViewSummary: (record: ConsultationRecord) => void;
+  records:        ConsultationRecord[];
+  onViewSummary:  (record: ConsultationRecord) => void;
+  onStartSession: (record: ConsultationRecord) => void;
 }
 
-export function ConsultationsTable({ records, onViewSummary }: ConsultationsTableProps): ReactElement {
+export function ConsultationsTable({ records, onViewSummary, onStartSession }: ConsultationsTableProps): ReactElement {
   const meta = consultationsMeta;
 
   return (
     <div className="wc-card" style={{ overflow: "hidden" }}>
-      {/* Card header */}
       <div style={{
         display:        "flex",
         alignItems:     "center",
@@ -163,42 +202,26 @@ export function ConsultationsTable({ records, onViewSummary }: ConsultationsTabl
         <h2 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--wc-dark)" }}>
           {meta.recentTitle}
         </h2>
-        <button
-          type="button"
-          style={{
-            fontSize:      "var(--text-xs)",
-            fontWeight:    700,
-            color:         "var(--wc-sky-500)",
-            background:    "none",
-            border:        "none",
-            cursor:        "pointer",
-            letterSpacing: "0.06em",
-            padding:       0,
-          }}
-        >
-          {meta.viewAll}
-        </button>
+        <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--wc-gray-400)" }}>
+          {records.length} record{records.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
-      {/* Table */}
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               {[meta.colPatient, meta.colDateTime, meta.colDiagnosis, meta.colStatus, meta.colActions].map((col) => (
-                <th
-                  key={col}
-                  style={{
-                    padding:       "12px var(--space-6)",
-                    textAlign:     col === meta.colActions ? "right" : "left",
-                    fontSize:      "11px",
-                    fontWeight:    700,
-                    color:         "var(--wc-gray-400)",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    borderBottom:  "1px solid var(--wc-gray-100)",
-                  }}
-                >
+                <th key={col} style={{
+                  padding:       "12px var(--space-6)",
+                  textAlign:     col === meta.colActions ? "right" : "left",
+                  fontSize:      "11px",
+                  fontWeight:    700,
+                  color:         "var(--wc-gray-400)",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  borderBottom:  "1px solid var(--wc-gray-100)",
+                }}>
                   {col}
                 </th>
               ))}
@@ -210,12 +233,13 @@ export function ConsultationsTable({ records, onViewSummary }: ConsultationsTabl
                 key={record.id}
                 record={record}
                 onViewSummary={onViewSummary}
+                onStartSession={onStartSession}
               />
             ))}
             {records.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "var(--wc-gray-400)", fontSize: "14px" }}>
-                  No consultations found.
+                <td colSpan={5} style={{ padding: "48px", textAlign: "center", color: "var(--wc-gray-400)", fontSize: "var(--text-sm)" }}>
+                  {meta.emptyState}
                 </td>
               </tr>
             )}
