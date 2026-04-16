@@ -18,13 +18,13 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * The attributes that are mass assignable.
-     * Only authentication credentials live on this table now.
      *
      * @var list<string>
      */
     protected $fillable = [
         'email',
         'password',
+        'role',                    // ← MUST BE HERE
     ];
 
     /**
@@ -53,6 +53,12 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    // ── HR Helper Method ───────────────────────────────────────────────────────
+    public function isHR(): bool
+    {
+        return $this->role === 'hr';
+    }
+
     // ── Relationships ──────────────────────────────────────────────────────────
 
     public function profile(): HasOne
@@ -61,16 +67,16 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     public function medical(): HasOneThrough
-{
-    return $this->hasOneThrough(
-        PatientMedical::class,
-        PatientProfile::class,
-        'user_id',    // FK on patient_profiles → users
-        'profile_id', // FK on patient_medical  → patient_profiles
-    );
-}
+    {
+        return $this->hasOneThrough(
+            PatientMedical::class,
+            PatientProfile::class,
+            'user_id',
+            'profile_id',
+        );
+    }
+
     // ── Computed: full name via profile relationship ───────────────────────────
-    // Keeps $user->name working across Fortify, emails, and notifications.
     public function getNameAttribute(): string
     {
         return trim(

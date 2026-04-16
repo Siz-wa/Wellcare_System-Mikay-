@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // ── HR Middleware Alias (for HR-only dashboard) ─────────────────────
+        $middleware->alias([
+            'hr' => \App\Http\Middleware\EnsureUserIsHR::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -81,7 +81,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // /user/settings/profile → same as index (alias)
     Route::get('/user/settings/profile', function () {
-        return inertia('user/settings/index');
+        return inertia('user/settings/index');  
     })->name('user.settings.profile');
 
     // /user/settings/security
@@ -108,5 +108,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // ── Settings (doctor) + Fortify ────────────────────────────────────────
     require __DIR__.'/settings.php';
+
+    Route::prefix('hr')
+    ->middleware(['auth', 'verified', 'hr'])     // ← Changed to 'hr'
+    ->name('hr.')
+    ->group(function () {
+
+        Route::get('/dashboard', fn() => inertia('hr/dashboard/index'))
+            ->name('dashboard');
+
+        Route::get('/hmo-applications', fn() => inertia('hr/hmo-applications/index'))
+            ->name('hmo-applications');
+    });
+ 
 
 });
