@@ -113,18 +113,17 @@ export const defaultMedications: Medication[] = [];
 
 // ── Session editor tabs ───────────────────────────────────────────────────────
 
-export type SessionTab = "soap" | "vitals" | "prescription";
+export type SessionTab = "soap" | "vitals";
 
 export interface TabItem {
   key:     SessionTab;
   label:   string;
-  iconKey: "soap" | "vitals" | "prescription";
+  iconKey: "soap" | "vitals";
 }
 
 export const sessionTabs: TabItem[] = [
-  { key: "soap",         label: "Soap Notes",     iconKey: "soap"         },
-  { key: "vitals",       label: "Patient Vitals", iconKey: "vitals"       },
-  { key: "prescription", label: "Prescription",   iconKey: "prescription" },
+  { key: "soap",   label: "Soap Notes",     iconKey: "soap"   },
+  { key: "vitals", label: "Patient Vitals", iconKey: "vitals" },
 ];
 
 // ── Filters ───────────────────────────────────────────────────────────────────

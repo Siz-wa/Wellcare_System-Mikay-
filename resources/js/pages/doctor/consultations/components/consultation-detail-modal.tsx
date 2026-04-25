@@ -75,7 +75,7 @@ interface ModalProps {
   onClose:      () => void;
 }
 
-type SummaryTab = "overview" | "soap" | "vitals" | "prescriptions";
+type SummaryTab = "overview" | "soap" | "vitals";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -281,7 +281,7 @@ export function ConsultationDetailModal({ consultation, onClose }: ModalProps): 
     { key: "overview",      label: "Overview"      },
     { key: "soap",          label: "SOAP Notes"    },
     { key: "vitals",        label: "Vitals"        },
-    { key: "prescriptions", label: "Prescriptions" },
+
   ];
 
   return (
@@ -465,33 +465,7 @@ export function ConsultationDetailModal({ consultation, onClose }: ModalProps): 
               </div>
             )}
 
-            {/* ── PRESCRIPTIONS ── */}
-            {tab === "prescriptions" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {consultation.prescriptions.length === 0 ? (
-                  <div style={{ padding: "48px", textAlign: "center" }}>
-                    <p style={{ margin: "0 0 6px", fontSize: "14px", fontWeight: 600, color: "var(--wc-gray-500)" }}>No prescriptions recorded</p>
-                    <p style={{ margin: 0, fontSize: "13px", color: "var(--wc-gray-400)" }}>Open the session editor to add prescriptions for this consultation.</p>
-                  </div>
-                ) : (
-                  consultation.prescriptions.map((rx, idx) => (
-                    <div key={idx} style={{ padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--wc-gray-100)", background: "var(--wc-white)", display: "flex", alignItems: "center", gap: "16px" }}>
-                      <div style={{ width: 40, height: 40, borderRadius: "10px", background: "var(--wc-blue-50)", border: "1px solid var(--wc-blue-100)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--wc-blue-600)" strokeWidth="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
-                      </div>
-                      <div>
-                        <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "var(--wc-dark)" }}>{rx.medication}</p>
-                        {(rx.dosage || rx.duration) && (
-                          <p style={{ margin: "3px 0 0", fontSize: "12px", color: "var(--wc-gray-400)", fontWeight: 500 }}>
-                            {[rx.dosage, rx.duration].filter(Boolean).join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+
           </div>
 
           {/* ── Past History slide-in panel ── */}

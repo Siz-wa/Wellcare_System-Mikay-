@@ -234,6 +234,13 @@ class PatientRecordController extends Controller
             'severity' => ['required', 'in:mild,moderate,severe'],
             'reaction' => ['nullable', 'string', 'max:255'],
             'notes'    => ['nullable', 'string', 'max:1000'],
+        ], [
+            'allergen.required' => 'Please enter the allergen name (e.g. Penicillin, Shellfish).',
+            'allergen.max'      => 'Allergen name must be under 255 characters.',
+            'severity.required' => 'Please select a severity level.',
+            'severity.in'       => 'Severity must be mild, moderate, or severe.',
+            'reaction.max'      => 'Reaction description must be under 255 characters.',
+            'notes.max'         => 'Notes must be under 1000 characters.',
         ]);
 
         PatientAllergy::create([
@@ -261,12 +268,25 @@ class PatientRecordController extends Controller
     {
         $request->validate([
             'diagnosis'      => ['required', 'string', 'max:255'],
-            'icd_code'       => ['nullable', 'string', 'max:20'],
+            'icd_code'       => ['nullable', 'string', 'max:20', 'regex:/^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/i'],
             'type'           => ['required', 'in:primary,secondary,chronic'],
             'status'         => ['required', 'in:active,resolved,chronic'],
-            'diagnosed_at'   => ['required', 'date'],
+            'diagnosed_at'   => ['required', 'date', 'before_or_equal:today'],
             'appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
             'notes'          => ['nullable', 'string', 'max:2000'],
+        ], [
+            'diagnosis.required'    => 'Please enter the diagnosis name.',
+            'diagnosis.max'         => 'Diagnosis name must be under 255 characters.',
+            'icd_code.regex'        => 'ICD code format is invalid. Example: J06.9 or A01.',
+            'icd_code.max'          => 'ICD code must be under 20 characters.',
+            'type.required'         => 'Please select the diagnosis type.',
+            'type.in'               => 'Type must be primary, secondary, or chronic.',
+            'status.required'       => 'Please select the diagnosis status.',
+            'status.in'             => 'Status must be active, resolved, or chronic.',
+            'diagnosed_at.required' => 'Please enter the date of diagnosis.',
+            'diagnosed_at.date'     => 'The diagnosis date is not a valid date.',
+            'diagnosed_at.before_or_equal' => 'The diagnosis date cannot be in the future.',
+            'notes.max'             => 'Notes must be under 2000 characters.',
         ]);
 
         PatientDiagnosis::create([
@@ -308,6 +328,15 @@ class PatientRecordController extends Controller
             'appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
             'file'           => ['required', 'file', 'max:20480',
                                  'mimes:pdf,jpg,jpeg,png,gif,doc,docx'],
+        ], [
+            'title.required' => 'Please enter a title for this document.',
+            'title.max'      => 'Document title must be under 255 characters.',
+            'type.required'  => 'Please select the document type.',
+            'type.in'        => 'Invalid document type selected.',
+            'file.required'  => 'Please select a file to upload.',
+            'file.file'      => 'The uploaded file is invalid.',
+            'file.max'       => 'File size must not exceed 20 MB.',
+            'file.mimes'     => 'Only PDF, image (JPG, PNG, GIF), or Word document files are allowed.',
         ]);
 
         $file = $request->file('file');

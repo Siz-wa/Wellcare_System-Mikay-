@@ -35,9 +35,12 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    groupLabel: "SYSTEM",
+    groupLabel: "Generals",
     items: [
-      { id: "settings", label: "Settings", href: "/settings", iconKey: "settings" },
+      { id: "home",     label: "Home Page",  href: "/",       iconKey: "records"      },
+      { id: "doctors",  label: "Doctors List",  href: "/doctors",       iconKey: "records"      },
+      { id: "contact",  label: "Contact Us",  href: "/contact",       iconKey: "records"      },
+      { id: "patients", label: "FAQs",  href: "/faqs",       iconKey: "records"      },
     ],
   },
 ];

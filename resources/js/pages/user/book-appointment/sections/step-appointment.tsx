@@ -5,13 +5,11 @@ import type { BookingFormData }  from "@/pages/user/book-appointment/sections/bo
 import {
   serviceOptions,
   patientStatusOptions,
-  TIME_SLOTS,
   STEP_HEADINGS,
 }                                from "@/pages/user/book-appointment/sections/bookingdata";
 import {
   Field,
   ToggleCard,
-  TimeSlotPicker,
   StepNav,
   IconCalendar,
 }                                from "../components";
@@ -32,11 +30,6 @@ export default function StepAppointment({
   data, errors, setData, valid, onNext, onBack,
 }: StepAppointmentProps): ReactElement {
   const { title, subtitle } = STEP_HEADINGS[2];
-
-  // ── Date bounds ────────────────────────────────────────────────────────
-  // min = tomorrow, max = today + 365 days
-  // Both enforced in HTML (prevents picker from showing invalid dates)
-  // AND in the validator (catches any bypass via manual typing)
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -91,7 +84,7 @@ export default function StepAppointment({
           </div>
         </Field>
 
-        {/* Date — min + max enforced in HTML AND in validator */}
+        {/* Date */}
         <Field
           label="Preferred Date"
           required
@@ -121,29 +114,13 @@ export default function StepAppointment({
               min={minDate}
               max={maxDate}
               value={data.appointmentDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const val = e.target.value;
-                // Strip if user somehow bypasses the picker and types manually
-                setData("appointmentDate", val);
-              }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData("appointmentDate", e.target.value)}
               style={{ paddingLeft: "calc(var(--space-3) + 22px)" }}
             />
           </div>
         </Field>
 
-        {/* Time slots */}
-        <Field
-          label="Preferred Time"
-          required
-          error={errors.appointmentTime}
-          hint={!errors.appointmentTime ? "Select an available time slot." : undefined}
-        >
-          <TimeSlotPicker
-            slots={TIME_SLOTS}
-            value={data.appointmentTime}
-            onChange={(v) => setData("appointmentTime", v)}
-          />
-        </Field>
+        {/* Time slot moved to Step 3 — shown below doctor selection */}
 
       </div>
 

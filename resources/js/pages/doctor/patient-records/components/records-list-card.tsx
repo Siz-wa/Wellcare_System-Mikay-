@@ -1,7 +1,7 @@
 // resources/js/pages/user/patient-records/records-list-card.tsx
 
 import { type ReactElement, useState } from "react";
-import { patients, myPatientsMeta } from "../patient-records-data";
+// import { patients, myPatientsMeta } from "../patient-records-data";
 import type { Patient } from "../patient-records-data";
 import { ArchiveModal } from "./archive-modal";
 

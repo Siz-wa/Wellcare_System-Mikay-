@@ -2,43 +2,44 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppointmentNotification;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
  * NotificationController
- * ──────────────────────────────────────────────────────────────────────────────
- * Routes (add to web.php, auth middleware only):
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Operates on appointment_notifications table — the single active notification
+ * store. Routes (must all be inside auth middleware, read-all BEFORE {id}):
  *
- *   POST /notifications/{id}/read      → markRead
- *   POST /notifications/read-all       → markAllRead
- *   DELETE /notifications/{id}         → destroy
- *   DELETE /notifications              → destroyAll
+ *   POST   /notifications/read-all  → markAllRead
+ *   POST   /notifications/{id}/read → markRead
+ *   DELETE /notifications/{id}      → destroy
+ *   DELETE /notifications           → destroyAll
  */
 class NotificationController extends Controller
 {
-    public function markRead(string $id): RedirectResponse
+    public function markRead(int $id): RedirectResponse
     {
-        Auth::user()
-            ->notifications()
+        AppointmentNotification::where('user_id', Auth::id())
             ->where('id', $id)
-            ->first()
-            ?->markAsRead();
+            ->update(['read' => true]);
 
         return back();
     }
 
     public function markAllRead(): RedirectResponse
     {
-        Auth::user()->unreadNotifications->markAsRead();
+        AppointmentNotification::where('user_id', Auth::id())
+            ->where('read', false)
+            ->update(['read' => true]);
+
         return back();
     }
 
-    public function destroy(string $id): RedirectResponse
+    public function destroy(int $id): RedirectResponse
     {
-        Auth::user()
-            ->notifications()
+        AppointmentNotification::where('user_id', Auth::id())
             ->where('id', $id)
             ->delete();
 
@@ -47,7 +48,7 @@ class NotificationController extends Controller
 
     public function destroyAll(): RedirectResponse
     {
-        Auth::user()->notifications()->delete();
+        AppointmentNotification::where('user_id', Auth::id())->delete();
         return back();
     }
 }

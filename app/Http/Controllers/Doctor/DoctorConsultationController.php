@@ -23,7 +23,7 @@ class DoctorConsultationController extends Controller
         $doctorId = Auth::id();
         $query    = Appointment::where('doctor_id', $doctorId)
             ->whereIn('status', self::CONSULTATION_STATUSES)
-            ->with('consultationSession.prescriptions')
+            ->with('consultationSession')
             ->orderByDesc('appointment_date')
             ->orderByDesc('appointment_time');
 
@@ -69,7 +69,7 @@ class DoctorConsultationController extends Controller
                 $request->integer('exclude_id'),
                 fn ($q, $id) => $q->where('id', '!=', $id)
             )
-            ->with('consultationSession.prescriptions')
+            ->with('consultationSession')
             ->orderByDesc('appointment_date')
             ->limit(20)
             ->get()
@@ -121,13 +121,11 @@ class DoctorConsultationController extends Controller
             'vitals[oxygenSaturation]' => ['nullable', 'string', 'max:10'],
             'vitals[weight]'           => ['nullable', 'string', 'max:10'],
             'vitals[height]'           => ['nullable', 'string', 'max:10'],
-            'medications'              => ['nullable', 'string'],
             'finalize'                 => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($request, $appointment) {
             $finalize    = $request->input('finalize') === '1';
-            $medications = json_decode($request->input('medications', '[]'), true) ?? [];
 
             $session = ConsultationSession::updateOrCreate(
                 ['appointment_id' => $appointment->id],
@@ -147,19 +145,21 @@ class DoctorConsultationController extends Controller
                 ]
             );
 
-            $session->prescriptions()->delete();
-            foreach ($medications as $med) {
-                ConsultationPrescription::create([
-                    'session_id'   => $session->id,
-                    'name'         => $med['name']         ?? '',
-                    'instructions' => $med['instructions'] ?? '',
-                ]);
-            }
+            // Prescriptions removed — managed separately if needed
 
             if ($finalize) {
                 $appointment->update(['status' => 'completed']);
-                if ($finalize) {
-                    app(\App\Services\NotificationService::class)->consultationFinalized($appointment);
+
+                // Notify patient
+                if ($appointment->user_id) {
+                    \App\Models\AppointmentNotification::create([
+                        'appointment_id' => $appointment->id,
+                        'user_id'        => $appointment->user_id,
+                        'type'           => 'consultation_done',
+                        'subject'        => 'Consultation Complete',
+                        'body'           => "Your consultation on {$appointment->appointment_date->format('M j, Y')} has been finalized. Thank you for visiting Wellcare.",
+                        'read'           => false,
+                    ]);
                 }
             } elseif ($appointment->status === 'checked_in') {
                 $appointment->update(['status' => 'in_progress']);
@@ -221,13 +221,7 @@ class DoctorConsultationController extends Controller
                 'weight'           => $session->weight            ?? '',
                 'height'           => $session->height            ?? '',
             ] : null,
-            'prescriptions'  => $session
-                ? $session->prescriptions->map(fn ($p) => [
-                    'medication' => $p->name,
-                    'dosage'     => '',
-                    'duration'   => $p->instructions,
-                ])->toArray()
-                : [],
+            'prescriptions'  => [],
         ];
     }
 

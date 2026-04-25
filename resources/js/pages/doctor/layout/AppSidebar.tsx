@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { navGroups }            from "@/pages/doctor/dashboard-data";
 import type { NavItem }         from "@/pages/doctor/dashboard-data";
+import { SidebarLogo } from "@/pages/user/layout/components/PatientAppSidebar";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -67,52 +68,7 @@ const ICON_MAP: Record<IconKey, ReactElement> = {
 // WellcareLogo
 // ─────────────────────────────────────────────────────────────────────────────
 
-function WellcareLogo(): ReactElement {
-  return (
-    <div className="flex items-center gap-3 px-6 py-6 select-none">
-      {/* Icon mark — rounded-xl, brand blue bg */}
-      <div
-        className="flex items-center justify-center rounded-xl flex-shrink-0"
-        style={{
-          width:      40,
-          height:     40,
-          background: BRAND,
-          boxShadow:  ACTIVE_SHADOW,
-        }}
-      >
-        <Stethoscope size={20} strokeWidth={2} color="#ffffff" />
-      </div>
 
-      {/* Wordmark */}
-      <div className="leading-none">
-        <p
-          className="m-0 font-bold tracking-tight"
-          style={{
-            fontSize:   "1.05rem",
-            color:      "#1e293b",   // slate-800 ≈ --wc-dark
-            fontFamily: "var(--font-display,'Bricolage Grotesque')",
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          WELLCARE
-        </p>
-        <p
-          className="m-0 font-bold tracking-widest"
-          style={{
-            fontSize:   "0.625rem",  // 10px
-            color:      BRAND,
-            fontFamily: "var(--font-display,'Bricolage Grotesque')",
-            fontWeight: 800,
-            letterSpacing: "0.15em",
-          }}
-        >
-          CLINICS
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NavItem — single sidebar link
@@ -264,7 +220,7 @@ export function AppSidebar({ activeId }: AppSidebarProps): ReactElement {
       }}
     >
       {/* ── Logo ──────────────────────────────────────────────────────── */}
-      <WellcareLogo />
+      <SidebarLogo />
 
       {/* Divider under logo */}
       <div style={{ height: 1, background: "#f1f5f9", marginBottom: "8px" }} />

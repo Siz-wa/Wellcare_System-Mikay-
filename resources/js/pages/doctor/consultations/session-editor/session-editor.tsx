@@ -1,10 +1,12 @@
 // resources/js/pages/doctor/dashboard/consultations/session-editor/session-editor.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Changes from mockup:
-//   - Receives `consultation: ConsultationRecord | null` prop
-//   - Pre-populates SOAP/vitals/prescriptions from existing session data
-//   - Save and Finalize buttons POST to saveSession route via Inertia router
-//   - Patient name shown in header from consultation prop
+// TOAST CHANGES:
+//   - Added `onSaveSuccess` callback — fires after Save Draft succeeds so the
+//     parent page can show a toast (editor stays open, flash won't render).
+//   - Added `onFinalizeSuccess` callback — fires after Finalize succeeds so the
+//     parent page can show a toast before/after closing the editor.
+//   - Added local inline feedback label under the save indicator so the doctor
+//     sees "Saved" confirmation even without a full toast.
 
 import { useState, useEffect, useCallback } from "react";
 import type { ReactElement }                 from "react";
@@ -19,40 +21,43 @@ import type {
   SessionTab,
   SoapFields,
   VitalsFields,
-  Medication,
   ConsultationRecord,
 } from "../consultations-data";
 import { SoapNotes }     from "./soap-notes";
 import { PatientVitals } from "./patient-vitals";
-import { Prescription }  from "./prescription";
 import {
   IconX,
   IconSoap,
   IconVitals,
-  IconPrescription,
   IconHistory,
 } from "@/pages/doctor/icons";
 
-function TabIcon({ iconKey }: { iconKey: "soap" | "vitals" | "prescription" }): ReactElement {
-  if (iconKey === "soap")   return <IconSoap />;
-  if (iconKey === "vitals") return <IconVitals />;
-  return <IconPrescription />;
+function TabIcon({ iconKey }: { iconKey: "soap" | "vitals" }): ReactElement {
+  if (iconKey === "soap") return <IconSoap />;
+  return <IconVitals />;
 }
 
 interface SessionEditorProps {
-  consultation: ConsultationRecord | null;
-  onClose:      () => void;
+  consultation:      ConsultationRecord | null;
+  onClose:           () => void;
+  onSaveSuccess?:    () => void;   // called after Save Draft succeeds
+  onFinalizeSuccess?: () => void;  // called after Finalize succeeds
 }
 
-export function SessionEditor({ consultation, onClose }: SessionEditorProps): ReactElement {
+export function SessionEditor({
+  consultation,
+  onClose,
+  onSaveSuccess,
+  onFinalizeSuccess,
+}: SessionEditorProps): ReactElement {
   const meta = consultationsMeta;
 
-  const [activeTab,   setActiveTab]   = useState<SessionTab>("soap");
-  const [soap,        setSoap]        = useState<SoapFields>({ ...emptySoap });
-  const [vitals,      setVitals]      = useState<VitalsFields>({ ...defaultVitals });
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [saving,      setSaving]      = useState(false);
-  const [mountAnim,   setMountAnim]   = useState(false);
+  const [activeTab, setActiveTab] = useState<SessionTab>("soap");
+  const [soap,      setSoap]      = useState<SoapFields>({ ...emptySoap });
+  const [vitals,    setVitals]    = useState<VitalsFields>({ ...defaultVitals });
+  const [saving,    setSaving]    = useState(false);
+  const [saveLabel, setSaveLabel] = useState<"idle" | "saved" | "error">("idle");
+  const [mountAnim, setMountAnim] = useState(false);
 
   // Pre-populate from existing session data
   useEffect(() => {
@@ -74,15 +79,6 @@ export function SessionEditor({ consultation, onClose }: SessionEditorProps): Re
         height:           consultation.vitals.height           ?? "",
       });
     }
-    if (consultation?.prescriptions?.length) {
-      setMedications(
-        consultation.prescriptions.map((p, i) => ({
-          id:           `med-${i}`,
-          name:         p.medication,
-          instructions: p.duration,
-        }))
-      );
-    }
   }, [consultation]);
 
   useEffect(() => {
@@ -99,48 +95,76 @@ export function SessionEditor({ consultation, onClose }: SessionEditorProps): Re
   }, [onClose]);
 
   const handleSoapChange = useCallback((key: keyof SoapFields, value: string): void => {
-    setSoap((prev) => ({ ...prev, [key]: value }));
+    setSoap(prev => ({ ...prev, [key]: value }));
   }, []);
 
   const handleVitalsChange = useCallback((key: keyof VitalsFields, value: string): void => {
-    setVitals((prev) => ({ ...prev, [key]: value }));
+    setVitals(prev => ({ ...prev, [key]: value }));
   }, []);
 
-  const handleAddMed    = useCallback((med: Medication): void => setMedications((prev) => [...prev, med]), []);
-  const handleRemoveMed = useCallback((id: string): void => setMedications((prev) => prev.filter((m) => m.id !== id)), []);
-
-  // ── Submit to backend ─────────────────────────────────────────────────────
+  // ── Submit ────────────────────────────────────────────────────────────────
 
   function handleSave(finalize: boolean): void {
     if (!consultation) return;
     setSaving(true);
+    setSaveLabel("idle");
 
-    // Flatten soap and vitals into string records so Inertia's router.post
-    // type constraint (Record<string, FormDataConvertible>) is satisfied.
     router.post(
-      `/dashboard/consultations/${consultation.id}/save`,
+      `/doctor/consultations/${consultation.id}/save`,
       {
-        "soap[subjective]":        soap.subjective,
-        "soap[objective]":         soap.objective,
-        "soap[assessment]":        soap.assessment,
-        "soap[plan]":              soap.plan,
-        "vitals[bloodPressure]":   vitals.bloodPressure,
-        "vitals[heartRate]":       vitals.heartRate,
-        "vitals[temperature]":     vitals.temperature,
-        "vitals[oxygenSaturation]":vitals.oxygenSaturation,
-        "vitals[weight]":          vitals.weight,
-        "vitals[height]":          vitals.height,
-        medications:               JSON.stringify(medications.map((m) => ({ name: m.name, instructions: m.instructions }))),
-        finalize:                  finalize ? "1" : "0",
+        "soap[subjective]":         soap.subjective,
+        "soap[objective]":          soap.objective,
+        "soap[assessment]":         soap.assessment,
+        "soap[plan]":               soap.plan,
+        "vitals[bloodPressure]":    vitals.bloodPressure,
+        "vitals[heartRate]":        vitals.heartRate,
+        "vitals[temperature]":      vitals.temperature,
+        "vitals[oxygenSaturation]": vitals.oxygenSaturation,
+        "vitals[weight]":           vitals.weight,
+        "vitals[height]":           vitals.height,
+        finalize:                   finalize ? "1" : "0",
       },
       {
+        preserveScroll: true,
         onFinish: () => setSaving(false),
-        onSuccess: () => { if (finalize) onClose(); },
+        onSuccess: () => {
+          setSaveLabel("saved");
+          // Reset "Saved" label back to idle after 3 s
+          setTimeout(() => setSaveLabel("idle"), 3000);
+
+          if (finalize) {
+            onFinalizeSuccess?.();
+            onClose();
+          } else {
+            onSaveSuccess?.();
+          }
+        },
+        onError: () => {
+          setSaveLabel("error");
+          setTimeout(() => setSaveLabel("idle"), 4000);
+        },
       }
     );
   }
 
   const patientName = consultation?.patient ?? meta.editorPatientEmpty;
+
+  // ── Save status indicator label ───────────────────────────────────────────
+  const statusDot = saving
+    ? "#ca8a04"
+    : saveLabel === "saved"
+      ? "#16a34a"
+      : saveLabel === "error"
+        ? "#b91c1c"
+        : "#94a3b8";
+
+  const statusText = saving
+    ? "Saving…"
+    : saveLabel === "saved"
+      ? "Saved"
+      : saveLabel === "error"
+        ? "Save failed"
+        : meta.autoSaveLabel;
 
   return (
     <>
@@ -149,7 +173,7 @@ export function SessionEditor({ consultation, onClose }: SessionEditorProps): Re
         onClick={onClose}
         style={{
           position: "fixed", inset: 0,
-          background: "rgba(15, 23, 42, 0.55)",
+          background: "rgba(15,23,42,0.55)",
           backdropFilter: "blur(6px)",
           WebkitBackdropFilter: "blur(6px)",
           zIndex: "var(--z-modal)" as React.CSSProperties["zIndex"],
@@ -235,7 +259,7 @@ export function SessionEditor({ consultation, onClose }: SessionEditorProps): Re
               display: "flex", flexDirection: "column",
               gap: "var(--space-1)", overflowY: "auto",
             }}>
-              {sessionTabs.map((tab) => {
+              {sessionTabs.map(tab => {
                 const isActive = tab.key === activeTab;
                 return (
                   <button
@@ -285,9 +309,8 @@ export function SessionEditor({ consultation, onClose }: SessionEditorProps): Re
               overflowY: "auto", display: "flex",
               flexDirection: "column", minWidth: 0,
             }}>
-              {activeTab === "soap"         && <SoapNotes     values={soap}        onChange={handleSoapChange}   />}
-              {activeTab === "vitals"       && <PatientVitals values={vitals}      onChange={handleVitalsChange} />}
-              {activeTab === "prescription" && <Prescription  medications={medications} onAdd={handleAddMed} onRemove={handleRemoveMed} />}
+              {activeTab === "soap"   && <SoapNotes     values={soap}   onChange={handleSoapChange}   />}
+              {activeTab === "vitals" && <PatientVitals values={vitals} onChange={handleVitalsChange} />}
             </div>
           </div>
 
@@ -298,14 +321,19 @@ export function SessionEditor({ consultation, onClose }: SessionEditorProps): Re
             borderTop: "1px solid var(--wc-gray-100)",
             flexShrink: 0, background: "var(--wc-white)",
           }}>
+            {/* Save status indicator */}
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <span style={{
                 width: 8, height: 8, borderRadius: "var(--radius-full)",
-                background: saving ? "#ca8a04" : "#16a34a",
-                flexShrink: 0, transition: "background var(--duration-base) var(--ease-out)",
+                background: statusDot, flexShrink: 0,
+                transition: "background 0.3s ease",
               }} />
-              <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--wc-gray-500)" }}>
-                {saving ? "SAVING…" : meta.autoSaveLabel}
+              <span style={{
+                fontSize: "var(--text-xs)", fontWeight: 500,
+                color: saveLabel === "error" ? "#b91c1c" : saveLabel === "saved" ? "#16a34a" : "var(--wc-gray-500)",
+                transition: "color 0.3s ease",
+              }}>
+                {statusText}
               </span>
             </div>
 

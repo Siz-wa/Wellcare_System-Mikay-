@@ -1,10 +1,8 @@
-// resources/js/pages/generals/book-appointment/sections/bookingdata.ts
+// resources/js/pages/user/book-appointment/sections/bookingdata.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Changes from previous version:
-//   - `preferredDoctor: string` replaced with `doctorId: number | null`
-//   - DoctorOption interface added (shape returned by the Inertia prop)
-//   - BOOKING_FORM_DEFAULTS updated accordingly
-//   - Everything else is unchanged
+// All static data and types for the booking form.
+// Updated: DoctorOption now includes availableSlots (runtime, set after fetch)
+// and the fully-booked indicator logic.
 
 export const bookingMeta = {
   label:          "Book an Appointment",
@@ -41,17 +39,21 @@ export interface CoverageOption extends SelectOption {
   icon: "cash" | "hmo" | "philhealth" | "corporate";
 }
 
-// ── Doctor shape returned by the Inertia `doctors` prop ──────────────────────
-// Mirrors DoctorResource::toArray() on the server.
-// `id` = user_id of the doctor account (= doctor_id FK in appointments table).
+// ── Doctor shape ─────────────────────────────────────────────────────────────
+// `id` = user_id of the doctor account (= doctor_id FK in appointments).
+// `availableSlots` is set at runtime after fetching from /appointments/slots.
+// It is undefined until the user selects a date — not shown until then.
+
 export interface DoctorOption {
-  id:             number;
-  name:           string;
-  specialty:      string;
-  specialization: string;
-  initials:       string;
-  color:          string;
-  is_active:      boolean;
+  id:              number;
+  name:            string;
+  specialty:       string;
+  specialization:  string;
+  initials:        string;
+  color:           string;
+  is_active:       boolean;
+  // Runtime — populated after slot fetch when user picks a date
+  availableSlots?: number;  // undefined = not yet fetched; 0 = fully booked
 }
 
 export const genderOptions: SelectOption[] = [
@@ -63,11 +65,7 @@ export const genderOptions: SelectOption[] = [
 
 export const branchOptions: SelectOption[] = [
   { value: "",            label: "Choose a branch"      },
-  { value: "makati",      label: "Wellcare Makati"      },
-  { value: "bgc",         label: "Wellcare BGC"         },
-  { value: "ortigas",     label: "Wellcare Ortigas"     },
-  { value: "quezon-city", label: "Wellcare Quezon City" },
-  { value: "alabang",     label: "Wellcare Alabang"     },
+  { value: "dasmarinas",  label: "Wellcare Dasmarinas"  },
 ];
 
 export const patientStatusOptions: SelectOption[] = [
@@ -110,9 +108,6 @@ export const TIME_SLOTS: string[] = [
   "3:00 PM",  "3:30 PM",  "4:00 PM",  "4:30 PM",
 ];
 
-// ── Service → Doctor specialty mapping ───────────────────────────────────────
-// Maps each service value to the matching specialty strings in doctor_profiles.
-// null = show all doctors.
 export type Specialty =
   | "Dermatology" | "Psychiatry" | "Pediatrics" | "Internal Medicine"
   | "ENT" | "Surgery" | "Dental" | "Ophthalmology" | "OB-GYN" | "In-House";
@@ -144,6 +139,10 @@ export const REVIEW_LABELS: Record<string, string> = {
   preferredDoctor: "Preferred Doctor",
 };
 
+// ── HMO info banner ───────────────────────────────────────────────────────────
+// Shown in step 3 when HMO is selected.
+export const HMO_NOTICE = "HMO appointments are subject to coverage verification by our HR team before being forwarded to the doctor. You will receive a notification once your HMO is verified.";
+
 // ── Form data ─────────────────────────────────────────────────────────────────
 
 export interface BookingFormData {
@@ -161,8 +160,6 @@ export interface BookingFormData {
   coverage:        string;
   hmo:             string;
   hmoId:           string;
-  // ── CHANGED: was `preferredDoctor: string` (display name) ─────────────────
-  // Now an integer FK (user_id of the doctor). null = "next available".
   doctorId:        number | null;
   additionalInfo:  string;
 }
@@ -182,6 +179,6 @@ export const BOOKING_FORM_DEFAULTS: BookingFormData = {
   coverage:        "",
   hmo:             "",
   hmoId:           "",
-  doctorId:        null,   // ← was preferredDoctor: ""
+  doctorId:        null,
   additionalInfo:  "",
 };

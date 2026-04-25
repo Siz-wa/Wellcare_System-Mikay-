@@ -26,7 +26,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @method void assignRole(string|array $roles)
  * @method void notify(mixed $notification)
  */
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable, HasRoles;
