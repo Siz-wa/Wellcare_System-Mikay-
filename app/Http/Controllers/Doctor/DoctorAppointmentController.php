@@ -12,49 +12,55 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Services\NotificationService;
 
 /**
  * DoctorAppointmentController
  * ──────────────────────────────────────────────────────────────────────────────
  * Manages the doctor's Appointments page — shows requested/confirmed upcoming
- * appointments and allows the doctor to confirm them.
+ * appointments and allows the doctor to confirm or cancel them.
  *
- * Industry practice:
- *   Confirming an appointment is done here (Appointments page), NOT on the
- *   Consultations page. Consultations = active clinical sessions (checked_in,
- *   in_progress, completed). Appointments = scheduled upcoming visits.
- *   Mixing them would force doctors to hunt through active sessions to find
- *   pending requests — a common UX mistake in clinic software.
- *
- * Routes (add inside role:doctor middleware group):
- *   GET  /doctor/appointments                        → index
- *   POST /doctor/appointments/{appointment}/confirm  → confirm
- *   POST /doctor/appointments/{appointment}/cancel   → cancel
+ * FIXES applied:
+ *   1. Index now filters to appointment_date >= today so past-date pending
+ *      appointments no longer appear in the Upcoming section.
+ *   2. authorizeDoctor now allows unassigned appointments (doctor_id = null)
+ *      so doctors can confirm/cancel walk-in or HMO-routed bookings.
  */
 class DoctorAppointmentController extends Controller
 {
     // ── Index ─────────────────────────────────────────────────────────────────
 
-    public function __construct(
-    private readonly NotificationService $notifications,  // ADD THIS
-    ) {}
-
     public function index(Request $request): Response
     {
         $doctorId = Auth::id();
 
-        $upcoming = Appointment::where('doctor_id', $doctorId)
+        // pending_hmo_approval is NOT shown to doctors — it goes to HR first.
+        // Only after HR approves (status → requested) does it appear here.
+        // Unassigned appointments (doctor_id = null) are included so they can
+        // be claimed / confirmed by any available doctor.
+        //
+        // FIX: whereDate('appointment_date', '>=', today()) removes stale past
+        //      appointments that were never actioned from the Upcoming list.
+        $upcoming = Appointment::where(function ($q) use ($doctorId) {
+                $q->where('doctor_id', $doctorId)
+                  ->orWhereNull('doctor_id');
+            })
             ->whereIn('status', ['requested', 'confirmed'])
+            ->whereDate('appointment_date', '>=', today())   // ← ONLY today & future
             ->orderBy('appointment_date')
             ->orderBy('appointment_time')
             ->get()
             ->map(fn (Appointment $a) => $this->mapAppointment($a));
 
-        // Stats for the top cards
+        // Stats (kept without date filter — accurate counts regardless of date)
         $stats = [
-            'pending'   => Appointment::where('doctor_id', $doctorId)->where('status', 'requested')->count(),
-            'confirmed' => Appointment::where('doctor_id', $doctorId)->where('status', 'confirmed')->count(),
+            'pending'   => Appointment::where(fn ($q) => $q->where('doctor_id', $doctorId)->orWhereNull('doctor_id'))
+                ->where('status', 'requested')
+                ->whereDate('appointment_date', '>=', today())
+                ->count(),
+            'confirmed' => Appointment::where(fn ($q) => $q->where('doctor_id', $doctorId)->orWhereNull('doctor_id'))
+                ->where('status', 'confirmed')
+                ->whereDate('appointment_date', '>=', today())
+                ->count(),
             'today'     => Appointment::where('doctor_id', $doctorId)
                 ->whereIn('status', ['confirmed', 'checked_in'])
                 ->whereDate('appointment_date', today())
@@ -77,12 +83,26 @@ class DoctorAppointmentController extends Controller
             return back()->withErrors(['status' => 'Only requested appointments can be confirmed.']);
         }
 
-        $appointment->update(['status' => 'confirmed']);
-        $this->notifications->appointmentConfirmed($appointment);
-
+        // Assign doctor if the appointment was unassigned
+        $appointment->update([
+            'status'    => 'confirmed',
+            'doctor_id' => $appointment->doctor_id ?? Auth::id(),
+        ]);
 
         // Send confirmation email to patient
         Mail::to($appointment->email)->send(new AppointmentConfirmedMail($appointment));
+
+        // Create in-app notification for the patient
+        if ($appointment->user_id) {
+            AppointmentNotification::create([
+                'appointment_id' => $appointment->id,
+                'user_id'        => $appointment->user_id,
+                'type'           => 'confirmed',
+                'subject'        => 'Your appointment has been confirmed',
+                'body'           => "Your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been confirmed by your doctor. Please check in when you arrive at the clinic.",
+                'read'           => false,
+            ]);
+        }
 
         return back()->with('success', "Appointment confirmed. A confirmation email has been sent to {$appointment->email}.");
     }
@@ -106,19 +126,37 @@ class DoctorAppointmentController extends Controller
             'cancellation_reason' => $request->string('reason', 'Cancelled by doctor')->toString(),
             'cancelled_at'        => now(),
         ]);
-        $this->notifications->appointmentCancelled(
-            $appointment,
-            $request->string('reason', '')->toString()
-        );
 
-        return back()->with('success', 'Appointment cancelled.');
+        if ($appointment->user_id) {
+            AppointmentNotification::create([
+                'appointment_id' => $appointment->id,
+                'user_id'        => $appointment->user_id,
+                'type'           => 'cancelled',
+                'subject'        => 'Your appointment has been cancelled',
+                'body'           => "We're sorry, your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been cancelled. Please book a new appointment at your convenience.",
+                'read'           => false,
+            ]);
+        }
+
+        return back()->with('success', 'Appointment cancelled and patient has been notified.');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Allow the action when:
+     *   - The appointment is assigned to this doctor, OR
+     *   - The appointment is unassigned (walk-in / HMO-routed, doctor_id = null)
+     *
+     * This fixes the original bug where confirming an unassigned appointment
+     * would 403 because null !== Auth::id().
+     */
     private function authorizeDoctor(Appointment $appointment): void
     {
-        abort_if($appointment->doctor_id !== Auth::id(), 403);
+        abort_if(
+            $appointment->doctor_id !== null && $appointment->doctor_id !== Auth::id(),
+            403
+        );
     }
 
     private function mapAppointment(Appointment $a): array

@@ -2,17 +2,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Full patient record — demographics, allergy flags, diagnosis history,
 // visit timeline, latest vitals, and document management.
+//
+// TOAST: Every mutating action now shows a local success/error toast so the
+// doctor gets immediate feedback without relying solely on the flash prop.
 
-import type { ReactElement }          from "react";
-import { useState }                   from "react";
-import { router, usePage, Link, useForm } from "@inertiajs/react";
-import { DashboardLayout }            from "../layout/dashboard-layout";
+import type { ReactElement }              from "react";
+import { useState, useCallback, useEffect } from "react";
+import React                               from "react";
+import { router, usePage, Link, useForm }  from "@inertiajs/react";
+import { DashboardLayout }                 from "../layout/dashboard-layout";
 import {
   patientRecordsMeta,
   SEVERITY_CONFIG,
   DIAGNOSIS_STATUS_CONFIG,
   DOC_TYPE_LABEL,
-}                                     from "./patient-records-data";
+}                                          from "./patient-records-data";
 import type {
   Patient,
   PatientProfile,
@@ -21,8 +25,8 @@ import type {
   DocumentRecord,
   VisitRecord,
   LatestVitals,
-}                                     from "./patient-records-data";
-import type { PageProps }             from "@/types";
+}                                          from "./patient-records-data";
+import type { PageProps }                  from "@/types";
 
 // ── Inertia props ─────────────────────────────────────────────────────────────
 
@@ -37,6 +41,76 @@ interface PageData extends PageProps {
 }
 
 type DetailTab = "overview" | "allergies" | "diagnoses" | "visits" | "documents";
+
+// ── Local toast ───────────────────────────────────────────────────────────────
+// Self-contained toast used specifically for useForm callbacks which don't
+// go through the Inertia flash cycle the same way router.post/delete do.
+
+interface ToastState {
+  message: string;
+  type:    "success" | "error";
+  key:     number;
+}
+
+function LocalToast({ toast, onDismiss }: { toast: ToastState; onDismiss: () => void }): ReactElement {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [toast.key]);
+
+  const isSuccess = toast.type === "success";
+  return (
+    <div style={{
+      position:     "fixed",
+      bottom:       "var(--space-6)",
+      right:        "var(--space-6)",
+      zIndex:       9999,
+      padding:      "14px 20px",
+      borderRadius: "14px",
+      background:   isSuccess ? "#f0fdf4" : "#fef2f2",
+      border:       `1px solid ${isSuccess ? "#bbf7d0" : "#fecaca"}`,
+      color:        isSuccess ? "#15803d" : "#b91c1c",
+      fontSize:     "var(--text-sm)",
+      fontWeight:   600,
+      boxShadow:    "0 10px 40px -4px rgba(0,0,0,0.18)",
+      display:      "flex",
+      alignItems:   "center",
+      gap:          "10px",
+      maxWidth:     360,
+      animation:    "slideUp 0.2s ease",
+    }}>
+      {isSuccess ? (
+        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      ) : (
+        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      )}
+      {toast.message}
+      <button
+        onClick={onDismiss}
+        style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "inherit", opacity: 0.6, padding: 0, fontSize: "16px", lineHeight: 1 }}
+      >×</button>
+    </div>
+  );
+}
+
+// ── useToast hook ─────────────────────────────────────────────────────────────
+
+function useToast() {
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const show = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type, key: Date.now() });
+  }, []);
+
+  const dismiss = useCallback(() => setToast(null), []);
+
+  return { toast, show, dismiss };
+}
 
 // ── Section header ────────────────────────────────────────────────────────────
 
@@ -63,92 +137,201 @@ function VitalChip({ label, value, unit }: { label: string; value: string; unit:
   );
 }
 
+// ── Shared field helper ───────────────────────────────────────────────────────
+
+function Field({ error, children }: { error?: string; children: React.ReactNode }): ReactElement {
+  return (
+    <div>
+      {children}
+      {error && (
+        <p style={{ margin: "4px 0 0", fontSize: "10px", fontWeight: 600, color: "var(--wc-error)", display: "flex", alignItems: "center", gap: "4px" }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Add allergy form ──────────────────────────────────────────────────────────
 
-function AddAllergyForm({ patientId, onDone }: { patientId: number; onDone: () => void }): ReactElement {
-  const [form, setForm] = useState({ allergen: "", severity: "moderate", reaction: "", notes: "" });
-  const [busy, setBusy] = useState(false);
+function AddAllergyForm({
+  patientId,
+  onDone,
+  onSuccess,
+  onError,
+}: {
+  patientId: number;
+  onDone:    () => void;
+  onSuccess: (msg: string) => void;
+  onError:   (msg: string) => void;
+}): ReactElement {
+  const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
+    allergen: "",
+    severity: "moderate",
+    reaction: "",
+    notes:    "",
+  });
 
-  function submit(): void {
-    if (!form.allergen.trim()) return;
-    setBusy(true);
-    router.post(`/doctor/patient-records/${patientId}/allergies`, form, {
-      onFinish: () => { setBusy(false); onDone(); },
+  function submit(e: React.FormEvent): void {
+    e.preventDefault();
+    post(`/doctor/patient-records/${patientId}/allergies`, {
+      onSuccess: () => {
+        reset();
+        onDone();
+        onSuccess("Allergy recorded successfully.");
+      },
+      onError: () => onError("Failed to save allergy. Please check the fields."),
     });
   }
 
+  const s = (field: keyof typeof data, value: string) => {
+    setData(field, value);
+    if (errors[field]) clearErrors(field);
+  };
+
   return (
-    <div style={{ padding: "var(--space-5)", borderRadius: "14px", border: "1px solid var(--wc-blue-100)", background: "var(--wc-blue-50)", marginBottom: "var(--space-4)" }}>
+    <form onSubmit={submit} style={{ padding: "var(--space-5)", borderRadius: "14px", border: "1px solid var(--wc-blue-100)", background: "var(--wc-blue-50)", marginBottom: "var(--space-4)" }}>
       <p style={{ margin: "0 0 var(--space-4)", fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--wc-dark)" }}>Add Allergy</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
-        <input className="wc-input" placeholder="Allergen (e.g. Penicillin)*" value={form.allergen} onChange={e => setForm(f => ({ ...f, allergen: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
-        <select className="wc-input wc-select" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} style={{ fontSize: "var(--text-sm)" }}>
-          <option value="mild">Mild</option>
-          <option value="moderate">Moderate</option>
-          <option value="severe">Severe</option>
-        </select>
-        <input className="wc-input" placeholder="Reaction (e.g. Hives)" value={form.reaction} onChange={e => setForm(f => ({ ...f, reaction: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
-        <input className="wc-input" placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
+
+        <Field error={errors.allergen}>
+          <input className={`wc-input${errors.allergen ? " wc-input-error" : ""}`} placeholder="Allergen e.g. Penicillin *" value={data.allergen} onChange={e => s("allergen", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+        </Field>
+
+        <Field error={errors.severity}>
+          <select className={`wc-input wc-select${errors.severity ? " wc-input-error" : ""}`} value={data.severity} onChange={e => s("severity", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }}>
+            <option value="">Select severity *</option>
+            <option value="mild">Mild</option>
+            <option value="moderate">Moderate</option>
+            <option value="severe">Severe</option>
+          </select>
+        </Field>
+
+        <Field error={errors.reaction}>
+          <input className={`wc-input${errors.reaction ? " wc-input-error" : ""}`} placeholder="Reaction e.g. Hives, Anaphylaxis" value={data.reaction} onChange={e => s("reaction", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+        </Field>
+
+        <Field error={errors.notes}>
+          <input className={`wc-input${errors.notes ? " wc-input-error" : ""}`} placeholder="Additional notes (optional)" value={data.notes} onChange={e => s("notes", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+        </Field>
+
       </div>
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
-        <button onClick={submit} disabled={busy} className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill" style={{ opacity: busy ? 0.6 : 1 }}>
-          {busy ? "Saving…" : "Save Allergy"}
+        <button type="submit" disabled={processing} className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill" style={{ opacity: processing ? 0.6 : 1 }}>
+          {processing ? "Saving…" : "Save Allergy"}
         </button>
-        <button onClick={onDone} className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Cancel</button>
+        <button type="button" onClick={onDone} className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Cancel</button>
       </div>
-    </div>
+    </form>
   );
 }
 
 // ── Add diagnosis form ────────────────────────────────────────────────────────
 
-function AddDiagnosisForm({ patientId, onDone }: { patientId: number; onDone: () => void }): ReactElement {
-  const [form, setForm] = useState({ diagnosis: "", icd_code: "", type: "primary", status: "active", diagnosed_at: new Date().toISOString().split("T")[0], notes: "" });
-  const [busy, setBusy] = useState(false);
+function AddDiagnosisForm({
+  patientId,
+  onDone,
+  onSuccess,
+  onError,
+}: {
+  patientId: number;
+  onDone:    () => void;
+  onSuccess: (msg: string) => void;
+  onError:   (msg: string) => void;
+}): ReactElement {
+  const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
+    diagnosis:    "",
+    icd_code:     "",
+    type:         "primary",
+    status:       "active",
+    diagnosed_at: new Date().toISOString().split("T")[0],
+    notes:        "",
+  });
 
-  function submit(): void {
-    if (!form.diagnosis.trim()) return;
-    setBusy(true);
-    router.post(`/doctor/patient-records/${patientId}/diagnoses`, form, {
-      onFinish: () => { setBusy(false); onDone(); },
+  function submit(e: React.FormEvent): void {
+    e.preventDefault();
+    post(`/doctor/patient-records/${patientId}/diagnoses`, {
+      onSuccess: () => {
+        reset();
+        onDone();
+        onSuccess("Diagnosis recorded successfully.");
+      },
+      onError: () => onError("Failed to save diagnosis. Please check the fields."),
     });
   }
 
+  const s = (field: keyof typeof data, value: string) => {
+    setData(field, value);
+    if (errors[field]) clearErrors(field);
+  };
+
   return (
-    <div style={{ padding: "var(--space-5)", borderRadius: "14px", border: "1px solid var(--wc-blue-100)", background: "var(--wc-blue-50)", marginBottom: "var(--space-4)" }}>
+    <form onSubmit={submit} style={{ padding: "var(--space-5)", borderRadius: "14px", border: "1px solid var(--wc-blue-100)", background: "var(--wc-blue-50)", marginBottom: "var(--space-4)" }}>
       <p style={{ margin: "0 0 var(--space-4)", fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--wc-dark)" }}>Add Diagnosis</p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
-        <input className="wc-input" placeholder="Diagnosis*" value={form.diagnosis} onChange={e => setForm(f => ({ ...f, diagnosis: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
-        <input className="wc-input" placeholder="ICD Code (e.g. J06.9)" value={form.icd_code} onChange={e => setForm(f => ({ ...f, icd_code: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
-        <select className="wc-input wc-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ fontSize: "var(--text-sm)" }}>
-          <option value="primary">Primary</option>
-          <option value="secondary">Secondary</option>
-          <option value="chronic">Chronic</option>
-        </select>
-        <select className="wc-input wc-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ fontSize: "var(--text-sm)" }}>
-          <option value="active">Active</option>
-          <option value="chronic">Chronic</option>
-          <option value="resolved">Resolved</option>
-        </select>
-        <input className="wc-input" type="date" value={form.diagnosed_at} onChange={e => setForm(f => ({ ...f, diagnosed_at: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
-        <input className="wc-input" placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ fontSize: "var(--text-sm)" }} />
+
+        <Field error={errors.diagnosis}>
+          <input className={`wc-input${errors.diagnosis ? " wc-input-error" : ""}`} placeholder="Diagnosis name *" value={data.diagnosis} onChange={e => s("diagnosis", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+        </Field>
+
+        <Field error={errors.icd_code}>
+          <input className={`wc-input${errors.icd_code ? " wc-input-error" : ""}`} placeholder="ICD-10 Code e.g. J06.9 (optional)" value={data.icd_code} onChange={e => s("icd_code", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+        </Field>
+
+        <Field error={errors.type}>
+          <select className={`wc-input wc-select${errors.type ? " wc-input-error" : ""}`} value={data.type} onChange={e => s("type", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }}>
+            <option value="">Select type *</option>
+            <option value="primary">Primary</option>
+            <option value="secondary">Secondary</option>
+            <option value="chronic">Chronic</option>
+          </select>
+        </Field>
+
+        <Field error={errors.status}>
+          <select className={`wc-input wc-select${errors.status ? " wc-input-error" : ""}`} value={data.status} onChange={e => s("status", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }}>
+            <option value="">Select status *</option>
+            <option value="active">Active</option>
+            <option value="chronic">Chronic</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </Field>
+
+        <Field error={errors.diagnosed_at}>
+          <div>
+            <label style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "var(--wc-gray-400)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
+              Date diagnosed *
+            </label>
+            <input type="date" className={`wc-input${errors.diagnosed_at ? " wc-input-error" : ""}`} value={data.diagnosed_at} max={new Date().toISOString().split("T")[0]} onChange={e => s("diagnosed_at", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+          </div>
+        </Field>
+
+        <Field error={errors.notes}>
+          <input className={`wc-input${errors.notes ? " wc-input-error" : ""}`} placeholder="Additional notes (optional)" value={data.notes} onChange={e => s("notes", e.target.value)} style={{ fontSize: "var(--text-sm)", width: "100%" }} />
+        </Field>
+
       </div>
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
-        <button onClick={submit} disabled={busy} className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill" style={{ opacity: busy ? 0.6 : 1 }}>
-          {busy ? "Saving…" : "Save Diagnosis"}
+        <button type="submit" disabled={processing} className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill" style={{ opacity: processing ? 0.6 : 1 }}>
+          {processing ? "Saving…" : "Save Diagnosis"}
         </button>
-        <button onClick={onDone} className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Cancel</button>
+        <button type="button" onClick={onDone} className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Cancel</button>
       </div>
-    </div>
+    </form>
   );
 }
 
 // ── Document upload form ──────────────────────────────────────────────────────
 
-
-// ── Document upload form ──────────────────────────────────────────────────────
-
-function DocumentUploadForm({ patientId }: { patientId: number }): ReactElement {
+function DocumentUploadForm({
+  patientId,
+  onSuccess,
+  onError,
+}: {
+  patientId: number;
+  onSuccess: (msg: string) => void;
+  onError:   (msg: string) => void;
+}): ReactElement {
   const { data, setData, post, processing, reset, errors } = useForm<{
     title: string;
     type:  string;
@@ -159,7 +342,11 @@ function DocumentUploadForm({ patientId }: { patientId: number }): ReactElement 
     e.preventDefault();
     post(`/doctor/patient-records/${patientId}/documents`, {
       forceFormData: true,
-      onSuccess: () => reset(),
+      onSuccess: () => {
+        reset();
+        onSuccess("Document uploaded successfully.");
+      },
+      onError: () => onError("Upload failed. Please check the file and try again."),
     });
   }
 
@@ -177,7 +364,7 @@ function DocumentUploadForm({ patientId }: { patientId: number }): ReactElement 
       <div>
         <input
           className={`wc-input${errors.title ? " wc-input-error" : ""}`}
-          placeholder="Document title*"
+          placeholder="Document title *"
           value={data.title}
           onChange={e => setData("title", e.target.value)}
           style={{ fontSize: "var(--text-sm)", width: "100%" }}
@@ -205,7 +392,7 @@ function DocumentUploadForm({ patientId }: { patientId: number }): ReactElement 
         type="submit"
         disabled={processing || !data.title || !data.type || !data.file}
         className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
-        style={{ opacity: processing ? 0.6 : 1 }}
+        style={{ opacity: (processing || !data.title || !data.type || !data.file) ? 0.6 : 1 }}
       >
         {processing ? "Uploading…" : "Upload"}
       </button>
@@ -226,37 +413,59 @@ function DocumentUploadForm({ patientId }: { patientId: number }): ReactElement 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PatientRecordDetail(): ReactElement {
-  const { props }             = usePage<PageData>();
+  const { props } = usePage<PageData>();
   const { patient, profile, allergies, diagnoses, documents, visits, latestVitals } = props;
 
-  const [tab,          setTab]          = useState<DetailTab>("overview");
-  const [showAddAllergy,  setShowAddAllergy]  = useState(false);
+  const [tab,              setTab]              = useState<DetailTab>("overview");
+  const [showAddAllergy,   setShowAddAllergy]   = useState(false);
   const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
 
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
+
   const tabs: { key: DetailTab; label: string }[] = [
-    { key: "overview",   label: "Overview"   },
-    { key: "allergies",  label: `Allergies ${allergies.length > 0 ? `(${allergies.length})` : ""}` },
-    { key: "diagnoses",  label: "Diagnoses"  },
-    { key: "visits",     label: "Visit History" },
-    { key: "documents",  label: "Documents"  },
+    { key: "overview",  label: "Overview"   },
+    { key: "allergies", label: `Allergies${allergies.length > 0 ? ` (${allergies.length})` : ""}` },
+    { key: "diagnoses", label: "Diagnoses"  },
+    { key: "visits",    label: "Visit History" },
+    { key: "documents", label: "Documents"  },
   ];
 
+  // ── Delete handlers — use preserveScroll so the page doesn't jump,
+  //    and show toast on success/error via router callbacks.
+
   function deleteAllergy(id: number): void {
-    if (confirm("Remove this allergy record?")) {
-      router.delete(`/doctor/patient-records/allergies/${id}`);
-    }
+    if (!confirm("Remove this allergy record?")) return;
+    router.delete(`/doctor/patient-records/allergies/${id}`, {
+      preserveScroll: true,
+      onSuccess: () => showToast("Allergy record removed."),
+      onError:   () => showToast("Failed to remove allergy.", "error"),
+    });
   }
 
   function deleteDiagnosis(id: number): void {
-    if (confirm("Are you sure?")) {
-      router.delete(`/doctor/patient-records/diagnoses/${id}`);
-    }
+    if (!confirm("Remove this diagnosis?")) return;
+    router.delete(`/doctor/patient-records/diagnoses/${id}`, {
+      preserveScroll: true,
+      onSuccess: () => showToast("Diagnosis removed."),
+      onError:   () => showToast("Failed to remove diagnosis.", "error"),
+    });
+  }
+
+  function markDiagnosisResolved(id: number): void {
+    router.patch(`/doctor/patient-records/diagnoses/${id}`, { status: "resolved" }, {
+      preserveScroll: true,
+      onSuccess: () => showToast("Diagnosis marked as resolved."),
+      onError:   () => showToast("Failed to update diagnosis.", "error"),
+    });
   }
 
   function deleteDocument(id: number): void {
-    if (confirm("Delete this document? This cannot be undone.")) {
-      router.delete(`/doctor/patient-records/documents/${id}`);
-    }
+    if (!confirm("Delete this document? This cannot be undone.")) return;
+    router.delete(`/doctor/patient-records/documents/${id}`, {
+      preserveScroll: true,
+      onSuccess: () => showToast("Document deleted."),
+      onError:   () => showToast("Failed to delete document.", "error"),
+    });
   }
 
   return (
@@ -270,7 +479,6 @@ export default function PatientRecordDetail(): ReactElement {
         </Link>
 
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-          {/* Avatar */}
           <div style={{ width: 56, height: 56, borderRadius: "16px", background: "var(--wc-blue-600)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-lg)", fontWeight: 800, flexShrink: 0 }}>
             {patient.initials}
           </div>
@@ -288,7 +496,7 @@ export default function PatientRecordDetail(): ReactElement {
             <p style={{ margin: "3px 0 0", fontSize: "var(--text-sm)", color: "var(--wc-gray-400)" }}>
               {patient.patientId} · {patient.email}
               {profile?.birthdate && ` · Born ${profile.birthdate}`}
-              {profile?.gender && ` · ${profile.gender}`}
+              {profile?.gender    && ` · ${profile.gender}`}
             </p>
           </div>
         </div>
@@ -325,11 +533,11 @@ export default function PatientRecordDetail(): ReactElement {
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                 {[
                   { label: "Full Name",    value: `${profile.firstName} ${profile.lastName}` },
-                  { label: "Birthdate",    value: profile.birthdate  ?? "—" },
-                  { label: "Gender",       value: profile.gender     ?? "—" },
-                  { label: "Civil Status", value: profile.civilStatus ?? "—" },
+                  { label: "Birthdate",    value: profile.birthdate     ?? "—" },
+                  { label: "Gender",       value: profile.gender        ?? "—" },
+                  { label: "Civil Status", value: profile.civilStatus   ?? "—" },
                   { label: "Contact",      value: profile.contactNumber ?? "—" },
-                  { label: "Address",      value: profile.address    ?? "—" },
+                  { label: "Address",      value: profile.address       ?? "—" },
                 ].map(row => (
                   <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "var(--space-2) 0", borderBottom: "1px solid var(--wc-gray-100)" }}>
                     <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--wc-gray-400)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{row.label}</span>
@@ -359,7 +567,7 @@ export default function PatientRecordDetail(): ReactElement {
             )}
           </div>
 
-          {/* Allergy summary — full width if allergies exist */}
+          {/* Allergy summary */}
           {allergies.length > 0 && (
             <div className="wc-card" style={{ padding: "var(--space-5)", gridColumn: "1 / -1", borderLeft: "4px solid #ef4444" }}>
               <SectionHeader title="⚠ Known Allergies" />
@@ -401,8 +609,14 @@ export default function PatientRecordDetail(): ReactElement {
       {tab === "allergies" && (
         <div>
           {showAddAllergy
-            ? <AddAllergyForm patientId={patient.id} onDone={() => setShowAddAllergy(false)} />
-            : (
+            ? (
+              <AddAllergyForm
+                patientId={patient.id}
+                onDone={() => setShowAddAllergy(false)}
+                onSuccess={msg => showToast(msg)}
+                onError={msg => showToast(msg, "error")}
+              />
+            ) : (
               <div style={{ marginBottom: "var(--space-4)" }}>
                 <button onClick={() => setShowAddAllergy(true)} className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill">
                   + Add Allergy
@@ -428,7 +642,10 @@ export default function PatientRecordDetail(): ReactElement {
                         {a.notes    && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--wc-gray-400)" }}>{a.notes}</p>}
                       </div>
                     </div>
-                    <button onClick={() => deleteAllergy(a.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--wc-error)", fontSize: "var(--text-xs)", fontWeight: 700 }}>
+                    <button
+                      onClick={() => deleteAllergy(a.id)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--wc-error)", fontSize: "var(--text-xs)", fontWeight: 700 }}
+                    >
                       Remove
                     </button>
                   </div>
@@ -443,8 +660,14 @@ export default function PatientRecordDetail(): ReactElement {
       {tab === "diagnoses" && (
         <div>
           {showAddDiagnosis
-            ? <AddDiagnosisForm patientId={patient.id} onDone={() => setShowAddDiagnosis(false)} />
-            : (
+            ? (
+              <AddDiagnosisForm
+                patientId={patient.id}
+                onDone={() => setShowAddDiagnosis(false)}
+                onSuccess={msg => showToast(msg)}
+                onError={msg => showToast(msg, "error")}
+              />
+            ) : (
               <div style={{ marginBottom: "var(--space-4)" }}>
                 <button onClick={() => setShowAddDiagnosis(true)} className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill">
                   + Add Diagnosis
@@ -481,13 +704,16 @@ export default function PatientRecordDetail(): ReactElement {
                         <td style={{ padding: "var(--space-4) var(--space-5)", textAlign: "right" }}>
                           {d.status !== "resolved" && (
                             <button
-                              onClick={() => router.patch(`/doctor/patient-records/diagnoses/${d.id}`, { status: "resolved" })}
+                              onClick={() => markDiagnosisResolved(d.id)}
                               style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", fontWeight: 700, color: "#16a34a", marginRight: "var(--space-3)" }}
                             >
                               Mark Resolved
                             </button>
                           )}
-                          <button onClick={() => deleteDiagnosis(d.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--wc-error)" }}>
+                          <button
+                            onClick={() => deleteDiagnosis(d.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--wc-error)" }}
+                          >
                             Remove
                           </button>
                         </td>
@@ -546,7 +772,11 @@ export default function PatientRecordDetail(): ReactElement {
             <p style={{ margin: "0 0 var(--space-4)", fontSize: "var(--text-sm)", color: "var(--wc-gray-500)" }}>
               Upload lab results, imaging, referral letters, or any other medical documents.
             </p>
-            <DocumentUploadForm patientId={patient.id} />
+            <DocumentUploadForm
+              patientId={patient.id}
+              onSuccess={msg => showToast(msg)}
+              onError={msg => showToast(msg, "error")}
+            />
           </div>
 
           {documents.length === 0 ? (
@@ -580,6 +810,10 @@ export default function PatientRecordDetail(): ReactElement {
           )}
         </div>
       )}
+
+      {/* ── Local toast — shown for all record management actions ── */}
+      {toast && <LocalToast toast={toast} onDismiss={dismissToast} />}
+
     </DashboardLayout>
   );
 }

@@ -32,6 +32,37 @@ class BookingService
         });
     }
 
+    /**
+     * Returns true if the doctor has ANY availability blocks configured for
+     * the given date (either a specific-date block or a weekly recurring block).
+     *
+     * Used by doctorAvailability to distinguish:
+     *   - No schedule configured  → don't show "Fully Booked"
+     *   - Has schedule, all taken → show "Fully Booked"
+     */
+    public function hasSchedule(int $doctorId, string $date): bool
+    {
+        $carbon    = Carbon::parse($date);
+        // MySQL DAYOFWEEK convention: 1=Sun, 2=Mon, ..., 6=Fri, 7=Sat
+        // Carbon dayOfWeek:           0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+        // Add +1 to convert Carbon to MySQL convention so DB lookups match.
+        $dayOfWeek = $carbon->dayOfWeek + 1;
+        $dateStr   = $carbon->toDateString();
+
+        // Check specific-date blocks first
+        $specific = AvailabilityBlock::where('doctor_id', $doctorId)
+            ->where('specific_date', $dateStr)
+            ->exists();
+
+        if ($specific) return true;
+
+        // Fall back to weekly recurring blocks
+        return AvailabilityBlock::where('doctor_id', $doctorId)
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_available', true)
+            ->exists();
+    }
+
     public function bookSlot(array $validated): Appointment
     {
         $requestedAt = Carbon::parse(
@@ -107,7 +138,11 @@ class BookingService
                 'hmo'              => $validated['hmo']            ?? null,
                 'hmo_id'           => $validated['hmo_id']         ?? null,
                 'additional_info'  => $validated['additional_info'] ?? null,
-                'status'           => 'requested',
+                // HMO appointments go to HR/HMO Officer first for coverage verification.
+                // Cash/PhilHealth go directly to the doctor's queue.
+                'status'           => ($validated['coverage'] === 'hmo')
+                    ? 'pending_hmo_approval'
+                    : 'requested',
                 'hold_expires_at'  => now()->addMinutes(self::HOLD_MINUTES),
             ]);
 
@@ -120,7 +155,7 @@ class BookingService
 
     public function cancelAppointment(Appointment $appointment, string $reason): Appointment
     {
-        if (! in_array($appointment->status, ['requested', 'confirmed'], true)) {
+        if (! in_array($appointment->status, ['pending_hmo_approval', 'requested', 'confirmed'], true)) {
             throw new \LogicException("Cannot cancel an appointment in '{$appointment->status}' state.");
         }
 
@@ -163,7 +198,8 @@ class BookingService
 
     private function getAvailabilityBlocksForDate(int $doctorId, Carbon $date): Collection
     {
-        $dayOfWeek = $date->dayOfWeek;
+        // MySQL DAYOFWEEK convention: 1=Sun...6=Fri...7=Sat (Carbon is 0-6)
+        $dayOfWeek = $date->dayOfWeek + 1;
         $dateStr   = $date->toDateString();
 
         $specificBlocks = AvailabilityBlock::where('doctor_id', $doctorId)

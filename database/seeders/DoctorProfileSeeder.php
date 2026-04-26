@@ -38,7 +38,7 @@ final class DoctorProfileSeeder extends Seeder
             $user = User::firstOrCreate(
                 ['email' => $email],
                 [
-                    'password'          => Hash::make(\Illuminate\Support\Str::random(32)),
+                    'password'          => Hash::make('password123'),
                     'email_verified_at' => now(),
                 ]
             );

@@ -1,18 +1,16 @@
 // resources/js/pages/doctor/dashboard/consultations/consultations.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Changes from mockup version:
-//   - Receives `consultations` and `filters` from Inertia props (DB-driven)
-//   - Search filter uses Inertia router to send server-side query
-//   - "Start New Session" opens the SessionEditor with the selected patient
-//   - No hardcoded recentConsultations array
+// TOAST CHANGES:
+//   - Added LocalToast + useToast hook (same pattern as patient-record-detail)
+//   - SessionEditor receives onSaveSuccess and onFinalizeSuccess callbacks
+//   - Both callbacks trigger the local toast so the doctor sees feedback
+//     even though the editor modal sits on top of the flash layer
 
 import { useState, useCallback }  from "react";
 import type { ReactElement }       from "react";
 import { router, usePage }         from "@inertiajs/react";
 import { DashboardLayout }         from "../layout/dashboard-layout";
-import {
-  consultationsMeta,
-}                                  from "./consultations-data";
+import { consultationsMeta }       from "./consultations-data";
 import type {
   ConsultationRecord,
   ConsultationFilters,
@@ -21,6 +19,7 @@ import { ConsultationsTable }      from "./components/consultation-table";
 import { SessionEditor }           from "./session-editor/session-editor";
 import { ConsultationDetailModal } from "./components/consultation-detail-modal";
 import type { PageProps }          from "@/types";
+import { useEffect }               from "react";
 
 // ── Inertia page props ────────────────────────────────────────────────────────
 
@@ -29,14 +28,87 @@ interface ConsultationsPageProps extends PageProps {
   filters:       ConsultationFilters;
 }
 
+// ── Local toast (same lightweight pattern as patient-record-detail) ────────────
+
+interface ToastState {
+  message: string;
+  type:    "success" | "error";
+  key:     number;
+}
+
+function LocalToast({ toast, onDismiss }: { toast: ToastState; onDismiss: () => void }): ReactElement {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [toast.key]);
+
+  const isSuccess = toast.type === "success";
+  return (
+    <div style={{
+      position:     "fixed",
+      bottom:       "var(--space-6)",
+      right:        "var(--space-6)",
+      zIndex:       99999,
+      padding:      "14px 20px",
+      borderRadius: "14px",
+      background:   isSuccess ? "#f0fdf4" : "#fef2f2",
+      border:       `1px solid ${isSuccess ? "#bbf7d0" : "#fecaca"}`,
+      color:        isSuccess ? "#15803d" : "#b91c1c",
+      fontSize:     "var(--text-sm)",
+      fontWeight:   600,
+      boxShadow:    "0 10px 40px -4px rgba(0,0,0,0.18)",
+      display:      "flex",
+      alignItems:   "center",
+      gap:          "10px",
+      maxWidth:     360,
+      animation:    "slideUp 0.2s ease",
+    }}>
+      {isSuccess ? (
+        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      ) : (
+        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      )}
+      {toast.message}
+      <button
+        onClick={onDismiss}
+        style={{
+          marginLeft: "auto", background: "none", border: "none",
+          cursor: "pointer", color: "inherit", opacity: 0.6,
+          padding: 0, fontSize: "16px", lineHeight: 1,
+        }}
+      >×</button>
+    </div>
+  );
+}
+
+function useToast() {
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const show    = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type, key: Date.now() });
+  }, []);
+  const dismiss = useCallback(() => setToast(null), []);
+  return { toast, show, dismiss };
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function ConsultationsPage(): ReactElement {
-  const { props }  = usePage<ConsultationsPageProps>();
-  const meta       = consultationsMeta;
+  const { props } = usePage<ConsultationsPageProps>();
+  const meta      = consultationsMeta;
 
   const [editorOpen,           setEditorOpen]           = useState(false);
   const [editorConsultation,   setEditorConsultation]   = useState<ConsultationRecord | null>(null);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationRecord | null>(null);
   const [search,               setSearch]               = useState(props.filters.search ?? "");
+
+  const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   // ── Server-side search ────────────────────────────────────────────────────
 
@@ -68,7 +140,7 @@ export default function ConsultationsPage(): ReactElement {
   return (
     <DashboardLayout activeId="consultations">
 
-      {/* ── Page header ─────────────────────────────────────────────────────── */}
+      {/* ── Page header ── */}
       <div style={{
         display:        "flex",
         alignItems:     "flex-start",
@@ -112,17 +184,18 @@ export default function ConsultationsPage(): ReactElement {
             letterSpacing: "-0.01em",
             transition:    "background 0.15s ease",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#133686"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#0056b3"; }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#133686"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#0056b3"; }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           {meta.startSessionLabel}
         </button>
       </div>
 
-      {/* ── Search bar ──────────────────────────────────────────────────────── */}
+      {/* ── Search + filter bar ── */}
       <div style={{
         display:      "flex",
         alignItems:   "center",
@@ -136,7 +209,8 @@ export default function ConsultationsPage(): ReactElement {
       }}>
         <span style={{ color: "var(--wc-gray-400)", display: "flex", flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
         </span>
 
@@ -144,7 +218,7 @@ export default function ConsultationsPage(): ReactElement {
           type="text"
           placeholder={meta.searchPlaceholder}
           value={search}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={e => handleSearch(e.target.value)}
           style={{
             flex:       1,
             border:     "none",
@@ -158,8 +232,8 @@ export default function ConsultationsPage(): ReactElement {
 
         {/* Status filter pills */}
         <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
-          {["", "in_progress", "checked_in", "completed"].map((s) => {
-            const label = s === "" ? "All" : s === "in_progress" ? "In Progress" : s === "checked_in" ? "Checked In" : "Completed";
+          {["", "in_progress", "checked_in", "completed"].map(s => {
+            const label  = s === "" ? "All" : s === "in_progress" ? "In Progress" : s === "checked_in" ? "Checked In" : "Completed";
             const active = (props.filters.status ?? "") === s;
             return (
               <button
@@ -167,15 +241,15 @@ export default function ConsultationsPage(): ReactElement {
                 type="button"
                 onClick={() => router.get(window.location.pathname, { search, status: s }, { preserveState: true, replace: true })}
                 style={{
-                  fontSize:      "var(--text-xs)",
-                  fontWeight:    700,
-                  padding:       "4px 12px",
-                  borderRadius:  "var(--radius-full)",
-                  border:        `1px solid ${active ? "var(--wc-blue-600)" : "var(--wc-gray-200)"}`,
-                  background:    active ? "var(--wc-blue-600)" : "transparent",
-                  color:         active ? "#fff" : "var(--wc-gray-500)",
-                  cursor:        "pointer",
-                  transition:    "all 0.15s ease",
+                  fontSize:     "var(--text-xs)",
+                  fontWeight:   700,
+                  padding:      "4px 12px",
+                  borderRadius: "var(--radius-full)",
+                  border:       `1px solid ${active ? "var(--wc-blue-600)" : "var(--wc-gray-200)"}`,
+                  background:   active ? "var(--wc-blue-600)" : "transparent",
+                  color:        active ? "#fff" : "var(--wc-gray-500)",
+                  cursor:       "pointer",
+                  transition:   "all 0.15s ease",
                 }}
               >
                 {label}
@@ -185,22 +259,24 @@ export default function ConsultationsPage(): ReactElement {
         </div>
       </div>
 
-      {/* ── Consultations table ──────────────────────────────────────────────── */}
+      {/* ── Consultations table ── */}
       <ConsultationsTable
         records={props.consultations}
         onViewSummary={handleViewSummary}
         onStartSession={handleOpenEditor}
       />
 
-      {/* Session editor modal */}
+      {/* ── Session editor modal ── */}
       {editorOpen && (
         <SessionEditor
           consultation={editorConsultation}
           onClose={handleCloseEditor}
+          onSaveSuccess={() => showToast("Draft saved successfully.")}
+          onFinalizeSuccess={() => showToast("Consultation finalized successfully.")}
         />
       )}
 
-      {/* Detail modal — passes full session data (SOAP, vitals, prescriptions) */}
+      {/* ── Detail modal ── */}
       {selectedConsultation && (
         <ConsultationDetailModal
           consultation={{
@@ -216,6 +292,9 @@ export default function ConsultationsPage(): ReactElement {
           onClose={() => setSelectedConsultation(null)}
         />
       )}
+
+      {/* ── Local toast — shown for save draft + finalize ── */}
+      {toast && <LocalToast toast={toast} onDismiss={dismissToast} />}
 
     </DashboardLayout>
   );

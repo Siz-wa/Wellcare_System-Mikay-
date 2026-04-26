@@ -1,193 +1,515 @@
-// resources/js/pages/generals/book-appointment/sections/step-coverage.tsx
+// resources/js/pages/user/book-appointment/sections/step-coverage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Changes from previous version:
-//   - Receives `doctors: DoctorOption[]` as a prop (from Inertia page prop)
-//     instead of importing the hardcoded doctorsData array.
-//   - `data.doctorId` (number | null) replaces `data.preferredDoctor` (string).
-//   - DoctorPicker now receives `value: number | null` and calls back with
-//     the doctor's numeric id, not their display name.
-//   - Filtering still uses SERVICE_TO_SPECIALTIES but matches against the
-//     `specialty` field on DoctorOption (same string values as doctorsData).
+// Step 3: Coverage, Doctor & Time
+//
+// Flow: pick coverage → pick doctor → time slots appear inline below the doctor
+// grid when the selected doctor has availability on the chosen date.
+// If no availability → warning shown instead of slots.
 
-import type { ReactElement }                          from "react";
-import { useMemo }                                    from "react";
+import type { ReactElement }                                  from "react";
+import { useMemo, useEffect, useState }                       from "react";
 import type { BookingFormData, CoverageOption, DoctorOption } from "./bookingdata";
 import {
-  coverageOptions,
-  hmoOptions,
-  STEP_HEADINGS,
-  SERVICE_TO_SPECIALTIES,
-}                                                     from "./bookingdata";
-import { Field, ToggleCard, StepNav, DoctorPicker }   from "../components";
-import { sanitizeHmoId, makePasteHandler }            from "../utils/sanitizers";
-import type { Step3Errors }                           from "@/hooks/use-step-validators";
+  coverageOptions, hmoOptions,
+  STEP_HEADINGS, SERVICE_TO_SPECIALTIES, HMO_NOTICE,
+}                                                             from "./bookingdata";
+import { sanitizeHmoId, makePasteHandler }                    from "../utils/sanitizers";
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+const HMO_MAX = 20;
 
 interface StepCoverageProps {
   data:    BookingFormData;
-  errors:  Step3Errors;
+  errors:  Record<string, string | undefined>;
   setData: <K extends keyof BookingFormData>(field: K, value: BookingFormData[K]) => void;
   valid:   boolean;
   onNext:  () => void;
   onBack:  () => void;
-  /** Active doctors fetched from the DB, passed down from the Inertia page prop */
   doctors: DoctorOption[];
 }
-
-const HMO_MAX = 20;
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function StepCoverage({
   data, errors, setData, valid, onNext, onBack, doctors,
 }: StepCoverageProps): ReactElement {
   const { title, subtitle } = STEP_HEADINGS[3];
 
-  // ── Filter doctors by the service chosen in Step 2 ────────────────────────
+  // Doctor grid filter + pagination
+  const [docSearch,       setDocSearch]       = useState("");
+  const [specialtyFilter, setSpecialtyFilter] = useState("all");
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const DOCS_PER_PAGE = 9;
+
+  // Per-doctor badge map: doctorId → available slot count (null = no schedule)
+  const [availability,     setAvailability]     = useState<Record<number, number | null>>({});
+  const [loadingAvail,     setLoadingAvail]      = useState(false);
+
+  // Slots for the selected doctor
+  const [doctorSlots,      setDoctorSlots]       = useState<string[]>([]);
+  const [slotsLoading,     setSlotsLoading]      = useState(false);
+  const [doctorHasSchedule, setDoctorHasSchedule] = useState<boolean | null>(null);
+
+  // 1. Fetch per-doctor slot counts whenever date changes (drives badge display)
+  useEffect(() => {
+    if (!data.appointmentDate) { setAvailability({}); return; }
+    setLoadingAvail(true);
+    fetch(`/appointments/doctor-availability?date=${data.appointmentDate}`)
+      .then(r => r.json())
+      .then(d => {
+        const map: Record<number, number | null> = {};
+        for (const [id, info] of Object.entries(d.availability ?? {})) {
+          const i = info as any;
+          map[Number(id)] = i.no_schedule ? null : (i.available_slots ?? 0);
+        }
+        setAvailability(map);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAvail(false));
+  }, [data.appointmentDate]);
+
+  // 2. Fetch actual slot list when a doctor is selected (drives inline time picker)
+  useEffect(() => {
+    if (!data.doctorId || !data.appointmentDate) {
+      setDoctorSlots([]);
+      setDoctorHasSchedule(null);
+      setData("appointmentTime", "");
+      return;
+    }
+    setSlotsLoading(true);
+    fetch(`/appointments/slots?doctor_id=${data.doctorId}&date=${data.appointmentDate}`)
+      .then(r => r.json())
+      .then(d => {
+        setDoctorSlots(d.slots ?? []);
+        setDoctorHasSchedule(d.has_schedule === true);
+        // Clear previously chosen time if it's no longer available
+        if (data.appointmentTime && !(d.slots ?? []).includes(data.appointmentTime)) {
+          setData("appointmentTime", "");
+        }
+      })
+      .catch(() => { setDoctorSlots([]); setDoctorHasSchedule(null); })
+      .finally(() => setSlotsLoading(false));
+  }, [data.doctorId, data.appointmentDate]);
+
+  // Warning states — only after fetch completes
+  const hasFetched      = data.doctorId !== null && data.appointmentDate !== "" && !slotsLoading && doctorHasSchedule !== null;
+  const doctorNoSchedule   = hasFetched && doctorHasSchedule === false;
+  const doctorFullyBooked  = hasFetched && doctorHasSchedule === true && doctorSlots.length === 0;
+  const showSlots          = hasFetched && doctorHasSchedule === true && doctorSlots.length > 0;
+
+  // All unique specialties across active doctors for the filter dropdown
+  const allSpecialties = useMemo(
+    () => [...new Set(doctors.map(d => d.specialty).filter(Boolean))].sort(),
+    [doctors]
+  );
+
+  // Filter by service restriction first, then by user-selected specialty + search
   const filteredDoctors = useMemo<DoctorOption[]>(() => {
-    const specialties = SERVICE_TO_SPECIALTIES[data.service] ?? null;
+    const serviceSpecialties = SERVICE_TO_SPECIALTIES[data.service] ?? null;
+    let list = serviceSpecialties
+      ? doctors.filter(d => serviceSpecialties.includes(d.specialty as any) || d.specialty === "In-House")
+      : doctors;
 
-    if (!specialties) return doctors;   // null = show all
+    if (specialtyFilter !== "all") {
+      list = list.filter(d => d.specialty === specialtyFilter);
+    }
 
-    return doctors.filter(
-      (d) =>
-        specialties.includes(d.specialty as (typeof specialties)[number]) ||
-        d.specialty === "In-House"
-    );
-  }, [data.service, doctors]);
+    if (docSearch.trim()) {
+      const q = docSearch.toLowerCase();
+      list = list.filter(d =>
+        d.name.toLowerCase().includes(q) || d.specialty.toLowerCase().includes(q)
+      );
+    }
 
-  const serviceLabel = filteredDoctors.length < doctors.length
-    ? `Showing ${filteredDoctors.length} doctor${filteredDoctors.length !== 1 ? "s" : ""} for your selected service`
-    : "Optional — search our roster or leave blank for next available.";
+    return list;
+  }, [data.service, doctors, specialtyFilter, docSearch]);
+
+  // Paginate
+  const totalPages   = Math.max(1, Math.ceil(filteredDoctors.length / DOCS_PER_PAGE));
+  const safePage     = Math.min(currentPage, totalPages);
+  const pagedDoctors = filteredDoctors.slice((safePage - 1) * DOCS_PER_PAGE, safePage * DOCS_PER_PAGE);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setCurrentPage(1); }, [docSearch, specialtyFilter, data.service]);
 
   const handleCoverageChange = (value: string) => {
     setData("coverage", value);
-    if (value !== "hmo") {
-      setData("hmo",   "");
-      setData("hmoId", "");
-    }
+    if (value !== "hmo") { setData("hmo", ""); setData("hmoId", ""); }
   };
 
-  // If the previously selected doctor is no longer in the filtered list, clear.
-  // (Happens when user goes back and changes service.)
-  const doctorIsValid =
-    data.doctorId === null ||
-    filteredDoctors.some((d) => d.id === data.doctorId);
+  const handleDoctorSelect = (id: number | null) => {
+    setData("doctorId", id);
+    setData("appointmentTime", "");
+  };
 
-  if (!doctorIsValid) {
-    setData("doctorId", null);
-  }
+  // Clear doctor if filtered out
+  const doctorIsValid = data.doctorId === null || filteredDoctors.some(d => d.id === data.doctorId);
+  if (!doctorIsValid) handleDoctorSelect(null);
 
   return (
     <div>
       <div style={{ marginBottom: "var(--space-8)" }}>
-        <span className="wc-label" style={{ color: "var(--wc-sky-500)", display: "block", marginBottom: "var(--space-2)" }}>
+        <span style={{ color: "var(--wc-blue-600)", display: "block", marginBottom: "var(--space-2)", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
           Step 3 of 4
         </span>
-        <h2 style={{ marginBottom: "var(--space-1)" }}>{title}</h2>
-        <p style={{ margin: 0 }}>{subtitle}</p>
+        <h2 style={{ margin: "0 0 4px", fontSize: "var(--text-3xl)", fontWeight: 800, color: "var(--wc-dark)" }}>{title}</h2>
+        <p style={{ margin: 0, color: "var(--wc-gray-500)" }}>{subtitle}</p>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
 
         {/* ── Mode of Coverage ── */}
-        <Field label="Mode of Coverage" required error={errors.coverage}>
+        <div>
+          <label style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "var(--wc-gray-500)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px" }}>
+            Mode of Coverage <span style={{ color: "var(--wc-error)" }}>*</span>
+          </label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
             {coverageOptions.map((o: CoverageOption) => (
-              <ToggleCard
+              <button
                 key={o.value}
-                value={o.value}
-                label={o.label}
-                iconKey={o.icon}
-                active={data.coverage === o.value}
+                type="button"
                 onClick={() => handleCoverageChange(o.value)}
-              />
+                style={{
+                  padding: "16px 20px", borderRadius: "14px",
+                  border: data.coverage === o.value ? "2px solid var(--wc-blue-600)" : "1.5px solid var(--wc-gray-200)",
+                  background: data.coverage === o.value ? "var(--wc-blue-50)" : "#fff",
+                  color: data.coverage === o.value ? "var(--wc-blue-600)" : "var(--wc-gray-600)",
+                  fontWeight: 600, fontSize: "var(--text-sm)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {o.label}
+              </button>
             ))}
           </div>
-        </Field>
+          {errors.coverage && (
+            <p style={{ margin: "4px 0 0", fontSize: "10px", color: "var(--wc-error)", fontWeight: 600 }}>{errors.coverage}</p>
+          )}
+        </div>
+
+        {/* ── HMO notice ── */}
+        {data.coverage === "hmo" && (
+          <div style={{ padding: "14px 18px", borderRadius: "12px", background: "#f5f3ff", border: "1px solid #c4b5fd", display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <svg width="16" height="16" fill="none" stroke="#7c3aed" strokeWidth={2} viewBox="0 0 24 24" style={{ flexShrink: 0, marginTop: 1 }}>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "#5b21b6", lineHeight: 1.6 }}>{HMO_NOTICE}</p>
+          </div>
+        )}
 
         {/* ── HMO fields ── */}
         {data.coverage === "hmo" && (
           <>
-            <Field label="HMO Provider" required error={errors.hmo}>
+            <div>
+              <label style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "var(--wc-gray-500)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "6px" }}>
+                HMO Provider <span style={{ color: "var(--wc-error)" }}>*</span>
+              </label>
               <select
                 className={`wc-input wc-select${errors.hmo ? " wc-input-error" : ""}`}
                 value={data.hmo}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setData("hmo", e.target.value)}
+                onChange={e => setData("hmo", e.target.value)}
               >
-                {hmoOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
+                {hmoOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-            </Field>
+              {errors.hmo && <p style={{ margin: "4px 0 0", fontSize: "10px", color: "var(--wc-error)", fontWeight: 600 }}>{errors.hmo}</p>}
+            </div>
 
-            <Field
-              label="HMO ID Number"
-              required
-              error={errors.hmoId}
-              hint={!errors.hmoId ? `6–${HMO_MAX} chars — letters and numbers (e.g. MC-123456).` : undefined}
-            >
+            <div>
+              <label style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "var(--wc-gray-500)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "6px" }}>
+                HMO ID Number <span style={{ color: "var(--wc-error)" }}>*</span>
+              </label>
               <input
                 className={`wc-input${errors.hmoId ? " wc-input-error" : ""}`}
-                type="text"
-                placeholder="e.g. MC-123456"
+                type="text" placeholder="e.g. MC-123456"
                 value={data.hmoId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setData("hmoId", sanitizeHmoId(e.target.value))
-                }
-                onPaste={makePasteHandler(sanitizeHmoId, (v) => setData("hmoId", v))}
+                onChange={e => setData("hmoId", sanitizeHmoId(e.target.value))}
+                onPaste={makePasteHandler(sanitizeHmoId, v => setData("hmoId", v))}
               />
-              <span style={{
-                display: "block", textAlign: "right", marginTop: "2px",
-                fontSize: "var(--text-xs)", fontWeight: 600,
-                color: data.hmoId.length >= HMO_MAX
-                  ? "var(--wc-error)"
-                  : data.hmoId.length >= HMO_MAX - 3
-                  ? "var(--wc-warning)"
-                  : "var(--wc-gray-400)",
-              }}>
-                {data.hmoId.length} / {HMO_MAX}
-              </span>
-            </Field>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
+                {errors.hmoId
+                  ? <p style={{ margin: 0, fontSize: "10px", color: "var(--wc-error)", fontWeight: 600 }}>{errors.hmoId}</p>
+                  : <span style={{ fontSize: "var(--text-xs)", color: "var(--wc-gray-400)" }}>e.g. MC-123456</span>
+                }
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: data.hmoId.length >= HMO_MAX ? "var(--wc-error)" : "var(--wc-gray-400)" }}>
+                  {data.hmoId.length} / {HMO_MAX}
+                </span>
+              </div>
+            </div>
           </>
         )}
 
-        {/* ── Preferred Doctor (DB-driven) ── */}
-        <Field
-          label="Name of Preferred Doctor"
-          error={errors.doctorId}
-          hint={!errors.doctorId ? serviceLabel : undefined}
-        >
-          <DoctorPicker
-            doctors={filteredDoctors}
-            value={data.doctorId}
-            onChange={(id) => setData("doctorId", id)}
-            error={errors.doctorId}
-          />
-          <a
-            href="/doctors"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              fontSize:  "var(--text-xs)",
-              color:     "var(--wc-sky-500)",
-              marginTop: "var(--space-1)",
-              display:   "inline-block",
-            }}
-          >
-            View full list of doctors →
-          </a>
-        </Field>
+        {/* ── Preferred Doctor ── */}
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+            <label style={{ fontSize: "10px", fontWeight: 700, color: "var(--wc-gray-500)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Preferred Doctor
+              <span style={{ marginLeft: "6px", fontWeight: 400, color: "var(--wc-gray-400)" }}>
+                ({filteredDoctors.length} {filteredDoctors.length === 1 ? "result" : "results"})
+              </span>
+            </label>
+            {loadingAvail && data.appointmentDate && (
+              <span style={{ fontSize: "10px", color: "var(--wc-gray-400)", fontStyle: "italic" }}>Checking availability…</span>
+            )}
+            {!loadingAvail && data.appointmentDate && (
+              <span style={{ fontSize: "10px", color: "var(--wc-gray-400)" }}>Showing availability for {data.appointmentDate}</span>
+            )}
+          </div>
+
+          {/* Filter bar */}
+          <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+            <div style={{ flex: 1, position: "relative" }}>
+              <span style={{ position: "absolute", left: "var(--space-3)", top: "50%", transform: "translateY(-50%)", color: "var(--wc-gray-400)", display: "flex", pointerEvents: "none" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
+              <input
+                type="search"
+                className="wc-input"
+                placeholder="Search by name or specialty…"
+                value={docSearch}
+                onChange={e => setDocSearch(e.target.value)}
+                style={{ paddingLeft: "calc(var(--space-3) + 20px)", fontSize: "var(--text-sm)", height: 38 }}
+              />
+            </div>
+            <select
+              className="wc-input wc-select"
+              value={specialtyFilter}
+              onChange={e => setSpecialtyFilter(e.target.value)}
+              style={{ fontSize: "var(--text-sm)", minWidth: 160, height: 38 }}
+            >
+              <option value="all">All Specialties</option>
+              {allSpecialties.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {/* Doctor grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "var(--space-3)" }}>
+            {/* Next Available */}
+            <button
+              type="button"
+              onClick={() => handleDoctorSelect(null)}
+              style={{
+                padding: "14px 16px", borderRadius: "12px", textAlign: "left",
+                border: data.doctorId === null ? "2px solid var(--wc-blue-600)" : "1.5px solid var(--wc-gray-200)",
+                background: data.doctorId === null ? "var(--wc-blue-50)" : "#fff",
+                cursor: "pointer", transition: "all 0.15s ease",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 700, color: data.doctorId === null ? "var(--wc-blue-600)" : "var(--wc-dark)" }}>
+                Next Available
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: "10px", color: "var(--wc-gray-400)" }}>
+                Assign me to any available doctor
+              </p>
+            </button>
+
+            {pagedDoctors.map(doc => {
+              const isSelected    = data.doctorId === doc.id;
+              const rawSlot       = data.appointmentDate ? availability[doc.id] : undefined;
+              const hasFetchedDoc = data.appointmentDate && rawSlot !== undefined;
+              const slotCount     = rawSlot ?? -1;
+              const isFullyBooked = hasFetchedDoc && rawSlot === 0;
+              const hasAvailData  = hasFetchedDoc && rawSlot !== null;
+
+              return (
+                <button
+                  key={doc.id}
+                  type="button"
+                  onClick={() => handleDoctorSelect(doc.id)}
+                  style={{
+                    padding: "14px 16px", borderRadius: "12px", textAlign: "left",
+                    border: isSelected
+                      ? `2px solid ${isFullyBooked ? "#f97316" : "var(--wc-blue-600)"}`
+                      : "1.5px solid var(--wc-gray-200)",
+                    background: isSelected ? (isFullyBooked ? "#fff7ed" : "var(--wc-blue-50)") : "#fff",
+                    cursor: "pointer", position: "relative",
+                    transition: "all 0.15s ease", opacity: isFullyBooked ? 0.8 : 1,
+                  }}
+                >
+                  {isFullyBooked && (
+                    <span style={{ position: "absolute", top: 8, right: 8, fontSize: "9px", fontWeight: 800, background: "#fed7aa", color: "#c2410c", padding: "2px 8px", borderRadius: "100px", textTransform: "uppercase" }}>
+                      Fully Booked
+                    </span>
+                  )}
+                  {!isFullyBooked && hasAvailData && slotCount > 0 && (
+                    <span style={{ position: "absolute", top: 8, right: 8, fontSize: "9px", fontWeight: 700, background: "#dcfce7", color: "#16a34a", padding: "2px 8px", borderRadius: "100px" }}>
+                      {slotCount} slots
+                    </span>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "10px", background: doc.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 800, flexShrink: 0 }}>
+                      {doc.initials}
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 700, color: isSelected ? "var(--wc-blue-600)" : "var(--wc-dark)", paddingRight: hasAvailData ? "60px" : 0 }}>
+                        {doc.name}
+                      </p>
+                      <p style={{ margin: "1px 0 0", fontSize: "10px", color: "var(--wc-gray-400)" }}>{doc.specialty}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                style={{
+                  width: 32, height: 32, borderRadius: "8px", border: "1.5px solid var(--wc-gray-200)",
+                  background: safePage === 1 ? "var(--wc-gray-100)" : "#fff",
+                  cursor: safePage === 1 ? "not-allowed" : "pointer",
+                  opacity: safePage === 1 ? 0.4 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--wc-gray-600)",
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="10 4 4 8 10 12"/></svg>
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  style={{
+                    width: 32, height: 32, borderRadius: "8px",
+                    border: page === safePage ? "2px solid var(--wc-blue-600)" : "1.5px solid var(--wc-gray-200)",
+                    background: page === safePage ? "var(--wc-blue-600)" : "#fff",
+                    color: page === safePage ? "#fff" : "var(--wc-gray-600)",
+                    cursor: "pointer", fontSize: "var(--text-sm)", fontWeight: page === safePage ? 700 : 500,
+                  }}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                style={{
+                  width: 32, height: 32, borderRadius: "8px", border: "1.5px solid var(--wc-gray-200)",
+                  background: safePage === totalPages ? "var(--wc-gray-100)" : "#fff",
+                  cursor: safePage === totalPages ? "not-allowed" : "pointer",
+                  opacity: safePage === totalPages ? 0.4 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--wc-gray-600)",
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="4 4 10 8 4 12"/></svg>
+              </button>
+            </div>
+          )}
+
+          {!data.appointmentDate && (
+            <p style={{ margin: "10px 0 0", fontSize: "var(--text-xs)", color: "var(--wc-gray-400)", fontStyle: "italic" }}>
+              Select a date in Step 2 to see availability.
+            </p>
+          )}
+        </div>
+
+        {/* ── Inline Time Slot Picker ───────────────────────────────────────── */}
+        {/* Only shown after a doctor is selected and date is set */}
+        {data.doctorId !== null && data.appointmentDate && (
+          <div style={{
+            padding: "var(--space-5)",
+            borderRadius: "14px",
+            border: "1.5px solid var(--wc-gray-200)",
+            background: "#fafafa",
+          }}>
+            <label style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "var(--wc-gray-500)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "var(--space-4)" }}>
+              Preferred Time <span style={{ color: "var(--wc-error)" }}>*</span>
+            </label>
+
+            {/* Loading */}
+            {slotsLoading && (
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--wc-gray-400)", fontStyle: "italic" }}>
+                Checking available times…
+              </p>
+            )}
+
+            {/* No schedule configured */}
+            {!slotsLoading && doctorNoSchedule && (
+              <div style={{ padding: "12px 16px", borderRadius: "10px", background: "#fff7ed", border: "1px solid #fed7aa", display: "flex", alignItems: "center", gap: "8px" }}>
+                <svg width="14" height="14" fill="none" stroke="#c2410c" strokeWidth={2} viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "#c2410c", fontWeight: 600 }}>
+                  This doctor has no availability configured for {data.appointmentDate}.
+                  Please choose a different date or select another doctor.
+                </p>
+              </div>
+            )}
+
+            {/* Fully booked */}
+            {!slotsLoading && doctorFullyBooked && (
+              <div style={{ padding: "12px 16px", borderRadius: "10px", background: "#fee2e2", border: "1px solid #fecaca", display: "flex", alignItems: "center", gap: "8px" }}>
+                <svg width="14" height="14" fill="none" stroke="#b91c1c" strokeWidth={2} viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "#b91c1c", fontWeight: 600 }}>
+                  This doctor is fully booked on {data.appointmentDate}. Please choose a different date or another doctor.
+                </p>
+              </div>
+            )}
+
+            {/* Available time slots grid */}
+            {!slotsLoading && showSlots && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "var(--space-2)" }}>
+                  {doctorSlots.map(slot => {
+                    const isChosen = data.appointmentTime === slot;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setData("appointmentTime", slot)}
+                        style={{
+                          padding: "10px 8px",
+                          borderRadius: "10px",
+                          border: isChosen ? "2px solid var(--wc-blue-600)" : "1.5px solid var(--wc-gray-200)",
+                          background: isChosen ? "var(--wc-blue-600)" : "#fff",
+                          color: isChosen ? "#fff" : "var(--wc-dark)",
+                          fontSize: "var(--text-sm)",
+                          fontWeight: isChosen ? 700 : 500,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          textAlign: "center",
+                        }}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.appointmentTime && (
+                  <p style={{ margin: "6px 0 0", fontSize: "10px", color: "var(--wc-error)", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {errors.appointmentTime}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
       </div>
 
-      <StepNav
-        onBack={onBack}
-        onNext={onNext}
-        nextLabel="Review Appointment"
-        nextDisabled={false}
-      />
+      {/* Step navigation */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-8)" }}>
+        <button
+          type="button" onClick={onBack}
+          style={{ height: 48, padding: "0 24px", borderRadius: "100px", border: "1.5px solid var(--wc-gray-200)", background: "#fff", color: "var(--wc-gray-600)", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer" }}
+        >
+          ← Back
+        </button>
+        <button
+          type="button" onClick={onNext}
+          style={{ height: 48, padding: "0 28px", borderRadius: "100px", background: "var(--wc-blue-600)", color: "#fff", border: "none", fontWeight: 700, fontSize: "var(--text-sm)", cursor: "pointer" }}
+        >
+          Review Appointment →
+        </button>
+      </div>
     </div>
   );
 }

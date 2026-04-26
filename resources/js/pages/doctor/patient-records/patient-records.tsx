@@ -183,7 +183,7 @@ export default function PatientRecordsPage(): ReactElement {
           <span style={{ fontSize: "var(--text-2xl)", fontWeight: 800, color: "#b91c1c", fontFamily: "var(--font-display)" }}>
             {props.patients.data.filter(p => p.hasAllergy).length}
           </span>
-          <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--wc-gray-500)" }}>Known Allergies</span>
+          <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--wc-gray-500)" }}>Patients with Known Allergies</span>
         </div>
       </div>
 
