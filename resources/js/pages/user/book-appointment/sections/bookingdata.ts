@@ -1,8 +1,6 @@
 // resources/js/pages/user/book-appointment/sections/bookingdata.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // All static data and types for the booking form.
-// Updated: DoctorOption now includes availableSlots (runtime, set after fetch)
-// and the fully-booked indicator logic.
 
 export const bookingMeta = {
   label:          "Book an Appointment",
@@ -40,9 +38,6 @@ export interface CoverageOption extends SelectOption {
 }
 
 // ── Doctor shape ─────────────────────────────────────────────────────────────
-// `id` = user_id of the doctor account (= doctor_id FK in appointments).
-// `availableSlots` is set at runtime after fetching from /appointments/slots.
-// It is undefined until the user selects a date — not shown until then.
 
 export interface DoctorOption {
   id:              number;
@@ -52,8 +47,7 @@ export interface DoctorOption {
   initials:        string;
   color:           string;
   is_active:       boolean;
-  // Runtime — populated after slot fetch when user picks a date
-  availableSlots?: number;  // undefined = not yet fetched; 0 = fully booked
+  availableSlots?: number;
 }
 
 export const genderOptions: SelectOption[] = [
@@ -80,6 +74,7 @@ export const serviceOptions: SelectOption[] = [
   { value: "dermatology",      label: "Dermatology"           },
   { value: "pediatrics",       label: "Pediatrics"            },
   { value: "ob-gyne",          label: "OB-Gyne"               },
+  { value: "orthopedics",      label: "Orthopedics"           },
   { value: "laboratory",       label: "Laboratory Services"   },
   { value: "imaging",          label: "Imaging / Radiology"   },
   { value: "physical-therapy", label: "Physical Therapy"      },
@@ -108,16 +103,17 @@ export const TIME_SLOTS: string[] = [
   "3:00 PM",  "3:30 PM",  "4:00 PM",  "4:30 PM",
 ];
 
-export type Specialty =
-  | "Dermatology" | "Psychiatry" | "Pediatrics" | "Internal Medicine"
-  | "ENT" | "Surgery" | "Dental" | "Ophthalmology" | "OB-GYN" | "In-House";
+// ── Service to Specialty mapping ──────────────────────────────────────────────
+// Values MUST match the `specialty` column in doctor_profiles exactly.
+// null = show ALL doctors (no specialty filter).
 
-export const SERVICE_TO_SPECIALTIES: Record<string, Specialty[] | null> = {
+export const SERVICE_TO_SPECIALTIES: Record<string, string[] | null> = {
   "general":          null,
-  "cardiology":       ["Internal Medicine"],
-  "dermatology":      ["Dermatology"],
-  "pediatrics":       ["Pediatrics"],
-  "ob-gyne":          ["OB-GYN"],
+  "cardiology":       ["cardiology"],
+  "dermatology":      ["dermatology"],
+  "pediatrics":       ["pediatrics"],
+  "ob-gyne":          ["obstetrics"],
+  "orthopedics":      ["orthopedics"],
   "laboratory":       null,
   "imaging":          null,
   "physical-therapy": null,
@@ -139,8 +135,6 @@ export const REVIEW_LABELS: Record<string, string> = {
   preferredDoctor: "Preferred Doctor",
 };
 
-// ── HMO info banner ───────────────────────────────────────────────────────────
-// Shown in step 3 when HMO is selected.
 export const HMO_NOTICE = "HMO appointments are subject to coverage verification by our HR team before being forwarded to the doctor. You will receive a notification once your HMO is verified.";
 
 // ── Form data ─────────────────────────────────────────────────────────────────
