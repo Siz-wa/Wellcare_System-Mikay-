@@ -174,7 +174,11 @@ export default function DoctorsGridSection() {
 
                 {/* Book button */}
                 <Link
+<<<<<<< HEAD
+                  href={Appointment.url()}
+=======
                   href={book()}
+>>>>>>> 974a5f04ec59d76b503e4440c138b43c8516a931
                   className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill w-full justify-center mt-auto"
                 >
                   Book Appointment <ArrowRight />
