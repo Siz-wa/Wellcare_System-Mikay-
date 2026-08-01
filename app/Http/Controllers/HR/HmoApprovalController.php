@@ -2,126 +2,137 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exceptions\InvalidLoaTransitionException;
 use App\Http\Controllers\Controller;
-use App\Models\Appointment;
-use App\Models\AppointmentNotification;
+use App\Models\LoaRequest;
+use App\Services\LoaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * The HR half of the LOA workflow — Figure 6 process 4 (APPROVE LOA) and the
+ * `manage LOA` process of Figure 8.
+ *
+ * The queue used to read `appointments.status = 'pending_hmo_approval'`
+ * directly. It now reads `loa_requests`, so a decision records a reference
+ * number, an approver, a timestamp, a validity window and remarks instead of
+ * just flipping an enum. LoaService keeps the appointment status in step.
+ */
 class HmoApprovalController extends Controller
 {
+    public function __construct(private LoaService $loaRequests) {}
+
     public function index(): Response
     {
-        $pending = Appointment::where('status', 'pending_hmo_approval')
-            ->orderBy('appointment_date')
-            ->orderBy('appointment_time')
+        $pending = LoaRequest::awaitingApproval()
+            ->with(['patient', 'appointment.doctor'])
+            ->oldest('requested_at')
             ->get()
-            ->map(fn (Appointment $a) => $this->mapAppointment($a));
+            ->map(fn (LoaRequest $loa) => $this->mapLoa($loa));
 
         $stats = [
-            'pending'       => $pending->count(),
-            'approvedToday' => Appointment::where('coverage', 'hmo')
-                ->where('status', 'requested')
-                ->whereDate('updated_at', today())
-                ->count(),
-            'rejectedToday' => Appointment::where('coverage', 'hmo')
-                ->where('status', 'cancelled')
-                ->whereDate('cancelled_at', today())
-                ->count(),
+            'pending' => $pending->count(),
+            'approvedToday' => LoaRequest::whereDate('approved_at', today())->count(),
+            'rejectedToday' => LoaRequest::whereDate('rejected_at', today())->count(),
         ];
 
         return Inertia::render('hr/hmo-approvals/hmo-approvals', [
-            'appointments' => $pending,
-            'stats'        => $stats,
+            'appointments' => $pending->values(),
+            'stats' => $stats,
         ]);
     }
 
-    public function approve(Appointment $appointment): RedirectResponse
+    public function approve(Request $request, LoaRequest $loaRequest): RedirectResponse
     {
-        abort_if(
-            $appointment->status !== 'pending_hmo_approval',
-            422,
-            'Only pending HMO appointments can be approved.'
+        $validated = $request->validate([
+            'remarks' => ['nullable', 'string', 'max:500'],
+            'valid_until' => ['nullable', 'date', 'after_or_equal:today'],
+        ], [
+            'valid_until.after_or_equal' => 'An LOA cannot be approved with a validity date in the past.',
+        ]);
+
+        try {
+            $this->loaRequests->approve(
+                $loaRequest,
+                Auth::user(),
+                $validated['remarks'] ?? null,
+                isset($validated['valid_until'])
+                    ? Carbon::parse($validated['valid_until'])
+                    : null,
+            );
+        } catch (InvalidLoaTransitionException $e) {
+            return back()->withErrors(['remarks' => $e->getMessage()]);
+        }
+
+        $name = $loaRequest->patient?->full_name ?? 'the patient';
+
+        return back()->with('success',
+            "LOA {$loaRequest->loa_number} for {$name} approved and forwarded to the doctor."
         );
+    }
 
-        $appointment->update(['status' => 'requested']);
+    public function reject(Request $request, LoaRequest $loaRequest): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ], [
+            'reason.required' => 'Please provide a reason for rejecting this LOA.',
+        ]);
 
-        // Notify patient their HMO was approved and appointment is pending doctor confirmation
-        if ($appointment->user_id) {
-            AppointmentNotification::create([
-                'appointment_id' => $appointment->id,
-                'user_id'        => $appointment->user_id,
-                'type'           => 'hmo_approved',
-                'subject'        => 'HMO Approved — Appointment Pending',
-                'body'           => "Your HMO coverage for your appointment on {$appointment->appointment_date->format('M j, Y')} at {$appointment->appointment_time} has been verified. Your appointment is now pending doctor confirmation.",
-                'read'           => false,
-            ]);
+        try {
+            $this->loaRequests->reject($loaRequest, Auth::user(), $validated['reason']);
+        } catch (InvalidLoaTransitionException $e) {
+            return back()->withErrors(['reason' => $e->getMessage()]);
         }
 
         return back()->with('success',
-            "HMO appointment for {$appointment->first_name} {$appointment->last_name} approved and forwarded to the doctor."
+            "LOA {$loaRequest->loa_number} rejected. The patient has been notified."
         );
     }
 
-    public function reject(Request $request, Appointment $appointment): RedirectResponse
+    /**
+     * Keeps the field names the existing hmo-approvals UI already renders, and
+     * adds the four the LOA record makes possible.
+     *
+     * @return array<string, mixed>
+     */
+    private function mapLoa(LoaRequest $loa): array
     {
-        // Allow rejection of pending_hmo_approval OR requested (HMO appointments
-        // that were approved but not yet confirmed by doctor)
-        abort_if(
-            ! in_array($appointment->status, ['pending_hmo_approval', 'requested'], true)
-            || $appointment->coverage !== 'hmo',
-            422,
-            'This appointment cannot be rejected.'
-        );
+        $appointment = $loa->appointment;
+        $patient = $loa->patient;
 
-        $request->validate([
-            'reason' => ['required', 'string', 'max:500'],
-        ], [
-            'reason.required' => 'Please provide a reason for rejecting this HMO appointment.',
-        ]);
-
-        $appointment->update([
-            'status'              => 'cancelled',
-            'cancellation_reason' => $request->string('reason')->toString(),
-            'cancelled_at'        => now(),
-        ]);
-
-        if ($appointment->user_id) {
-            AppointmentNotification::create([
-                'appointment_id' => $appointment->id,
-                'user_id'        => $appointment->user_id,
-                'type'           => 'hmo_rejected',
-                'subject'        => 'HMO Appointment Rejected',
-                'body'           => "We're sorry, your HMO appointment on {$appointment->appointment_date->format('M j, Y')} has been rejected. Reason: {$request->string('reason')}",
-                'read'           => false,
-            ]);
-        }
-
-        return back()->with('success', 'Appointment rejected. The patient has been notified.');
-    }
-
-    private function mapAppointment(Appointment $a): array
-    {
         return [
-            'id'            => $a->id,
-            'patient'       => trim($a->first_name . ' ' . $a->last_name),
-            'initials'      => strtoupper(substr($a->first_name, 0, 1) . substr($a->last_name, 0, 1)),
-            'email'         => $a->email,
-            'contactNumber' => $a->contact_number,
-            'age'           => $a->age,
-            'gender'        => $a->gender,
-            'service'       => ucwords(str_replace('-', ' ', $a->service)),
-            'date'          => $a->appointment_date->format('d M Y'),
-            'rawDate'       => $a->appointment_date->toDateString(),
-            'time'          => $a->appointment_time,
-            'hmo'           => $a->hmo,
-            'hmoId'         => $a->hmo_id,
-            'coverage'      => $a->coverage,
-            'patientStatus' => $a->patient_status,
-            'isToday'       => $a->appointment_date->isToday(),
-            'isTomorrow'    => $a->appointment_date->isTomorrow(),
+            'id' => $loa->id,
+            'patient' => $patient?->full_name ?? 'Unknown patient',
+            'initials' => $patient?->initials ?? '??',
+            'email' => $patient?->email ?? $appointment?->email,
+            'contactNumber' => $patient?->contact_number ?? $appointment?->contact_number,
+            'age' => $patient?->age ?? $appointment?->age,
+            'gender' => $patient?->gender ?? $appointment?->gender,
+            'service' => $appointment
+                ? ucwords(str_replace('-', ' ', $appointment->service))
+                : '—',
+            'date' => $appointment?->appointment_date?->format('d M Y') ?? '—',
+            'rawDate' => $appointment?->appointment_date?->toDateString(),
+            'time' => $appointment?->appointment_time ?? '—',
+            'hmo' => $loa->hmo_provider,
+            'hmoId' => $loa->hmo_id,
+            'coverage' => $appointment?->coverage ?? 'hmo',
+            'patientStatus' => $appointment?->patient_status,
+            'isToday' => (bool) $appointment?->appointment_date?->isToday(),
+            'isTomorrow' => (bool) $appointment?->appointment_date?->isTomorrow(),
+
+            // ── New with the LOA record ──────────────────────────────────────
+            'loaNumber' => $loa->loa_number,
+            'status' => $loa->display_status,
+            'requestedAt' => $loa->requested_at?->format('d M Y, g:i A'),
+            'requestedAgo' => $loa->requested_at?->diffForHumans(short: true) ?? '—',
+            'validUntil' => $loa->valid_until?->format('d M Y'),
+            'remarks' => $loa->remarks,
         ];
     }
 }
