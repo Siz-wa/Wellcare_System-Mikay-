@@ -656,9 +656,10 @@ Checkboxes are maintained in place per the §0 logging protocol.
 ### Phase 0 — Stabilise
 
 - [x] Create `WELLCARE-BUILD-PLAN.md` at repo root with an empty **Change Log**.
-- [~] Commit the working-tree changes — **superseded**. Decision 2026-07-31: leave
-      the uncommitted work untouched and branch for new work instead
-      (`feat/patient-portal-records`).
+- [x] Commit the working-tree changes. The 2026-07-31 decision to defer this
+      ("leave the uncommitted work untouched and branch for new work instead")
+      was **reversed 2026-08-01** — see §11 and the Change Log. Four layered
+      commits on `feat/patient-portal-records`, **pushed to `origin`**.
 - [x] Create the `wellcare_test` database and get the Pest suite green.
       Baseline: **85 passed, 330 assertions.**
 - [x] Run the CI gates and record actual output — see Change Log 2026-07-31.
@@ -926,6 +927,7 @@ New Pest features per phase:
 | 2026-07-31 | Dependencies | **Approved:** `spatie/laravel-activitylog` (installed, Phase 4) and `laravel/reverb` + `laravel-echo` + `pusher-js` (approved but **not installed** — they add a required process to `composer dev` and buy nothing until Phase 3 starts). |
 | 2026-07-31 | Admin landing route | `admin` → `admin.dashboard`, **but admins stay in the `role:hr|admin` group.** The landing page moved; the access did not. Removing it would recreate the 403 that group exists to fix. |
 | 2026-07-31 | Deactivation mechanism | **A flag (`users.is_active`), not a soft delete.** Deleting the user would fire `nullOnDelete()` across `appointments.user_id` and `patients.guarantor_id`, orphaning the medical record the system exists to protect. |
+| 2026-08-01 | Committing the working tree — **reverses the 2026-07-31 deferral** | **Commit and push.** The deferral was sound when one phase was at stake; by 2026-08-01 three were, and the branch it created had never been committed to. Four layered commits, then pushed to `origin`. See the Change Log for why the layering is narrative rather than bisectable. |
 
 ---
 
@@ -1442,3 +1444,62 @@ bites the *test suite* the same way, and that is not written down anywhere.
   repo, so the rebuild shows as a large diff. It should not be reviewed
   line-by-line, and whether it belongs in version control at all is a separate
   question this entry does not settle.
+
+---
+
+### 2026-08-01 — Phases 1, 2 and 4 committed and pushed
+
+**Phase:** 0 (reversal of a Phase 0 decision) · **Status:** done
+
+**Changed:** `.gitignore` (agent-tooling caches), `WELLCARE-BUILD-PLAN.md`
+(§9 Phase 0 checkbox, §11 new decision row, this entry). **No application code
+was touched** — this entry is about getting existing work into version control,
+not changing it.
+
+**Why:** `feat/patient-portal-records` was **0 commits ahead of `main`** and
+existed only on one machine — it had never been pushed. Everything Phases 1, 2
+and 4 produced (12 migrations, ~132 new project files, 143 of the 230 tests)
+survived only as uncommitted working-tree state. A stray `git checkout`, a
+failed merge or a disk fault would have erased three phases of work.
+
+This **reverses** the Phase 0 decision of 2026-07-31 ("leave the uncommitted
+work untouched and branch for new work instead"). That call was sound when one
+phase was at stake. By 2026-08-01 three were, and the branch it created had
+never actually been committed to. Per §0 the reversal is logged as a new entry
+and a new §11 row rather than an edit to the original.
+
+**Verified:**
+- `git rev-list --left-right --count main...HEAD` before → **`0 0`**; after →
+  **`0 4`**
+- Four commits, `git log --oneline main..HEAD`:
+  `0d3d36e` inherited working tree (197 files) · `515fe72` Phase 1 (20 files) ·
+  `6fbfcd7` Phase 2 (25 files) · `009a498` Phase 4 (66 files) — **308 files
+  total**
+- `git status --porcelain` after the fourth commit → **empty**
+- `git push -u origin feat/patient-portal-records` → **`* [new branch]`**, now
+  tracking `origin/feat/patient-portal-records`
+- **Suite re-run from the committed tree with MySQL live:**
+  `php artisan test --compact` → **230 passed (955 assertions)** in 45.97s —
+  reproduces the Phase 4 record exactly, so the commits preserved the work
+  rather than mangling it.
+
+**Blocked / left out:**
+- **The layered commits are a narrative, not a bisectable history.** Several
+  files were touched by more than one phase (`app/Models/User.php` by 1 and 4,
+  `routes/web.php` by all three). Only their *final* content ever existed — the
+  intermediate states were never saved. Each file was placed in the commit where
+  it **originated**, so a later phase's edit rides along in an earlier commit
+  (`LabTestResult.php` carries its Phase 4 `RecordsActivity` trait into the
+  inherited commit; `LoaRequest.php` likewise into the Phase 2 commit).
+  **Only the tip commit is green.** Do not claim bisectability in the paper.
+- **MySQL was not running** when this session began, so the first attempt at a
+  baseline was killed rather than quoted — the same trap the Phase 2 entry
+  records. XAMPP's `mysqld` was started first; the number above is from a live
+  database.
+- **~107 agent-tooling files** under `.claude/` and `.github/skills/` (including
+  a `__pycache__`) were gitignored rather than committed. They are local editor
+  tooling, not project source.
+- The commit is on a **feature branch only**. It has not been merged to `main`
+  and no pull request was opened — that is Group 5's call.
+- **Manual browser walkthrough still not performed.** §10's end-to-end walk
+  remains outstanding across all four completed phases.
