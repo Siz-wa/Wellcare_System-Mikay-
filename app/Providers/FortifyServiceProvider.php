@@ -4,17 +4,19 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Responses\Auth\LoginResponse;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
-use App\Http\Responses\Auth\LoginResponse;
-use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 class FortifyServiceProvider extends ServiceProvider
 {
     /**
@@ -23,8 +25,8 @@ class FortifyServiceProvider extends ServiceProvider
     public function register(): void
     {
 
-        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);    
-        }
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+    }
 
     /**
      * Bootstrap any application services.
@@ -44,6 +46,27 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        // Figure 4's "Deactivate/Reactivate Acc": a deactivated account cannot
+        // start a new session. EnsureUserIsActive handles the other half —
+        // ending a session that was already open when the account was
+        // deactivated.
+        //
+        // Returning null (rather than a distinct "deactivated" error) is
+        // deliberate: it produces the same generic failed-login response as a
+        // wrong password, so the login form cannot be used to enumerate which
+        // addresses hold real-but-suspended accounts. The person is told what
+        // actually happened by EnsureUserIsActive on their next request, and by
+        // the clinic.
+        Fortify::authenticateUsing(function (Request $request) {
+            $user = User::where('email', $request->input(Fortify::username()))->first();
+
+            if (! $user || ! Hash::check($request->input('password'), $user->password)) {
+                return null;
+            }
+
+            return $user->is_active ? $user : null;
+        });
     }
 
     /**

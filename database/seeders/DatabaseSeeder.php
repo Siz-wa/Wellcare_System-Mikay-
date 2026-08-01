@@ -10,10 +10,13 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RoleAndPermissionSeeder::class,
+            AdminSeeder::class,        // nothing else creates a user with the admin role
             DoctorSeeder::class,
             HrSeeder::class,
+            NurseSeeder::class,
             PatientSeeder::class,
             AppointmentSeeder::class,  // depends on patients + doctors
+            LabResultSeeder::class,    // depends on appointments + nurses
         ]);
     }
 }

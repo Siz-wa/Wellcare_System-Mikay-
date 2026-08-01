@@ -25,8 +25,11 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            // No 'name' column — this project keeps names on patient_profiles /
+            // doctor_profiles, not users. Setting it here (a starter-kit
+            // leftover) made every factory insert fail with "Unknown column".
             'email' => fake()->unique()->safeEmail(),
+            'is_active' => true,
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
@@ -34,6 +37,35 @@ class UserFactory extends Factory
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
         ];
+    }
+
+    /**
+     * Every route in this app is gated on a Spatie role, so a role-less user
+     * can reach nothing but 403s — not a useful fixture. Default to "user";
+     * override with ->role('doctor') etc.
+     *
+     * Requires the roles table to be seeded; tests/Pest.php does that per test.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            if ($user->roles()->doesntExist()) {
+                $user->assignRole('user');
+            }
+        });
+    }
+
+    public function role(string $role): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->syncRoles([$role]));
+    }
+
+    /** An account an admin has deactivated — cannot log in, cannot hold a session. */
+    public function deactivated(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+        ]);
     }
 
     /**
