@@ -2,26 +2,17 @@
 
 namespace App\Http\Responses\Auth;
 
-use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Auth;
-
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
 class LoginResponse implements LoginResponseContract
 {
     public function toResponse($request)
     {
-        /** @var \App\Models\User $user */ // 
-        $user = Auth::user();
-
-        if( $user->hasRole('doctor') ) {
-            return redirect()->route('doctor.appointments');
-        }
-        if( $user->hasRole('hr') ) {
-            return redirect()->route('hr.dashboard');
-        }
-        return redirect()->route('user.dashboard');
+        // Role → landing route lives in one place, shared with /dashboard.
+        return redirect()->route(
+            DashboardController::routeForUser(Auth::user())
+        );
     }
 }
-
-
-?>

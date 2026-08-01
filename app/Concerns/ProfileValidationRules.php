@@ -15,7 +15,8 @@ trait ProfileValidationRules
     protected function profileRules(?int $userId = null): array
     {
         return [
-            'name' => $this->nameRules(),
+            'first_name' => $this->nameRules(),
+            'last_name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
         ];
     }
@@ -23,11 +24,15 @@ trait ProfileValidationRules
     /**
      * Get the validation rules used to validate user names.
      *
+     * There is no `users.name` column — names live on patient_profiles as
+     * first_name/last_name. Bounds match CreateNewUser so registration and
+     * profile editing agree.
+     *
      * @return array<int, \Illuminate\Contracts\Validation\Rule|array<mixed>|string>
      */
     protected function nameRules(): array
     {
-        return ['required', 'string', 'max:255'];
+        return ['required', 'string', 'min:2', 'max:100'];
     }
 
     /**

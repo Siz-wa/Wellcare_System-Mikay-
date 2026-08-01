@@ -2,15 +2,15 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Carbon\Carbon;
-use App\Models\User;
-use App\Models\Patient;
 use App\Models\Appointment;
+use App\Models\AppointmentNotification;
+use App\Models\Patient;
 use App\Models\PatientAllergy;
 use App\Models\PatientDiagnosis;
 use App\Models\PatientDocument;
-use App\Models\AppointmentNotification;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class AppointmentSeeder extends Seeder
 {
@@ -55,78 +55,98 @@ class AppointmentSeeder extends Seeder
 
     public function run(): void
     {
-        $doctors  = User::role('doctor')->with('doctorProfile')->get();
+        $doctors = User::role('doctor')->with('doctorProfile')->get();
         $patients = User::role('user')->with('profile')->get();
 
         if ($doctors->isEmpty()) {
             $this->command->warn('No doctors found — run DoctorSeeder first.');
+
             return;
         }
 
         if ($patients->isEmpty()) {
             $this->command->warn('No patients found — run PatientSeeder first.');
+
             return;
         }
 
-        foreach ($patients as $userAccount) {
+        foreach ($patients->values() as $patientIndex => $userAccount) {
             $patient = Patient::where('guarantor_id', $userAccount->id)->first();
 
             if (! $patient) {
                 $this->command->warn("No Patient record for {$userAccount->email} — skipping.");
+
                 continue;
             }
 
-            $this->seedAppointmentsForPatient($userAccount, $patient, $doctors);
+            $this->seedAppointmentsForPatient($userAccount, $patient, $doctors, $patientIndex);
             $this->command->info("✓ 10 appointments seeded for {$userAccount->email}");
         }
     }
 
-    private function seedAppointmentsForPatient(User $userAccount, Patient $patient, $doctors): void
+    private function seedAppointmentsForPatient(User $userAccount, Patient $patient, $doctors, int $patientIndex): void
     {
-        $doctorList  = $doctors->values();
+        $doctorList = $doctors->values();
         $doctorCount = $doctorList->count();
+        $timeCount = count(self::TIMES);
 
         foreach (self::SLOT_OFFSETS as $i => $slot) {
-            // Rotate doctors so each patient sees different doctors
-            $doctor   = $doctorList[$i % $doctorCount];
-            $service  = self::SERVICES[$i % count(self::SERVICES)];
-            $time     = self::TIMES[$i % count(self::TIMES)];
-            $date     = Carbon::today()->addDays($slot['days']);
-            $status   = $slot['status'];
+            // Stagger BOTH doctor and time by patient index. Keying off $i alone
+            // gave every patient the same doctor at the same time on the same
+            // date, which double-books the slot — the unique index rejects it.
+            $doctor = $doctorList[($patientIndex * count(self::SLOT_OFFSETS) + $i) % $doctorCount];
+            $service = self::SERVICES[$i % count(self::SERVICES)];
+            $time = self::TIMES[($patientIndex + $i) % $timeCount];
+            $date = Carbon::today()->addDays($slot['days']);
+            $status = $slot['status'];
 
             // Last upcoming slot is HMO, mix cash/hmo elsewhere
             $coverage = ($i === 9) ? 'hmo' : ($i % 3 === 0 ? 'hmo' : 'cash');
-            $hmo      = ($coverage === 'hmo') ? $this->randomHmo() : null;
+            $hmo = ($coverage === 'hmo') ? $this->randomHmo() : null;
 
-            $exists = Appointment::where('doctor_id',         $doctor->id)
+            // Slot 9 is an HMO booking 18 days out — exactly the shape of an
+            // unverified LOA. Split it so BOTH HR states carry data: half still
+            // waiting on the HMO officer, half already approved and waiting on
+            // the doctor. Sending every one to 'pending' would just move the
+            // empty queue rather than fill it, and an empty queue reads as a
+            // broken page.
+            if ($i === 9 && $patientIndex % 2 === 0) {
+                $status = 'pending_hmo_approval';
+            }
+
+            // Slot-level check, NOT scoped to this patient — a slot taken by
+            // anyone is taken.
+            $exists = Appointment::where('doctor_id', $doctor->id)
                 ->where('appointment_date', $date->toDateString())
                 ->where('appointment_time', $time)
-                ->where('patient_id',       $patient->id)
+                ->whereNotIn('status', ['cancelled', 'no_show'])
                 ->exists();
 
-            if ($exists) continue;
+            if ($exists) {
+                continue;
+            }
 
             $appointment = Appointment::create([
-                'user_id'             => $userAccount->id,
-                'patient_id'          => $patient->id,
-                'first_name'          => $patient->first_name,
-                'last_name'           => $patient->last_name,
-                'email'               => $patient->email,
-                'contact_number'      => $patient->contact_number,
-                'age'                 => $patient->age ?? 30,
-                'gender'              => $patient->gender ?? 'male',
-                'doctor_id'           => $doctor->id,
-                'service'             => $service,
-                'branch'              => self::BRANCHES[$i % 2],
-                'appointment_date'    => $date->toDateString(),
-                'appointment_time'    => $time,
-                'patient_status'      => $i < 4 ? 'returning' : 'new',
-                'coverage'            => $coverage,
-                'hmo'                 => $hmo,
-                'hmo_id'              => $hmo ? strtoupper('HMO-' . rand(10000, 99999)) : null,
-                'additional_info'     => $i % 4 === 0 ? 'Patient requested morning slot.' : null,
-                'status'              => $status,
-                'cancelled_at'        => $status === 'cancelled' ? $date->copy()->subDay() : null,
+                'user_id' => $userAccount->id,
+                'patient_id' => $patient->id,
+                'first_name' => $patient->first_name,
+                'last_name' => $patient->last_name,
+                'email' => $patient->email,
+                'contact_number' => $patient->contact_number,
+                'age' => $patient->age ?? 30,
+                'gender' => $patient->gender ?? 'male',
+                'doctor_id' => $doctor->id,
+                'service' => $service,
+                'branch' => self::BRANCHES[$i % 2],
+                'appointment_date' => $date->toDateString(),
+                'appointment_time' => $time,
+                'patient_status' => $i < 4 ? 'returning' : 'new',
+                'coverage' => $coverage,
+                'hmo' => $hmo,
+                'hmo_id' => $hmo ? strtoupper('HMO-'.rand(10000, 99999)) : null,
+                'additional_info' => $i % 4 === 0 ? 'Patient requested morning slot.' : null,
+                'status' => $status,
+                'cancelled_at' => $status === 'cancelled' ? $date->copy()->subDay() : null,
                 'cancellation_reason' => $status === 'cancelled' ? 'Doctor unavailable on this date.' : null,
             ]);
 
@@ -144,21 +164,23 @@ class AppointmentSeeder extends Seeder
 
     private function seedConsultationSession(Appointment $appointment, User $doctor, Patient $patient): void
     {
-        if ($appointment->consultationSession()->exists()) return;
+        if ($appointment->consultationSession()->exists()) {
+            return;
+        }
 
         $session = $appointment->consultationSession()->create([
-            'doctor_id'         => $doctor->id,
-            'subjective'        => 'Patient reports ' . $this->randomSymptom() . '. Onset approximately 3 days ago.',
-            'objective'         => 'Patient appears well. Alert and oriented. No acute distress noted.',
-            'assessment'        => $this->randomAssessment(),
-            'plan'              => 'Prescribed medications as below. Advised rest and increased fluid intake. Follow-up in 2 weeks.',
-            'blood_pressure'    => $this->randomBP(),
-            'heart_rate'        => rand(60, 100) . ' bpm',
-            'temperature'       => number_format(rand(366, 374) / 10, 1) . ' C',
-            'oxygen_saturation' => rand(96, 100) . '%',
-            'weight'            => rand(50, 95) . ' kg',
-            'height'            => rand(150, 185) . ' cm',
-            'status'            => 'finalized',
+            'doctor_id' => $doctor->id,
+            'subjective' => 'Patient reports '.$this->randomSymptom().'. Onset approximately 3 days ago.',
+            'objective' => 'Patient appears well. Alert and oriented. No acute distress noted.',
+            'assessment' => $this->randomAssessment(),
+            'plan' => 'Prescribed medications as below. Advised rest and increased fluid intake. Follow-up in 2 weeks.',
+            'blood_pressure' => $this->randomBP(),
+            'heart_rate' => rand(60, 100).' bpm',
+            'temperature' => number_format(rand(366, 374) / 10, 1).' C',
+            'oxygen_saturation' => rand(96, 100).'%',
+            'weight' => rand(50, 95).' kg',
+            'height' => rand(150, 185).' cm',
+            'status' => 'finalized',
         ]);
 
         // 1-3 prescriptions per session
@@ -192,17 +214,19 @@ class AppointmentSeeder extends Seeder
             ->where('allergen', $allergen)
             ->exists();
 
-        if ($alreadyExists) return;
+        if ($alreadyExists) {
+            return;
+        }
 
         PatientAllergy::create([
-            'patient_id'     => $patient->id,
-            'user_id'        => $appointment->user_id,
+            'patient_id' => $patient->id,
+            'user_id' => $appointment->user_id,
             'appointment_id' => $appointment->id,
-            'recorded_by'    => $doctor->id,
-            'allergen'       => $allergen,
-            'severity'       => $this->randomSeverity(),
-            'reaction'       => $this->randomReaction(),
-            'notes'          => rand(0, 1) ? 'Noted during consultation. Patient was informed.' : null,
+            'recorded_by' => $doctor->id,
+            'allergen' => $allergen,
+            'severity' => $this->randomSeverity(),
+            'reaction' => $this->randomReaction(),
+            'notes' => rand(0, 1) ? 'Noted during consultation. Patient was informed.' : null,
         ]);
     }
 
@@ -211,16 +235,16 @@ class AppointmentSeeder extends Seeder
     private function seedPatientDiagnosis(Appointment $appointment, User $doctor, Patient $patient): void
     {
         PatientDiagnosis::create([
-            'patient_id'     => $patient->id,
-            'user_id'        => $appointment->user_id,
+            'patient_id' => $patient->id,
+            'user_id' => $appointment->user_id,
             'appointment_id' => $appointment->id,
-            'recorded_by'    => $doctor->id,
-            'icd_code'       => $this->randomIcdCode(),
-            'diagnosis'      => $this->randomDiagnosis(),
-            'type'           => $this->randomDiagnosisType(),
-            'status'         => rand(0, 3) > 0 ? 'resolved' : 'active',
-            'diagnosed_at'   => $appointment->appointment_date,
-            'notes'          => rand(0, 1) ? 'Monitored over the course of the consultation.' : null,
+            'recorded_by' => $doctor->id,
+            'icd_code' => $this->randomIcdCode(),
+            'diagnosis' => $this->randomDiagnosis(),
+            'type' => $this->randomDiagnosisType(),
+            'status' => rand(0, 3) > 0 ? 'resolved' : 'active',
+            'diagnosed_at' => $appointment->appointment_date,
+            'notes' => rand(0, 1) ? 'Monitored over the course of the consultation.' : null,
         ]);
     }
 
@@ -234,16 +258,16 @@ class AppointmentSeeder extends Seeder
         );
 
         PatientDocument::create([
-            'patient_id'     => $patient->id,
-            'user_id'        => $appointment->user_id,
+            'patient_id' => $patient->id,
+            'user_id' => $appointment->user_id,
             'appointment_id' => $appointment->id,
-            'uploaded_by'    => $doctor->id,
-            'title'          => $title,
-            'type'           => $type,
-            'file_path'      => "patient-documents/{$patient->id}/{$fileName}",
-            'file_name'      => $fileName,
-            'mime_type'      => $mime,
-            'file_size'      => rand(50000, 3500000),
+            'uploaded_by' => $doctor->id,
+            'title' => $title,
+            'type' => $type,
+            'file_path' => "patient-documents/{$patient->id}/{$fileName}",
+            'file_name' => $fileName,
+            'mime_type' => $mime,
+            'file_size' => rand(50000, 3500000),
         ]);
     }
 
@@ -261,12 +285,12 @@ class AppointmentSeeder extends Seeder
 
         AppointmentNotification::create([
             'appointment_id' => $appointment->id,
-            'user_id'        => $user->id,
-            'type'           => $type,
-            'subject'        => $subject,
-            'body'           => $body . ' Service: ' . $appointment->service
-                                . ' on ' . $appointment->appointment_date->format('M d, Y') . '.',
-            'read'           => rand(0, 1),
+            'user_id' => $user->id,
+            'type' => $type,
+            'subject' => $subject,
+            'body' => $body.' Service: '.$appointment->service
+                                .' on '.$appointment->appointment_date->format('M d, Y').'.',
+            'read' => rand(0, 1),
         ]);
     }
 
@@ -279,7 +303,7 @@ class AppointmentSeeder extends Seeder
 
     private function randomBP(): string
     {
-        return rand(110, 135) . '/' . rand(70, 90);
+        return rand(110, 135).'/'.rand(70, 90);
     }
 
     private function randomSymptom(): string

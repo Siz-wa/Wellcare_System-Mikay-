@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,16 +28,35 @@ class ProfileController extends Controller
 
     /**
      * Update the user's profile information.
+     *
+     * Names live on patient_profiles, not users — there is no users.name
+     * column, and User::$fillable is only [email, password]. Writing the name
+     * through the user model (as this previously did) silently dropped it.
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $validated = $request->validated();
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
+        DB::transaction(function () use ($user, $validated) {
+            $user->email = $validated['email'];
 
-        $request->user()->save();
+            // Changing the email un-verifies it; User implements MustVerifyEmail,
+            // so this genuinely gates the doctor/hr/admin routes.
+            if ($user->isDirty('email')) {
+                $user->email_verified_at = null;
+            }
+
+            $user->save();
+
+            $user->profile()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'first_name' => $validated['first_name'],
+                    'last_name' => $validated['last_name'],
+                ]
+            );
+        });
 
         return to_route('profile.edit');
     }

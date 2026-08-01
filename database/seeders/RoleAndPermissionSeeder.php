@@ -14,13 +14,13 @@ class RoleAndPermissionSeeder extends Seeder
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Create roles
-        foreach (['doctor', 'hr', 'user', 'admin'] as $role) {
+        foreach (['doctor', 'hr', 'user', 'admin', 'nurse'] as $role) {
             Role::firstOrCreate([
-                'name'       => $role,
+                'name' => $role,
                 'guard_name' => 'web',
             ]);
         }
 
-        $this->command->info('✓ Roles created: doctor, hr, user, admin');
+        $this->command->info('✓ Roles created: doctor, hr, user, admin, nurse');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -23,10 +24,14 @@ use Illuminate\Database\Eloquent\Builder;
  * @property string|null $initials
  * @property string|null $color
  * @property bool        $is_active
+ * @property int         $max_patients_per_day
  * @property \App\Models\User $user
  */
 class DoctorProfile extends Model
 {
+    /** Clinic policy default when a doctor has no explicit cap. */
+    public const DEFAULT_DAILY_PATIENT_CAP = 5;
+
     protected $fillable = [
         'user_id',
         'display_name',
@@ -35,10 +40,12 @@ class DoctorProfile extends Model
         'initials',
         'color',
         'is_active',
+        'max_patients_per_day',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'max_patients_per_day' => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -46,6 +53,15 @@ class DoctorProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Availability blocks are keyed by users.id, not doctor_profiles.id —
+     * `doctor_id` throughout the booking system means a User.
+     */
+    public function availabilityBlocks(): HasMany
+    {
+        return $this->hasMany(AvailabilityBlock::class, 'doctor_id', 'user_id');
     }
 
     // ── Scopes ────────────────────────────────────────────────────────────────

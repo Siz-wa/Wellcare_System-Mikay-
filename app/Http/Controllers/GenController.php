@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\DoctorResource;
+use App\Models\DoctorProfile;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Fortify\Features;
@@ -27,7 +29,15 @@ class GenController extends Controller
 
     public function doctors(): Response
     {
-        return Inertia::render('generals/doctors/index');
+        $doctors = DoctorProfile::active()
+            ->with(['user', 'availabilityBlocks'])
+            ->orderBy('specialty')
+            ->orderBy('display_name')
+            ->get();
+
+        return Inertia::render('generals/doctors/index', [
+            'doctors' => DoctorResource::collection($doctors)->resolve(),
+        ]);
     }
 
     public function contact(): Response
@@ -39,14 +49,17 @@ class GenController extends Controller
     {
         return Inertia::render('generals/faq/index');
     }
+
     public function terms(): Response
     {
         return Inertia::render('generals/terms/index');
     }
+
     public function privacy(): Response
     {
         return Inertia::render('generals/privacy/index');
     }
+
     public function cookies(): Response
     {
         return Inertia::render('generals/cookies/index');

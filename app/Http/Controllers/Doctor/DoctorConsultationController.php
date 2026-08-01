@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\AppointmentNotification;
 use App\Models\ConsultationSession;
-use App\Models\ConsultationPrescription;
+use App\Models\LabTestResult;
+use App\Services\LabResultService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -21,16 +23,18 @@ class DoctorConsultationController extends Controller
     public function index(Request $request): Response
     {
         $doctorId = Auth::id();
-        $query    = Appointment::where('doctor_id', $doctorId)
+        $query = Appointment::where('doctor_id', $doctorId)
             ->whereIn('status', self::CONSULTATION_STATUSES)
-            ->with('consultationSession')
+            // labResults is eager-loaded because mapAppointment() reads it for
+            // every row — without this the list is an N+1 across dozens of visits.
+            ->with(['consultationSession', 'labResults'])
             ->orderByDesc('appointment_date')
             ->orderByDesc('appointment_time');
 
         if ($search = $request->string('search')->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                  ->orWhere('service', 'like', "%{$search}%");
+                    ->orWhere('service', 'like', "%{$search}%");
             });
         }
 
@@ -42,7 +46,7 @@ class DoctorConsultationController extends Controller
 
         return Inertia::render('doctor/consultations/consultations', [
             'consultations' => $query->get()->map(fn (Appointment $a) => $this->mapAppointment($a)),
-            'filters'       => [
+            'filters' => [
                 'search' => $request->string('search')->toString(),
                 'status' => $request->string('status')->toString(),
             ],
@@ -59,7 +63,7 @@ class DoctorConsultationController extends Controller
     public function patientHistory(Request $request): JsonResponse
     {
         $request->validate([
-            'email'      => ['required', 'email'],
+            'email' => ['required', 'email'],
             'exclude_id' => ['nullable', 'integer'],
         ]);
 
@@ -75,29 +79,30 @@ class DoctorConsultationController extends Controller
             ->get()
             ->map(function (Appointment $a) {
                 $session = $a->consultationSession;
+
                 return [
-                    'id'      => $a->id,
-                    'date'    => $a->appointment_date->format('d M Y'),
-                    'time'    => $a->appointment_time,
+                    'id' => $a->id,
+                    'date' => $a->appointment_date->format('d M Y'),
+                    'time' => $a->appointment_time,
                     'service' => $this->labelForService($a->service),
-                    'coverage'=> $a->coverage,
-                    'soap'    => $session ? [
+                    'coverage' => $a->coverage,
+                    'soap' => $session ? [
                         'subjective' => $session->subjective ?? '',
-                        'objective'  => $session->objective  ?? '',
+                        'objective' => $session->objective ?? '',
                         'assessment' => $session->assessment ?? '',
-                        'plan'       => $session->plan       ?? '',
+                        'plan' => $session->plan ?? '',
                     ] : null,
-                    'vitals'  => $session ? [
-                        'bloodPressure'    => $session->blood_pressure    ?? '',
-                        'heartRate'        => $session->heart_rate        ?? '',
-                        'temperature'      => $session->temperature       ?? '',
+                    'vitals' => $session ? [
+                        'bloodPressure' => $session->blood_pressure ?? '',
+                        'heartRate' => $session->heart_rate ?? '',
+                        'temperature' => $session->temperature ?? '',
                         'oxygenSaturation' => $session->oxygen_saturation ?? '',
-                        'weight'           => $session->weight            ?? '',
-                        'height'           => $session->height            ?? '',
+                        'weight' => $session->weight ?? '',
+                        'height' => $session->height ?? '',
                     ] : null,
                     'prescriptions' => $session
                         ? $session->prescriptions->map(fn ($p) => [
-                            'name'         => $p->name,
+                            'name' => $p->name,
                             'instructions' => $p->instructions,
                         ])->toArray()
                         : [],
@@ -111,37 +116,37 @@ class DoctorConsultationController extends Controller
     {
         $this->authorizeDoctor($appointment);
         $request->validate([
-            'soap[subjective]'         => ['nullable', 'string', 'max:5000'],
-            'soap[objective]'          => ['nullable', 'string', 'max:5000'],
-            'soap[assessment]'         => ['nullable', 'string', 'max:5000'],
-            'soap[plan]'               => ['nullable', 'string', 'max:5000'],
-            'vitals[bloodPressure]'    => ['nullable', 'string', 'max:20'],
-            'vitals[heartRate]'        => ['nullable', 'string', 'max:10'],
-            'vitals[temperature]'      => ['nullable', 'string', 'max:10'],
+            'soap[subjective]' => ['nullable', 'string', 'max:5000'],
+            'soap[objective]' => ['nullable', 'string', 'max:5000'],
+            'soap[assessment]' => ['nullable', 'string', 'max:5000'],
+            'soap[plan]' => ['nullable', 'string', 'max:5000'],
+            'vitals[bloodPressure]' => ['nullable', 'string', 'max:20'],
+            'vitals[heartRate]' => ['nullable', 'string', 'max:10'],
+            'vitals[temperature]' => ['nullable', 'string', 'max:10'],
             'vitals[oxygenSaturation]' => ['nullable', 'string', 'max:10'],
-            'vitals[weight]'           => ['nullable', 'string', 'max:10'],
-            'vitals[height]'           => ['nullable', 'string', 'max:10'],
-            'finalize'                 => ['nullable', 'string'],
+            'vitals[weight]' => ['nullable', 'string', 'max:10'],
+            'vitals[height]' => ['nullable', 'string', 'max:10'],
+            'finalize' => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($request, $appointment) {
-            $finalize    = $request->input('finalize') === '1';
+            $finalize = $request->input('finalize') === '1';
 
             $session = ConsultationSession::updateOrCreate(
                 ['appointment_id' => $appointment->id],
                 [
-                    'doctor_id'         => Auth::id(),
-                    'subjective'        => $request->input('soap[subjective]'),
-                    'objective'         => $request->input('soap[objective]'),
-                    'assessment'        => $request->input('soap[assessment]'),
-                    'plan'              => $request->input('soap[plan]'),
-                    'blood_pressure'    => $request->input('vitals[bloodPressure]'),
-                    'heart_rate'        => $request->input('vitals[heartRate]'),
-                    'temperature'       => $request->input('vitals[temperature]'),
+                    'doctor_id' => Auth::id(),
+                    'subjective' => $request->input('soap[subjective]'),
+                    'objective' => $request->input('soap[objective]'),
+                    'assessment' => $request->input('soap[assessment]'),
+                    'plan' => $request->input('soap[plan]'),
+                    'blood_pressure' => $request->input('vitals[bloodPressure]'),
+                    'heart_rate' => $request->input('vitals[heartRate]'),
+                    'temperature' => $request->input('vitals[temperature]'),
                     'oxygen_saturation' => $request->input('vitals[oxygenSaturation]'),
-                    'weight'            => $request->input('vitals[weight]'),
-                    'height'            => $request->input('vitals[height]'),
-                    'status'            => $finalize ? 'finalized' : 'draft',
+                    'weight' => $request->input('vitals[weight]'),
+                    'height' => $request->input('vitals[height]'),
+                    'status' => $finalize ? 'finalized' : 'draft',
                 ]
             );
 
@@ -152,13 +157,13 @@ class DoctorConsultationController extends Controller
 
                 // Notify patient
                 if ($appointment->user_id) {
-                    \App\Models\AppointmentNotification::create([
+                    AppointmentNotification::create([
                         'appointment_id' => $appointment->id,
-                        'user_id'        => $appointment->user_id,
-                        'type'           => 'consultation_done',
-                        'subject'        => 'Consultation Complete',
-                        'body'           => "Your consultation on {$appointment->appointment_date->format('M j, Y')} has been finalized. Thank you for visiting Wellcare.",
-                        'read'           => false,
+                        'user_id' => $appointment->user_id,
+                        'type' => 'consultation_done',
+                        'subject' => 'Consultation Complete',
+                        'body' => "Your consultation on {$appointment->appointment_date->format('M j, Y')} has been finalized. Thank you for visiting Wellcare.",
+                        'read' => false,
                     ]);
                 }
             } elseif ($appointment->status === 'checked_in') {
@@ -174,6 +179,7 @@ class DoctorConsultationController extends Controller
         $this->authorizeDoctor($appointment);
         abort_if($appointment->status !== 'checked_in', 422);
         $appointment->update(['status' => 'in_progress']);
+
         return back()->with('success', 'Consultation started.');
     }
 
@@ -182,46 +188,92 @@ class DoctorConsultationController extends Controller
         $this->authorizeDoctor($appointment);
         abort_if($appointment->status !== 'in_progress', 422);
         $appointment->update(['status' => 'completed']);
+
         return back()->with('success', 'Consultation completed.');
+    }
+
+    /**
+     * DFD process 5's "lab test request" arrow — the doctor orders a test during
+     * consultation and it lands in the nurse's queue.
+     */
+    public function requestLab(
+        Request $request,
+        Appointment $appointment,
+        LabResultService $labResults,
+    ): RedirectResponse {
+        $this->authorizeDoctor($appointment);
+
+        $validated = $request->validate([
+            'test_name' => ['required', 'string', 'max:150'],
+        ], [
+            'test_name.required' => 'Please name the test you are requesting.',
+        ]);
+
+        // patientRecord() is the Patient (the person seen); patient() is the
+        // booking account. Lab results belong to the person, not the account.
+        $patient = $appointment->patientRecord;
+
+        abort_if(
+            $patient === null,
+            422,
+            'This appointment has no patient record attached, so a lab test cannot be ordered.'
+        );
+
+        $labResults->request(
+            $patient,
+            Auth::user(),
+            $validated['test_name'],
+            $appointment,
+        );
+
+        return back()->with('success', "{$validated['test_name']} requested. The lab team has been notified.");
     }
 
     private function mapAppointment(Appointment $a): array
     {
         $session = $a->consultationSession;
+
         return [
-            'id'             => $a->id,
-            'patientId'      => 'C-' . str_pad($a->id, 3, '0', STR_PAD_LEFT),
-            'patient'        => trim($a->first_name . ' ' . $a->last_name),
-            'initials'       => strtoupper(substr($a->first_name, 0, 1) . substr($a->last_name, 0, 1)),
-            'color'          => $this->colorForService($a->service),
-            'date'           => $a->appointment_date->format('d M Y'),
-            'time'           => $a->appointment_time,
-            'diagnosis'      => $this->labelForService($a->service),
-            'status'         => $this->mapStatus($a->status),
-            'rawStatus'      => $a->status,
-            'coverage'       => $a->coverage,
-            'patientStatus'  => $a->patient_status,
+            'id' => $a->id,
+            'patientId' => 'C-'.str_pad($a->id, 3, '0', STR_PAD_LEFT),
+            'patient' => trim($a->first_name.' '.$a->last_name),
+            'initials' => strtoupper(substr($a->first_name, 0, 1).substr($a->last_name, 0, 1)),
+            'color' => $this->colorForService($a->service),
+            'date' => $a->appointment_date->format('d M Y'),
+            'time' => $a->appointment_time,
+            'diagnosis' => $this->labelForService($a->service),
+            'status' => $this->mapStatus($a->status),
+            'rawStatus' => $a->status,
+            'coverage' => $a->coverage,
+            'patientStatus' => $a->patient_status,
             'additionalInfo' => $a->additional_info,
-            'email'          => $a->email,
-            'contactNumber'  => $a->contact_number,
-            'age'            => $a->age,
-            'gender'         => $a->gender,
-            'sessionId'      => $session?->id,
-            'soap'           => $session ? [
+            'email' => $a->email,
+            'contactNumber' => $a->contact_number,
+            'age' => $a->age,
+            'gender' => $a->gender,
+            'sessionId' => $session?->id,
+            'soap' => $session ? [
                 'subjective' => $session->subjective ?? '',
-                'objective'  => $session->objective  ?? '',
+                'objective' => $session->objective ?? '',
                 'assessment' => $session->assessment ?? '',
-                'plan'       => $session->plan       ?? '',
+                'plan' => $session->plan ?? '',
             ] : null,
-            'vitals'         => $session ? [
-                'bloodPressure'    => $session->blood_pressure    ?? '',
-                'heartRate'        => $session->heart_rate        ?? '',
-                'temperature'      => $session->temperature       ?? '',
+            'vitals' => $session ? [
+                'bloodPressure' => $session->blood_pressure ?? '',
+                'heartRate' => $session->heart_rate ?? '',
+                'temperature' => $session->temperature ?? '',
                 'oxygenSaturation' => $session->oxygen_saturation ?? '',
-                'weight'           => $session->weight            ?? '',
-                'height'           => $session->height            ?? '',
+                'weight' => $session->weight ?? '',
+                'height' => $session->height ?? '',
             ] : null,
-            'prescriptions'  => [],
+            'prescriptions' => [],
+            'labs' => $a->labResults->map(fn (LabTestResult $lab) => [
+                'id' => (string) $lab->id,
+                'testName' => $lab->test_name,
+                'status' => $lab->status,
+                'severity' => $lab->severity,
+                'requestedAt' => $lab->requested_at?->format('d M Y, g:i A'),
+            ])->values(),
         ];
     }
 
@@ -233,37 +285,37 @@ class DoctorConsultationController extends Controller
     private function mapStatus(string $status): string
     {
         return match ($status) {
-            'checked_in'  => 'in-progress',
+            'checked_in' => 'in-progress',
             'in_progress' => 'in-progress',
-            'completed'   => 'finalized',
-            default       => 'draft',
+            'completed' => 'finalized',
+            default => 'draft',
         };
     }
 
     private function colorForService(string $service): string
     {
         return match ($service) {
-            'dermatology'      => '#0056b3', 'psychiatry'  => '#7c3aed',
-            'pediatrics'       => '#0891b2', 'cardiology'  => '#16a34a',
-            'ob-gyne'          => '#db2777', 'general'     => '#475569',
-            'laboratory'       => '#ca8a04', 'imaging'     => '#00a8e8',
+            'dermatology' => '#0056b3', 'psychiatry' => '#7c3aed',
+            'pediatrics' => '#0891b2', 'cardiology' => '#16a34a',
+            'ob-gyne' => '#db2777', 'general' => '#475569',
+            'laboratory' => '#ca8a04', 'imaging' => '#00a8e8',
             'physical-therapy' => '#dc2626',
-            default            => '#0056b3',
+            default => '#0056b3',
         };
     }
 
     private function labelForService(string $service): string
     {
         return match ($service) {
-            'general'          => 'General Consultation',
-            'cardiology'       => 'Cardiology',
-            'dermatology'      => 'Dermatology',
-            'pediatrics'       => 'Pediatrics',
-            'ob-gyne'          => 'OB-Gyne',
-            'laboratory'       => 'Laboratory Services',
-            'imaging'          => 'Imaging / Radiology',
+            'general' => 'General Consultation',
+            'cardiology' => 'Cardiology',
+            'dermatology' => 'Dermatology',
+            'pediatrics' => 'Pediatrics',
+            'ob-gyne' => 'OB-Gyne',
+            'laboratory' => 'Laboratory Services',
+            'imaging' => 'Imaging / Radiology',
             'physical-therapy' => 'Physical Therapy',
-            default            => ucfirst($service),
+            default => ucfirst($service),
         };
     }
 }

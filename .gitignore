@@ -26,3 +26,8 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Agent tooling — local skill caches, not project source
+/.claude
+/.github/skills
+__pycache__/

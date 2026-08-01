@@ -73,7 +73,11 @@ return [
     |
     */
 
-    'home' => 'user/dashboard',
+    // '/dashboard' dispatches to the right dashboard for the user's role
+    // (see DashboardController::routeForUser). Pointing this at
+    // '/user/dashboard' sent every role there — and that route is gated on
+    // role:user, so a doctor completing email verification got a 403.
+    'home' => 'dashboard',
 
     /*
     |--------------------------------------------------------------------------
@@ -146,7 +150,7 @@ return [
     'features' => [
         Features::registration(),
         Features::resetPasswords(),
-        // Features::emailVerification(),
+        Features::emailVerification(),
         Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,

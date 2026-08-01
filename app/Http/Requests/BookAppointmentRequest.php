@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +15,15 @@ use Illuminate\Validation\Rule;
  */
 class BookAppointmentRequest extends FormRequest
 {
+    /** Mirrors `serviceOptions` in resources/js/.../bookingdata.ts */
+    public const SERVICES = [
+        'general', 'cardiology', 'dermatology', 'pediatrics', 'ob-gyne',
+        'orthopedics', 'laboratory', 'imaging', 'physical-therapy',
+    ];
+
+    /** Mirrors SERVICE_ELIGIBILITY in bookingdata.ts */
+    public const PEDIATRICS_MAX_AGE = 18;
+
     public function authorize(): bool
     {
         return true;
@@ -26,15 +36,15 @@ class BookAppointmentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'first_name'       => $this->input('firstName',       $this->input('first_name')),
-            'last_name'        => $this->input('lastName',        $this->input('last_name')),
-            'contact_number'   => $this->input('contactNumber',   $this->input('contact_number')),
+            'first_name' => $this->input('firstName', $this->input('first_name')),
+            'last_name' => $this->input('lastName', $this->input('last_name')),
+            'contact_number' => $this->input('contactNumber', $this->input('contact_number')),
             'appointment_date' => $this->input('appointmentDate', $this->input('appointment_date')),
             'appointment_time' => $this->input('appointmentTime', $this->input('appointment_time')),
-            'patient_status'   => $this->input('patientStatus',   $this->input('patient_status')),
-            'hmo_id'           => $this->input('hmoId',           $this->input('hmo_id')),
-            'doctor_id'        => $this->input('doctorId',        $this->input('doctor_id')),
-            'additional_info'  => $this->input('additionalInfo',  $this->input('additional_info')),
+            'patient_status' => $this->input('patientStatus', $this->input('patient_status')),
+            'hmo_id' => $this->input('hmoId', $this->input('hmo_id')),
+            'doctor_id' => $this->input('doctorId', $this->input('doctor_id')),
+            'additional_info' => $this->input('additionalInfo', $this->input('additional_info')),
         ]);
     }
 
@@ -42,28 +52,31 @@ class BookAppointmentRequest extends FormRequest
     {
         return [
             // ── Step 1: Personal ────────────────────────────────────────────
-            'first_name'     => ['required', 'string', 'max:50', 'regex:/^[\pL\s\'\-]+$/u'],
-            'last_name'      => ['required', 'string', 'max:50', 'regex:/^[\pL\s\'\-]+$/u'],
-            'email'          => ['required', 'email:rfc,dns', 'max:255'],
+            'first_name' => ['required', 'string', 'max:50', 'regex:/^[\pL\s\'\-]+$/u'],
+            'last_name' => ['required', 'string', 'max:50', 'regex:/^[\pL\s\'\-]+$/u'],
+            'email' => ['required', 'email:rfc,dns', 'max:255'],
             'contact_number' => ['required', 'string', 'regex:/^(\+639|09)\d{9}$/'],
-            'age'            => ['required', 'integer', 'min:1', 'max:120'],
-            'gender'         => ['required', Rule::in(['male', 'female', 'other'])],
+            'age' => ['required', 'integer', 'min:1', 'max:120'],
+            'gender' => ['required', Rule::in(['male', 'female', 'other'])],
 
             // ── Step 2: Appointment ─────────────────────────────────────────
-            'service'          => ['required', 'string', 'max:100'],
+            'service' => ['required', Rule::in(self::SERVICES)],
             'appointment_date' => [
                 'required',
                 'date_format:Y-m-d',
                 'after:today',
-                'before:' . now()->addMonths(3)->toDateString(),
+                'before:'.now()->addMonths(3)->toDateString(),
             ],
-            'appointment_time' => ['required', 'string', 'max:20'],
-            'patient_status'   => ['required', Rule::in(['new', 'returning'])],
+            // Must match the format BookingService generates and parses
+            // ("8:00 AM"). Without this, to24h() throws an uncaught
+            // InvalidFormatException on anything unparseable.
+            'appointment_time' => ['required', 'string', 'date_format:g:i A'],
+            'patient_status' => ['required', Rule::in(['new', 'returning'])],
 
             // ── Step 3: Coverage ────────────────────────────────────────────
             'coverage' => ['required', Rule::in(['cash', 'hmo', 'philhealth', 'corporate'])],
-            'hmo'      => ['nullable', 'required_if:coverage,hmo', 'string', 'max:100'],
-            'hmo_id'   => [
+            'hmo' => ['nullable', 'required_if:coverage,hmo', 'string', 'max:100'],
+            'hmo_id' => [
                 'nullable',
                 'required_if:coverage,hmo',
                 'string',
@@ -84,15 +97,45 @@ class BookAppointmentRequest extends FormRequest
         ];
     }
 
+    /**
+     * Server-side mirror of the client-side service filter. The React form
+     * already hides these options, but the filter is bypassable via a direct
+     * POST — so enforce it here too.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $service = $this->input('service');
+
+                if ($service === 'ob-gyne' && $this->input('gender') === 'male') {
+                    $validator->errors()->add(
+                        'service',
+                        'OB-Gyne consultations are not available for male patients.'
+                    );
+                }
+
+                if ($service === 'pediatrics' && (int) $this->input('age') > self::PEDIATRICS_MAX_AGE) {
+                    $validator->errors()->add(
+                        'service',
+                        'Pediatrics is only available for patients aged '.self::PEDIATRICS_MAX_AGE.' and below.'
+                    );
+                }
+            },
+        ];
+    }
+
     public function messages(): array
     {
         return [
-            'contact_number.regex'   => 'Please enter a valid PH number (e.g. +639XXXXXXXXX or 09XXXXXXXXX).',
+            'contact_number.regex' => 'Please enter a valid PH number (e.g. +639XXXXXXXXX or 09XXXXXXXXX).',
             'appointment_date.after' => 'The appointment date must be at least tomorrow.',
-            'hmo.required_if'        => 'Please select your HMO provider.',
-            'hmo_id.required_if'     => 'Please enter your HMO ID number.',
-            'hmo_id.regex'           => 'HMO ID may only contain uppercase letters, numbers, and hyphens.',
-            'doctor_id.exists'       => 'The selected doctor is not available. Please choose another.',
+            'service.in' => 'Please select a valid service.',
+            'appointment_time.date_format' => 'Please select a time slot from the available list.',
+            'hmo.required_if' => 'Please select your HMO provider.',
+            'hmo_id.required_if' => 'Please enter your HMO ID number.',
+            'hmo_id.regex' => 'HMO ID may only contain uppercase letters, numbers, and hyphens.',
+            'doctor_id.exists' => 'The selected doctor is not available. Please choose another.',
         ];
     }
 }

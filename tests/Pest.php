@@ -1,5 +1,10 @@
 <?php
 
+use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,8 +16,14 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        // Almost everything in this app is gated on a Spatie role: the `role:`
+        // route middleware, and CreateNewUser which assigns "user" on register.
+        // RefreshDatabase truncates the roles table, so re-seed it per test.
+        $this->seed(RoleAndPermissionSeeder::class);
+    })
     ->in('Feature');
 
 /*
@@ -41,7 +52,13 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * A user with a Spatie role attached.
+ *
+ * Bare User::factory() users have no role, so every `role:`-gated route
+ * returns 403 for them — which is why the starter-kit settings tests failed.
+ */
+function userWithRole(string $role = 'user'): User
 {
-    // ..
+    return User::factory()->role($role)->create();
 }
