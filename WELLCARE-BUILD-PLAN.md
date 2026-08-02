@@ -315,14 +315,19 @@ and are commented out of the sidebar.
 | Documented (Fig. 10 / Fig. 4 / Table 5) | State |
 |---|---|
 | Login | ✅ |
-| Upload / record lab results | ✅ `Nurse\LabQueueController::record` — the only nurse feature |
-| Dashboard | ❌ nurse lands directly on `/nurse/lab-queue` |
-| Access patient record | ❌ |
-| Update patient records / encode patient data | ❌ |
-| Monitor daily appointments | ❌ |
+| Upload / record lab results | ✅ `Nurse\LabQueueController::record` |
+| Dashboard | ✅ `Nurse\NurseDashboardController` — *Phase 5, 2026-08-01*. Nurses now land here, not on the lab queue |
+| Access patient record | ✅ `Nurse\PatientRecordController` — *Phase 5* |
+| Update patient records / encode patient data | ✅ **partial by design** — demographics, allergies and documents yes; **diagnoses read-only** (§11) — *Phase 5* |
+| Monitor daily appointments | ✅ `Nurse\AppointmentMonitorController` — read-only, any date — *Phase 5* |
 | LOA monitoring | ✅ `Nurse\LoaMonitoringController` — read-only, *Phase 2* |
 
-Nurse sidebar now has two items: *Lab Queue* and *LOA Monitoring*.
+**All five of Figure 10's processes are now built**, plus *Dashboard* and
+*Monitor Appointment List*, which come from Figure 4 and the Scope rather than
+Figure 10. Nurse sidebar has five items across four groups: *Dashboard ·
+Today's Appointments · Patient Records · Lab Queue · LOA Monitoring*.
+
+`role:nurse` now guards **12** routes across four controllers, up from 3.
 
 Figure 10 itself draws only **five** processes — Log In, Access Patient Record,
 Update Patient Records, Upload Lab Result, LOA Monitoring. *Dashboard* and
@@ -571,7 +576,7 @@ currently gives away for free:
 | Notifications | ✅ | ✅ | ~75% |
 | **LOA module (Obj. 1.6)** | ✅ | ✅ | ~85% — *Phase 2, 2026-07-31* |
 | Patient portal (records/labs/LOA) | ✅ | ✅ | ~90% — *LOA status page shipped* |
-| Nurse module | ✅ | ⚠️ | ~40% — *lab queue + LOA monitor of 5 Fig. 10 processes* |
+| **Nurse module** | ✅ | ✅ | ~85% — *Phase 5, 2026-08-01. All 5 Fig. 10 processes + dashboard + appointment monitor. Diagnoses deliberately read-only* |
 | **Admin module** | ✅ | ✅ | ~70% — *Phase 4, 2026-07-31. Reports + backup deliberately deferred* |
 | Analytics / reports (Obj. 1.5) | ✅ | ❌ | 0% |
 | **Activity log · Archive** | ✅ | ✅ | ~85% — *Phase 4. No retention sweep yet* |
@@ -580,10 +585,12 @@ currently gives away for free:
 | **ISO 25010 evaluation (Obj. 4)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 | **Implementation & training plan (Obj. 5)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 
-**Updated 2026-07-31 (Phase 4, plus the spike run).** Three of the concentrated
-gaps are now closed: the patient read-side portal (Phase 1), the LOA/HMO domain
-(Phase 2) and the admin module (Phase 4). **The largest remaining gaps are
-analytics (Obj. 1.5, still 0%) and the nurse module (~40%).**
+**Updated 2026-08-01 (Phase 5).** Four of the concentrated gaps are now closed:
+the patient read-side portal (Phase 1), the LOA/HMO domain (Phase 2), the admin
+module (Phase 4) and the nurse module (Phase 5). **The largest remaining
+software gap is analytics (Obj. 1.5, still 0%)** — every other module is at 75%
+or above. After that the remaining work is Phase 3 (a scoping decision, §5.2)
+and Phase 7 (Objectives 4 and 5, neither of which is code).
 
 Virtual consultation stays at 0% and remains **a scoping question, not a build
 one** (§5.2). The spike has now been run and passed on a single machine, so
@@ -796,14 +803,20 @@ aggregation as Obj. 1.5); **Backup Database** → Phase 7 runbook (a `mysqldump`
 button behind a web request is a liability, not a feature); **activity-log
 retention sweep** (Spatie ships `activitylog:clean`, nothing schedules it yet).
 
-### Phase 5 — Nurse module expansion
+### Phase 5 — Nurse module expansion ✅ *done 2026-08-01*
 
 *Fig. 10, Table 5.*
 
-- [ ] Nurse dashboard.
-- [ ] Read/update patient records — `PatientRecordController` is the template;
-      add `role:nurse|doctor` guards.
-- [ ] Daily appointment monitor.
+- [x] Nurse dashboard — `/nurse/dashboard`, and the nurse landing route moved
+      here from `/nurse/lab-queue`.
+- [x] Read/update patient records — **not** by adding `role:nurse|doctor` to the
+      doctor's routes as originally planned. That would have granted the nurse
+      the doctor's three diagnosis-write methods, because a shared route group
+      cannot express a partial grant. A separate `Nurse\PatientRecordController`
+      carries the write half; the *read* half is shared through the new
+      `App\Concerns\ReadsPatientRecords` so a record reads identically for both
+      roles. See §11.
+- [x] Daily appointment monitor — `/nurse/appointments`, read-only, any date.
 
 ### Phase 6 — Analytics
 
@@ -909,6 +922,11 @@ New Pest features per phase:
   too), `AdminDeactivationTest` (both enforcement points), `AdminArchiveTest`
   (restore does **not** cascade), `ActivityLogTest` (no credential ever reaches
   the log). **95 tests.**
+- `NurseAccessTest` / `NurseRecordUpdateTest` / `NurseDashboardTest` — every
+  nurse surface closed to the other four roles, **the nurse closed to the
+  doctor's diagnosis routes**, the demographics allow-list holding against an
+  `hmo_id` write, and the appointment monitor's date handling.
+  ✅ *Phase 5 — 47 tests.*
 - `ConsultationChannelAuthTest` — only the assigned doctor and the appointment's
   guarantor may subscribe to `consultation.{roomId}`. Everyone else is rejected.
   ❌ *Phase 3, not started.*
@@ -928,6 +946,8 @@ New Pest features per phase:
 | 2026-07-31 | Admin landing route | `admin` → `admin.dashboard`, **but admins stay in the `role:hr|admin` group.** The landing page moved; the access did not. Removing it would recreate the 403 that group exists to fix. |
 | 2026-07-31 | Deactivation mechanism | **A flag (`users.is_active`), not a soft delete.** Deleting the user would fire `nullOnDelete()` across `appointments.user_id` and `patients.guarantor_id`, orphaning the medical record the system exists to protect. |
 | 2026-08-01 | Committing the working tree — **reverses the 2026-07-31 deferral** | **Commit and push.** The deferral was sound when one phase was at stake; by 2026-08-01 three were, and the branch it created had never been committed to. Four layered commits, then pushed to `origin`. See the Change Log for why the layering is narrative rather than bisectable. |
+| 2026-08-01 | Nurse write scope on patient records | **Nurse may write demographics, allergies and documents; diagnoses stay read-only.** Fig. 10's "Update Patient Records" is an encoding task — authoring a diagnosis is the attending doctor's clinical judgment, and the Scope assigns it to them. The nurse still *reads* diagnoses, because knowing what a patient is treated for is what makes their intake and lab work safe. Same reasoning as Phase 4 withholding `hmo_id`: a deliberate, logged narrowing beats an accidental over-grant. |
+| 2026-08-01 | Nurse record controller shape | **A separate `Nurse\PatientRecordController`, not `role:nurse|doctor` on the doctor's routes.** The plan called for the shared-guard approach; it cannot express the split above, since a route group grants all of a controller's methods. The read half is shared through `App\Concerns\ReadsPatientRecords` instead, so the legacy-record fallback exists in exactly one place. |
 
 ---
 
@@ -1503,3 +1523,96 @@ and a new §11 row rather than an edit to the original.
   and no pull request was opened — that is Group 5's call.
 - **Manual browser walkthrough still not performed.** §10's end-to-end walk
   remains outstanding across all four completed phases.
+
+---
+
+### 2026-08-01 — Phase 5: nurse module
+
+**Phase:** 5 · **Status:** done
+
+**Changed:**
+- `app/Concerns/ReadsPatientRecords.php` (new) — shared read half of a patient
+  record; `app/Http/Controllers/Doctor/PatientRecordController.php` refactored
+  onto it
+- `app/Http/Controllers/Nurse/NurseDashboardController.php` (new)
+- `app/Http/Controllers/Nurse/PatientRecordController.php` (new)
+- `app/Http/Controllers/Nurse/AppointmentMonitorController.php` (new)
+- `app/Http/Requests/Nurse/UpdatePatientDemographicsRequest.php` (new)
+- `app/Http/Controllers/DashboardController.php` — nurse landing route
+- `routes/web.php` — 9 new routes in the `role:nurse` group (3 → 12)
+- `resources/js/pages/nurse/dashboard/`, `.../appointments/`,
+  `.../patient-records/`, `.../components/` (new — 22 files)
+- `resources/js/pages/nurse/layout/nurse-dashboard-data.ts` — nav 2 → 5 items
+- `tests/Feature/Nurse/{NurseAccess,NurseRecordUpdate,NurseDashboard}Test.php`
+  (new — 47 tests)
+- `tests/Feature/Lab/LabAccessTest.php`,
+  `tests/Feature/Admin/AdminUserManagementTest.php` — both pinned the old nurse
+  landing route
+
+**Why:** §8 named the nurse module the largest remaining gap after admin, at
+~40% — two of Figure 10's five processes, with the nurse landing directly on the
+lab queue because it was the whole role. **Table 5 already marks nurse record
+access, record update and appointment monitoring "Pass"**, so this closes a
+document-integrity gap (§12 risk 4) as well as a build one. It also makes the
+nurse role walkable for Objective 4's ISO 25010 sessions, which cannot evaluate
+a role that has two screens.
+
+**Verified:**
+- Baseline before any code, from the freshly committed tree:
+  `php artisan test --compact` → **230 passed (955 assertions)**
+- After: `php artisan test --compact` → **277 passed (1179 assertions)** — +47,
+  nothing broken
+- `php artisan test --compact tests/Feature/Nurse` → **47 passed (223 assertions)**
+- `vendor/bin/pint --dirty --format agent` → `{"result":"pass"}`
+- `npx tsc --noEmit` → exit 0, no output
+- `npx eslint resources/js/pages/nurse` → exit 0, **0 errors** (3 `import/order`
+  errors fixed with `--fix`)
+- `npx prettier --check` on the files this phase created/edited → *"All matched
+  files use Prettier code style!"*
+- `php artisan route:list --path=nurse` → **12 routes**, with `allergies` and
+  `documents` correctly ahead of the `{patient}` wildcard
+- `npm run build` → exit 0; the three new pages are in the Vite manifest
+
+The capability split is asserted directly, because it is the point of the phase:
+a nurse gets 403 on the doctor's `storeDiagnosis` route, no `nurse/*diagnos*`
+route exists at all (asserted against the router, not one URL), and a
+demographics update carrying `hmo_id`, `hmo_provider` and `default_coverage`
+leaves all three unchanged.
+
+**One real bug was found by the tests and fixed, not worked around:**
+`UpdatePatientDemographicsRequest` was first written with
+`Rule::in(['M','F'])` for gender, copied from the *user profile* request.
+`patients.gender` is `enum('male','female','other')` — so `'F'` **passed
+validation and MySQL then silently truncated the column to `''`**. A silent bad
+write, not an error. Fixed in the rule and in `genderOptions`, and pinned by
+`it('rejects a gender outside the patients enum')`.
+
+**Blocked / left out:**
+- **Diagnoses are deliberately read-only for the nurse** (§11). Fig. 10 says
+  "Update Patient Records"; authoring a diagnosis is the attending doctor's
+  clinical judgment. The nurse still reads them, and the UI states the reason
+  rather than silently omitting the controls — a missing button reads as an
+  oversight, a stated boundary reads as a decision.
+- **The planned `role:nurse|doctor` guard was not used.** It cannot express a
+  partial grant: adding the nurse to the doctor's record routes would have
+  handed over `storeDiagnosis`, `updateDiagnosis` and `destroyDiagnosis` too.
+  A separate controller plus a shared read concern was used instead (§11).
+- **Two pre-existing tests asserted the old nurse landing route** and were
+  updated rather than deleted — `LabAccessTest` (which now also asserts the lab
+  queue is *still* reachable, since the landing moved but the access did not)
+  and `AdminUserManagementTest`'s role-reassignment test.
+- **The appointment monitor is read-only.** It has no confirm, cancel or
+  check-in action: doctors confirm and patients check themselves in. Figure 4
+  asks the nurse to *monitor* the list, not to run it.
+- **`resources/js/pages/nurse/lab-queue/lab-queue.tsx` still fails
+  `prettier --check`.** It is inherited work from the first commit, untouched by
+  this phase; reformatting it here would mix unrelated churn into a feature
+  commit. Left for whoever next edits that file — the Phase 1 lesson.
+- **No nurse-side lab-result upload beyond the existing queue**, and no activity
+  -log auditing added for the new nurse writes. `PatientAllergy` and
+  `PatientDocument` do not use `RecordsActivity`; the writes are attributed via
+  `recorded_by` / `uploaded_by` (asserted), but they do not appear in the admin
+  activity log. Belongs with the Phase 6 console work.
+- **Manual browser walkthrough not performed.** Verification is automated only.
+  §10's end-to-end walk remains outstanding across all five completed phases —
+  this is now the oldest outstanding item in the plan.

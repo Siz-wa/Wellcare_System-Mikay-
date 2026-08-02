@@ -17,8 +17,13 @@ use App\Http\Controllers\GenController;
 use App\Http\Controllers\HR\HmoApprovalController;
 use App\Http\Controllers\HR\HRDashboardController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Nurse\AppointmentMonitorController;
 use App\Http\Controllers\Nurse\LabQueueController;
 use App\Http\Controllers\Nurse\LoaMonitoringController;
+use App\Http\Controllers\Nurse\NurseDashboardController;
+// Doctor\PatientRecordController holds the plain name above; the nurse's is
+// aliased for the same reason the patient portal's is.
+use App\Http\Controllers\Nurse\PatientRecordController as NursePatientRecordController;
 use App\Http\Controllers\Patient\PatientDashboardController;
 use App\Http\Controllers\Patient\PatientLabResultController;
 use App\Http\Controllers\Patient\PatientLoaController;
@@ -127,6 +132,8 @@ Route::middleware(['auth', 'verified', 'role:hr|admin'])->group(function () {
 
 Route::middleware(['auth', 'verified', 'role:nurse'])->group(function () {
 
+    Route::get('/nurse/dashboard', [NurseDashboardController::class, 'index'])->name('nurse.dashboard');
+
     // Lab queue — literal segment first, then the {labTestResult} wildcard
     Route::controller(LabQueueController::class)->group(function () {
         Route::get('/nurse/lab-queue', 'index')->name('nurse.lab-queue');
@@ -135,6 +142,27 @@ Route::middleware(['auth', 'verified', 'role:nurse'])->group(function () {
 
     // LOA monitoring — read-only per Fig. 10; HR owns the decision (Fig. 8).
     Route::get('/nurse/loa-monitoring', [LoaMonitoringController::class, 'index'])->name('nurse.loa-monitoring');
+
+    // Daily appointment monitor — Fig. 4 "Monitor Appointment List". Read-only.
+    Route::get('/nurse/appointments', [AppointmentMonitorController::class, 'index'])->name('nurse.appointments');
+
+    // Patient records — Fig. 10 "Access / Update Patient Records".
+    //
+    // Route ordering is load-bearing: every literal segment (`documents`,
+    // `allergies`) sits above the `{patient}` wildcard, or Laravel binds the
+    // literal as a patient id. Same rule as the patient portal group below.
+    //
+    // There is deliberately NO diagnosis write route here — see the capability
+    // split documented on Nurse\PatientRecordController.
+    Route::controller(NursePatientRecordController::class)->group(function () {
+        Route::get('/nurse/patient-records', 'index')->name('nurse.patient-records');
+        Route::get('/nurse/patient-records/documents/{document}/download', 'downloadDocument')->name('nurse.patient-records.documents.download');
+        Route::delete('/nurse/patient-records/allergies/{allergy}', 'destroyAllergy')->name('nurse.patient-records.allergies.destroy');
+        Route::get('/nurse/patient-records/{patient}', 'show')->name('nurse.patient-records.show');
+        Route::patch('/nurse/patient-records/{patient}', 'update')->name('nurse.patient-records.update');
+        Route::post('/nurse/patient-records/{patient}/allergies', 'storeAllergy')->name('nurse.patient-records.allergies.store');
+        Route::post('/nurse/patient-records/{patient}/documents', 'uploadDocument')->name('nurse.patient-records.documents.store');
+    });
 });
 
 // ── Patient ───────────────────────────────────────────────────────────────────

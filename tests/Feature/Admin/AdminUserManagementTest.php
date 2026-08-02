@@ -158,7 +158,9 @@ it('reassigns a role and moves the account to the new landing route', function (
         // syncRoles, not assignRole — a user holding two roles would land
         // wherever routeForUser happens to test first.
         ->and($user->hasRole('user'))->toBeFalse()
-        ->and(DashboardController::routeForUser($user))->toBe('nurse.lab-queue');
+        // Changed in Phase 5: nurses land on their own dashboard rather than
+        // the lab queue, which used to be the whole role.
+        ->and(DashboardController::routeForUser($user))->toBe('nurse.dashboard');
 });
 
 it('refuses to let an admin change their own role', function () {

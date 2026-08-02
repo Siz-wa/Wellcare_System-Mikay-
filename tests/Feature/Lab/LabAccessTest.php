@@ -34,10 +34,20 @@ it('sends a guest to login rather than the lab queue', function () {
     $this->get('/nurse/lab-queue')->assertRedirect('/login');
 });
 
-it('lands a nurse on the lab queue after login', function () {
-    $this->actingAs(userWithRole('nurse'))
+it('lands a nurse on the dashboard after login, with the lab queue still open', function () {
+    // Changed in Phase 5. The nurse used to land here because the lab queue was
+    // the entire role; they now have a dashboard, records and an appointment
+    // monitor. The landing page moved — the access did not, so both halves are
+    // asserted.
+    $nurse = userWithRole('nurse');
+
+    $this->actingAs($nurse)
         ->get('/dashboard')
-        ->assertRedirect(route('nurse.lab-queue'));
+        ->assertRedirect(route('nurse.dashboard'));
+
+    $this->actingAs($nurse)
+        ->get('/nurse/lab-queue')
+        ->assertOk();
 });
 
 it('does not bleed lab results between two patients sharing one account', function () {

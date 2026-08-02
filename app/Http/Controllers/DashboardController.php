@@ -46,9 +46,11 @@ class DashboardController extends Controller
             return 'hr.dashboard';
         }
 
-        // Nurses live entirely in the lab queue — it is their only workspace.
+        // Before Phase 5 nurses landed on the lab queue, because it was their
+        // only workspace. They now have a dashboard, records and an appointment
+        // monitor, so the queue is one job rather than the whole role.
         if ($user?->hasRole('nurse')) {
-            return 'nurse.lab-queue';
+            return 'nurse.dashboard';
         }
 
         return 'user.dashboard';

@@ -23,6 +23,34 @@ export interface NavGroup {
 
 export const navGroups: NavGroup[] = [
     {
+        groupLabel: 'OVERVIEW',
+        items: [
+            {
+                id: 'dashboard',
+                label: 'Dashboard',
+                href: '/nurse/dashboard',
+                iconKey: 'dashboard',
+            },
+            {
+                id: 'appointments',
+                label: "Today's Appointments",
+                href: '/nurse/appointments',
+                iconKey: 'schedule',
+            },
+        ],
+    },
+    {
+        groupLabel: 'PATIENTS',
+        items: [
+            {
+                id: 'patient-records',
+                label: 'Patient Records',
+                href: '/nurse/patient-records',
+                iconKey: 'patients',
+            },
+        ],
+    },
+    {
         groupLabel: 'LABORATORY',
         items: [
             {
@@ -67,5 +95,5 @@ export const navGroups: NavGroup[] = [
 
 export const nurseDashboardMeta = {
     searchPlaceholder: 'Search lab requests, patients…',
-    activeNav: 'lab-queue',
+    activeNav: 'dashboard',
 };
