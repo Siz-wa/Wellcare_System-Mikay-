@@ -2,15 +2,20 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-use App\Models\User;
+use App\Models\AvailabilityBlock;
 use App\Models\DoctorProfile;
 use App\Models\PatientProfile;
-use App\Models\AvailabilityBlock;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DoctorSeeder extends Seeder
 {
+    /**
+     * NOTE: `day_of_week` in the arrays below is ISO-8601 — 1 = Mon … 7 = Sun.
+     * It is converted to the stored MySQL DAYOFWEEK convention on write, via
+     * AvailabilityBlock::isoToStoredDay(). Do not pre-shift these values.
+     */
     public function run(): void
     {
         $doctors = [
@@ -382,6 +387,12 @@ class DoctorSeeder extends Seeder
 
             $user->syncRoles(['doctor']);
 
+            // Seeded staff pre-date email verification, and the doctor routes
+            // are behind `verified` — without this they'd all be locked out.
+            if (! $user->hasVerifiedEmail()) {
+                $user->markEmailAsVerified();
+            }
+
             PatientProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 array_merge($data['patient_profile'], ['classification' => 'old'])
@@ -395,13 +406,15 @@ class DoctorSeeder extends Seeder
             if (AvailabilityBlock::where('doctor_id', $user->id)->doesntExist()) {
                 foreach ($data['availability'] as $block) {
                     AvailabilityBlock::create([
-                        'doctor_id'             => $user->id,
-                        'day_of_week'           => $block['day_of_week'],
-                        'specific_date'         => null,
-                        'start_time'            => $block['start_time'],
-                        'end_time'              => $block['end_time'],
+                        'doctor_id' => $user->id,
+                        // Arrays above are written in ISO (1 = Mon … 7 = Sun);
+                        // the column stores MySQL DAYOFWEEK (1 = Sun … 7 = Sat).
+                        'day_of_week' => AvailabilityBlock::isoToStoredDay($block['day_of_week']),
+                        'specific_date' => null,
+                        'start_time' => $block['start_time'],
+                        'end_time' => $block['end_time'],
                         'slot_duration_minutes' => 30,
-                        'is_available'          => true,
+                        'is_available' => true,
                     ]);
                 }
             }

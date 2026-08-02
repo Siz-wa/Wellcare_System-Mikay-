@@ -1,77 +1,98 @@
 // resources/js/pages/user/home/sections/DoctorsSection.tsx
 
-import { Link } from "@inertiajs/react";
-import { useInView } from "@/hooks/useInView";
-import { doctorsData } from "@/pages/generals/home/sections/homedata";
-import { index as bookIndex } from "@/routes/appointments";
-import { doctors as doctorsRoute } from "@/routes";
+import { Link } from '@inertiajs/react';
+import { useInView } from '@/hooks/useInView';
+import { doctorsData } from '@/pages/generals/home/sections/homedata';
+import { doctors as doctorsRoute } from '@/routes';
+import { index as bookIndex } from '@/routes/appointments';
 
 export default function DoctorsSection() {
-  const { ref, inView } = useInView();
-  const { pill, heading, desc, doctors } = doctorsData;
+    const { ref, inView } = useInView();
+    const { pill, heading, desc, doctors } = doctorsData;
 
-  return (
-    <section className="wc-section bg-[var(--wc-gray-50)]">
-      <div className="wc-container">
-
-        {/* Header */}
-        <div
-          ref={ref}
-          className="text-center max-w-[640px] mx-auto mb-12 transition-all duration-600"
-          style={{
-            opacity: inView ? 1 : 0,
-            transform: inView ? "translateY(0)" : "translateY(20px)",
-            transitionTimingFunction: "var(--ease-out)",
-          }}
-        >
-          <span className="wc-pill wc-pill-primary">{pill}</span>
-          <h2 className="mt-4 mb-4 text-[clamp(1.875rem,3.5vw,2.25rem)]">
-            {heading.plain}<span className="wc-gradient-text">{heading.gradient}</span>
-          </h2>
-          <p className="text-lg text-[var(--wc-gray-500)] leading-relaxed">{desc}</p>
-        </div>
-
-        {/* Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {doctors.map((doc, i) => (
-            <div
-              key={doc.name}
-              className="wc-card wc-card-hover transition-all duration-500"
-              style={{
-                opacity: inView ? 1 : 0,
-                transform: inView ? "translateY(0)" : "translateY(20px)",
-                transitionDelay: `${100 + i * 90}ms`,
-                transitionTimingFunction: "var(--ease-out)",
-              }}
-            >
-              <div className="wc-card-body text-center">
+    return (
+        <section className="wc-section bg-[var(--wc-gray-50)]">
+            <div className="wc-container">
+                {/* Header */}
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center font-display font-extrabold text-xl text-white mx-auto mb-4 shadow-[var(--shadow-lg)]"
-                  style={{ background: doc.color }}
+                    ref={ref}
+                    className="mx-auto mb-12 max-w-[640px] text-center transition-all duration-600"
+                    style={{
+                        opacity: inView ? 1 : 0,
+                        transform: inView
+                            ? 'translateY(0)'
+                            : 'translateY(20px)',
+                        transitionTimingFunction: 'var(--ease-out)',
+                    }}
                 >
-                  {doc.initials}
+                    <span className="wc-pill wc-pill-primary">{pill}</span>
+                    <h2 className="mt-4 mb-4 text-[clamp(1.875rem,3.5vw,2.25rem)]">
+                        {heading.plain}
+                        <span className="wc-gradient-text">
+                            {heading.gradient}
+                        </span>
+                    </h2>
+                    <p className="text-lg leading-relaxed text-[var(--wc-gray-500)]">
+                        {desc}
+                    </p>
                 </div>
-                <h3 className="text-base text-[var(--wc-dark)] mb-1">{doc.name}</h3>
-                <p className="text-sm text-[var(--wc-gray-400)] mb-5">{doc.specialty}</p>
-                <div className="flex items-center justify-between">
-                  <span className="wc-badge wc-badge-primary">Available</span>
-                  {/* ✅ internal link → <Link> + Wayfinder */}
-                  <Link href={bookIndex.url()} className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill">Book</Link>
+
+                {/* Cards */}
+                <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    {doctors.map((doc, i) => (
+                        <div
+                            key={doc.name}
+                            className="wc-card wc-card-hover transition-all duration-500"
+                            style={{
+                                opacity: inView ? 1 : 0,
+                                transform: inView
+                                    ? 'translateY(0)'
+                                    : 'translateY(20px)',
+                                transitionDelay: `${100 + i * 90}ms`,
+                                transitionTimingFunction: 'var(--ease-out)',
+                            }}
+                        >
+                            <div className="wc-card-body text-center">
+                                <div
+                                    className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full font-display text-xl font-extrabold text-white shadow-[var(--shadow-lg)]"
+                                    style={{ background: doc.color }}
+                                >
+                                    {doc.initials}
+                                </div>
+                                <h3 className="mb-1 text-base text-[var(--wc-dark)]">
+                                    {doc.name}
+                                </h3>
+                                <p className="mb-5 text-sm text-[var(--wc-gray-400)]">
+                                    {doc.specialty}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <span className="wc-badge wc-badge-primary">
+                                        Available
+                                    </span>
+                                    {/* ✅ internal link → <Link> + Wayfinder */}
+                                    <Link
+                                        href={bookIndex.url()}
+                                        className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill"
+                                    >
+                                        Book
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-              </div>
+
+                {/* View all */}
+                <div className="text-center">
+                    {/* ✅ internal link → <Link> + Wayfinder */}
+                    <Link
+                        href={doctorsRoute.url()}
+                        className="wc-btn wc-btn-ghost wc-btn-md"
+                    >
+                        View all specialists →
+                    </Link>
+                </div>
             </div>
-          ))}
-        </div>
-
-        {/* View all */}
-        <div className="text-center">
-          {/* ✅ internal link → <Link> + Wayfinder */}
-          <Link href={doctorsRoute.url()} className="wc-btn wc-btn-ghost wc-btn-md">
-            View all specialists →
-          </Link>
-        </div>
-
-      </div>
-    </section>
-  );
+        </section>
+    );
 }

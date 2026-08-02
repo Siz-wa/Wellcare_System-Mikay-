@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\PatientProfile;
 use App\Models\User;
 
 test('profile page is displayed', function () {
@@ -12,13 +13,16 @@ test('profile page is displayed', function () {
     $response->assertOk();
 });
 
+// Email lives on users; the name lives on the patient profile. The form used
+// to submit a single `name`, which User::$fillable silently dropped.
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
         ->patch(route('profile.update'), [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'last_name' => 'User',
             'email' => 'test@example.com',
         ]);
 
@@ -28,9 +32,41 @@ test('profile information can be updated', function () {
 
     $user->refresh();
 
-    expect($user->name)->toBe('Test User');
-    expect($user->email)->toBe('test@example.com');
-    expect($user->email_verified_at)->toBeNull();
+    expect($user->email)->toBe('test@example.com')
+        ->and($user->email_verified_at)->toBeNull()
+        ->and($user->profile->first_name)->toBe('Test')
+        ->and($user->profile->last_name)->toBe('User')
+        // The computed accessor now reflects the change.
+        ->and($user->name)->toBe('Test User');
+});
+
+test('an existing profile is updated rather than duplicated', function () {
+    $user = User::factory()->create();
+    $user->profile()->create(['first_name' => 'Old', 'last_name' => 'Name']);
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'first_name' => 'New',
+            'last_name' => 'Name',
+            'email' => $user->email,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($user->refresh()->profile->first_name)->toBe('New')
+        ->and(PatientProfile::where('user_id', $user->id)->count())->toBe(1);
+});
+
+test('first and last name are required', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->from(route('profile.edit'))
+        ->patch(route('profile.update'), [
+            'first_name' => '',
+            'last_name' => '',
+            'email' => $user->email,
+        ])
+        ->assertSessionHasErrors(['first_name', 'last_name']);
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
@@ -39,7 +75,8 @@ test('email verification status is unchanged when the email address is unchanged
     $response = $this
         ->actingAs($user)
         ->patch(route('profile.update'), [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'last_name' => 'User',
             'email' => $user->email,
         ]);
 

@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\PatientProfile;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
-use App\Models\PatientProfile;
 
 class HrSeeder extends Seeder
 {
@@ -13,16 +13,16 @@ class HrSeeder extends Seeder
     {
         $hrOfficers = [
             [
-                'email'      => 'hr.garcia@wellcare.com',
-                'password'   => 'password123',
+                'email' => 'hr.garcia@wellcare.com',
+                'password' => 'password123',
                 'first_name' => 'Liza',
-                'last_name'  => 'Garcia',
+                'last_name' => 'Garcia',
             ],
             [
-                'email'      => 'hr.mendoza@wellcare.com',
-                'password'   => 'password123',
+                'email' => 'hr.mendoza@wellcare.com',
+                'password' => 'password123',
                 'first_name' => 'Ramon',
-                'last_name'  => 'Mendoza',
+                'last_name' => 'Mendoza',
             ],
         ];
 
@@ -34,12 +34,17 @@ class HrSeeder extends Seeder
 
             $user->syncRoles(['hr']);
 
+            // The hr|admin routes are behind `verified`.
+            if (! $user->hasVerifiedEmail()) {
+                $user->markEmailAsVerified();
+            }
+
             // Patient profile — required so getNameAttribute works in the topbar
             PatientProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'first_name'     => $data['first_name'],
-                    'last_name'      => $data['last_name'],
+                    'first_name' => $data['first_name'],
+                    'last_name' => $data['last_name'],
                     'classification' => 'old',
                 ]
             );

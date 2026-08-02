@@ -5,42 +5,92 @@
 // component works — just import this instead.
 
 export interface NavItem {
-  id:      string;
-  label:   string;
-  href:    string;
-  iconKey: "dashboard" | "schedule" | "patients" | "consultations" | "labreviews" | "records" | "settings";
+    id: string;
+    label: string;
+    href: string;
+    iconKey:
+        | 'dashboard'
+        | 'schedule'
+        | 'patients'
+        | 'consultations'
+        | 'labreviews'
+        | 'records'
+        | 'settings';
 }
 
 export interface NavGroup {
-  groupLabel: string;
-  items:      NavItem[];
+    groupLabel: string;
+    items: NavItem[];
 }
 
 export const navGroups: NavGroup[] = [
-  {
-    groupLabel: "MY HEALTH",
-    items: [
-      { id: "dashboard",    label: "My Appointments", href: "/user/dashboard", iconKey: "dashboard"    },
-    ],
-  },
-  {
-    groupLabel: "BOOKING",
-    items: [
-      { id: "schedule",     label: "Book Appointment", href: "/book",           iconKey: "schedule"     },
-    ],
-  },
-  {
-    groupLabel: "Generals",
-    items: [
-      { id: "home",     label: "Home Page",  href: "/",       iconKey: "records"      },
-      { id: "doctors",  label: "Doctors List",  href: "/doctors",       iconKey: "records"      },
-      { id: "contact",  label: "Contact Us",  href: "/contact",       iconKey: "records"      },
-      { id: "patients", label: "FAQs",  href: "/faqs",       iconKey: "records"      },
-    ],
-  },
+    {
+        groupLabel: 'MY HEALTH',
+        items: [
+            {
+                id: 'dashboard',
+                label: 'My Appointments',
+                href: '/user/dashboard',
+                iconKey: 'dashboard',
+            },
+            {
+                id: 'records',
+                label: 'My Records',
+                href: '/user/records',
+                iconKey: 'records',
+            },
+            {
+                id: 'lab-results',
+                label: 'Lab Results',
+                href: '/user/lab-results',
+                iconKey: 'labreviews',
+            },
+            {
+                id: 'loa-status',
+                label: 'LOA Status',
+                href: '/user/loa-status',
+                iconKey: 'consultations',
+            },
+        ],
+    },
+    {
+        groupLabel: 'BOOKING',
+        items: [
+            {
+                id: 'schedule',
+                label: 'Book Appointment',
+                href: '/book',
+                iconKey: 'schedule',
+            },
+        ],
+    },
+    {
+        groupLabel: 'Generals',
+        items: [
+            { id: 'home', label: 'Home Page', href: '/', iconKey: 'records' },
+            {
+                id: 'doctors',
+                label: 'Doctors List',
+                href: '/doctors',
+                iconKey: 'records',
+            },
+            {
+                id: 'contact',
+                label: 'Contact Us',
+                href: '/contact',
+                iconKey: 'records',
+            },
+            {
+                id: 'patients',
+                label: 'FAQs',
+                href: '/faqs',
+                iconKey: 'records',
+            },
+        ],
+    },
 ];
 
 export const patientDashboardMeta = {
-  searchPlaceholder: "Search appointments…",
-  activeNav:         "dashboard",
+    searchPlaceholder: 'Search appointments…',
+    activeNav: 'dashboard',
 };

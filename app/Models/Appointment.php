@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -20,7 +23,24 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 final class Appointment extends Model
 {
+    use HasFactory;
+    use RecordsActivity;
     use SoftDeletes;
+
+    /**
+     * Audited fields — the scheduling decisions an admin may need to account
+     * for, not the patient's demographic data (which is duplicated onto every
+     * appointment row and would flood the log with unchanged personal details).
+     *
+     * @return array<int, string>
+     */
+    protected function activityLogAttributes(): array
+    {
+        return [
+            'status', 'doctor_id', 'appointment_date', 'appointment_time',
+            'coverage', 'cancellation_reason',
+        ];
+    }
 
     protected $fillable = [
         'user_id',            // FK → users.id  (booking account / guarantor)
@@ -49,9 +69,9 @@ final class Appointment extends Model
 
     protected $casts = [
         'appointment_date' => 'date',
-        'hold_expires_at'  => 'datetime',
-        'cancelled_at'     => 'datetime',
-        'age'              => 'integer',
+        'hold_expires_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'age' => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -82,6 +102,13 @@ final class Appointment extends Model
     public function consultationSession(): HasOne
     {
         return $this->hasOne(ConsultationSession::class, 'appointment_id');
+    }
+
+    /** Lab tests ordered during this visit, newest request first */
+    public function labResults(): HasMany
+    {
+        return $this->hasMany(LabTestResult::class, 'appointment_id')
+            ->latest('requested_at');
     }
 
     public function isHeld(): bool
