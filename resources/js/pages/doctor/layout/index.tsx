@@ -5,6 +5,6 @@
 //
 //   import { DashboardLayout } from "@/layouts/app";
 
-export { DashboardLayout } from "./dashboard-layout";
-export { AppSidebar }      from "./AppSidebar";
-export { AppTopbar }       from "./AppTopbar";
+export { DashboardLayout } from './dashboard-layout';
+export { AppSidebar } from './AppSidebar';
+export { AppTopbar } from './AppTopbar';

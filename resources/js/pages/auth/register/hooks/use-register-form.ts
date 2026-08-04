@@ -72,42 +72,42 @@ function validateStep1(f: RegisterFields): StepErrors {
     const e: StepErrors = {};
 
     if (!f.first_name.trim()) {
-e.first_name = 'First name is required.';
-} else if (f.first_name.trim().length < 2) {
-e.first_name = 'First name must be at least 2 characters.';
-} else if (f.first_name.trim().length > 100) {
-e.first_name = 'First name must not exceed 100 characters.';
-}
+        e.first_name = 'First name is required.';
+    } else if (f.first_name.trim().length < 2) {
+        e.first_name = 'First name must be at least 2 characters.';
+    } else if (f.first_name.trim().length > 100) {
+        e.first_name = 'First name must not exceed 100 characters.';
+    }
 
     if (!f.last_name.trim()) {
-e.last_name = 'Last name is required.';
-} else if (f.last_name.trim().length < 2) {
-e.last_name = 'Last name must be at least 2 characters.';
-} else if (f.last_name.trim().length > 100) {
-e.last_name = 'Last name must not exceed 100 characters.';
-}
+        e.last_name = 'Last name is required.';
+    } else if (f.last_name.trim().length < 2) {
+        e.last_name = 'Last name must be at least 2 characters.';
+    } else if (f.last_name.trim().length > 100) {
+        e.last_name = 'Last name must not exceed 100 characters.';
+    }
 
     if (!f.email.trim()) {
-e.email = 'Email address is required.';
-} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) {
-e.email = 'Please enter a valid email address.';
-}
+        e.email = 'Email address is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) {
+        e.email = 'Please enter a valid email address.';
+    }
 
     if (!f.password) {
-e.password = 'Password is required.';
-} else if (f.password.length < 8) {
-e.password = 'Password must be at least 8 characters.';
-} else if (!/[A-Z]/.test(f.password)) {
-e.password = 'Password must contain at least one uppercase letter.';
-} else if (!/[0-9]/.test(f.password)) {
-e.password = 'Password must contain at least one number.';
-}
+        e.password = 'Password is required.';
+    } else if (f.password.length < 8) {
+        e.password = 'Password must be at least 8 characters.';
+    } else if (!/[A-Z]/.test(f.password)) {
+        e.password = 'Password must contain at least one uppercase letter.';
+    } else if (!/[0-9]/.test(f.password)) {
+        e.password = 'Password must contain at least one number.';
+    }
 
     if (!f.password_confirmation) {
-e.password_confirmation = 'Please confirm your password.';
-} else if (f.password !== f.password_confirmation) {
-e.password_confirmation = 'Passwords do not match.';
-}
+        e.password_confirmation = 'Please confirm your password.';
+    } else if (f.password !== f.password_confirmation) {
+        e.password_confirmation = 'Passwords do not match.';
+    }
 
     return e;
 }
@@ -116,10 +116,10 @@ function validateStep2(f: RegisterFields): StepErrors {
     const e: StepErrors = {};
 
     if (!f.address.trim()) {
-e.address = 'Address is required.';
-} else if (f.address.trim().length < 5) {
-e.address = 'Please enter a complete address.';
-}
+        e.address = 'Address is required.';
+    } else if (f.address.trim().length < 5) {
+        e.address = 'Please enter a complete address.';
+    }
 
     if (!f.birthdate) {
         e.birthdate = 'Birthdate is required.';
@@ -129,29 +129,29 @@ e.address = 'Please enter a complete address.';
         const age = today.getFullYear() - dob.getFullYear();
 
         if (isNaN(dob.getTime())) {
-e.birthdate = 'Please enter a valid date.';
-} else if (dob >= today) {
-e.birthdate = 'Birthdate must be in the past.';
-} else if (age < 1) {
-e.birthdate = 'Patient must be at least 1 year old.';
-} else if (age > 120) {
-e.birthdate = 'Please enter a valid birthdate.';
-}
+            e.birthdate = 'Please enter a valid date.';
+        } else if (dob >= today) {
+            e.birthdate = 'Birthdate must be in the past.';
+        } else if (age < 1) {
+            e.birthdate = 'Patient must be at least 1 year old.';
+        } else if (age > 120) {
+            e.birthdate = 'Please enter a valid birthdate.';
+        }
     }
 
     if (!f.contact_number.trim()) {
-e.contact_number = 'Contact number is required.';
-} else if (!/^[0-9+\-\s()]{7,20}$/.test(f.contact_number)) {
-e.contact_number = 'Please enter a valid contact number.';
-}
+        e.contact_number = 'Contact number is required.';
+    } else if (!/^[0-9+\-\s()]{7,20}$/.test(f.contact_number)) {
+        e.contact_number = 'Please enter a valid contact number.';
+    }
 
     if (!f.gender) {
-e.gender = 'Please select a gender.';
-}
+        e.gender = 'Please select a gender.';
+    }
 
     if (!f.civil_status) {
-e.civil_status = 'Please select a civil status.';
-}
+        e.civil_status = 'Please select a civil status.';
+    }
 
     return e;
 }
@@ -163,25 +163,25 @@ function validateStep3(f: RegisterFields): StepErrors {
         const h = parseFloat(f.height);
 
         if (isNaN(h) || h < 50 || h > 250) {
-e.height = 'Height must be between 50 and 250 cm.';
-}
+            e.height = 'Height must be between 50 and 250 cm.';
+        }
     }
 
     if (f.weight) {
         const w = parseFloat(f.weight);
 
         if (isNaN(w) || w < 1 || w > 300) {
-e.weight = 'Weight must be between 1 and 300 kg.';
-}
+            e.weight = 'Weight must be between 1 and 300 kg.';
+        }
     }
 
     if (f.blood_pressure && !/^\d{2,3}\/\d{2,3}$/.test(f.blood_pressure)) {
-e.blood_pressure = 'BP must be in format 120/80.';
-}
+        e.blood_pressure = 'BP must be in format 120/80.';
+    }
 
     if (!f.classification) {
-e.classification = 'Please select a patient classification.';
-}
+        e.classification = 'Please select a patient classification.';
+    }
 
     return e;
 }

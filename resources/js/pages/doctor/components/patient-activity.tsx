@@ -38,8 +38,8 @@ function ActivityChart({ animate }: { animate: boolean }): ReactElement {
 
     useEffect(() => {
         if (pathRef.current) {
-setLen(pathRef.current.getTotalLength());
-}
+            setLen(pathRef.current.getTotalLength());
+        }
     }, []);
 
     return (

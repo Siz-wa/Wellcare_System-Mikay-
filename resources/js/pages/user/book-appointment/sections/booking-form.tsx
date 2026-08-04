@@ -69,8 +69,8 @@ export default function BookingForm({
         setAttempted1(true);
 
         if (!step1Valid) {
-return;
-}
+            return;
+        }
 
         markDone(1);
         goTo(2);
@@ -80,8 +80,8 @@ return;
         setAttempted2(true);
 
         if (!step2Valid) {
-return;
-}
+            return;
+        }
 
         markDone(2);
         goTo(3);
@@ -91,8 +91,8 @@ return;
         setAttempted3(true);
 
         if (!step3Valid) {
-return;
-}
+            return;
+        }
 
         markDone(3);
         goTo(4);

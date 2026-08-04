@@ -26,8 +26,8 @@ export function Prescription({
 
     function handleAdd(): void {
         if (!newName.trim()) {
-return;
-}
+            return;
+        }
 
         onAdd({
             id: `med-${Date.now()}`,

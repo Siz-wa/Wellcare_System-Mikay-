@@ -35,12 +35,12 @@ function TabIcon({
     iconKey: 'soap' | 'vitals' | 'labs';
 }): ReactElement {
     if (iconKey === 'soap') {
-return <IconSoap />;
-}
+        return <IconSoap />;
+    }
 
     if (iconKey === 'labs') {
-return <FlaskConical size={16} strokeWidth={1.9} />;
-}
+        return <FlaskConical size={16} strokeWidth={1.9} />;
+    }
 
     return <IconVitals />;
 }
@@ -101,8 +101,8 @@ export function SessionEditor({
     useEffect(() => {
         function handleKey(e: KeyboardEvent): void {
             if (e.key === 'Escape') {
-onClose();
-}
+                onClose();
+            }
         }
         document.addEventListener('keydown', handleKey);
 
@@ -127,8 +127,8 @@ onClose();
 
     function handleSave(finalize: boolean): void {
         if (!consultation) {
-return;
-}
+            return;
+        }
 
         setSaving(true);
         setSaveLabel('idle');

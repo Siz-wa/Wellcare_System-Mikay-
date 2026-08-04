@@ -15,7 +15,10 @@ export function UserInfo({
 
     // Resolve display name — Laravel appends `name` via getNameAttribute()
     // but fall back gracefully if it ever arrives undefined
-    const displayName = (user.name ?? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()) || 'User';
+    const displayName =
+        (user.name ??
+            `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()) ||
+        'User';
 
     return (
         <>
@@ -28,7 +31,7 @@ export function UserInfo({
             <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{displayName}</span>
                 {showEmail && (
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="text-muted-foreground truncate text-xs">
                         {user.email}
                     </span>
                 )}

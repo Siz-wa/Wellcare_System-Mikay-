@@ -36,8 +36,8 @@ export function DoctorPicker({
     useEffect(() => {
         const onMouseDown = (e: MouseEvent) => {
             if (containerRef.current?.contains(e.target as Node)) {
-return;
-}
+                return;
+            }
 
             setOpen(false);
             // Revert to last confirmed display name if user typed but didn't select
@@ -176,18 +176,18 @@ return;
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!isSelected) {
-(
+                                            (
                                                 e.currentTarget as HTMLButtonElement
                                             ).style.background =
                                                 'var(--wc-gray-50)';
-}
+                                        }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (!isSelected) {
-(
+                                            (
                                                 e.currentTarget as HTMLButtonElement
                                             ).style.background = 'transparent';
-}
+                                        }
                                     }}
                                 >
                                     {/* Avatar */}

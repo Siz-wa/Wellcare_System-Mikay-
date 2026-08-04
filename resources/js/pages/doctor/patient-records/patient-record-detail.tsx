@@ -341,8 +341,8 @@ function AddAllergyForm({
         setData(field, value);
 
         if (errors[field]) {
-clearErrors(field);
-}
+            clearErrors(field);
+        }
     };
 
     return (
@@ -479,8 +479,8 @@ function AddDiagnosisForm({
         setData(field, value);
 
         if (errors[field]) {
-clearErrors(field);
-}
+            clearErrors(field);
+        }
     };
 
     return (
@@ -787,8 +787,8 @@ export default function PatientRecordDetail(): ReactElement {
 
     function deleteAllergy(id: number): void {
         if (!confirm('Remove this allergy record?')) {
-return;
-}
+            return;
+        }
 
         router.delete(`/doctor/patient-records/allergies/${id}`, {
             preserveScroll: true,
@@ -799,8 +799,8 @@ return;
 
     function deleteDiagnosis(id: number): void {
         if (!confirm('Remove this diagnosis?')) {
-return;
-}
+            return;
+        }
 
         router.delete(`/doctor/patient-records/diagnoses/${id}`, {
             preserveScroll: true,
@@ -824,8 +824,8 @@ return;
 
     function deleteDocument(id: number): void {
         if (!confirm('Delete this document? This cannot be undone.')) {
-return;
-}
+            return;
+        }
 
         router.delete(`/doctor/patient-records/documents/${id}`, {
             preserveScroll: true,

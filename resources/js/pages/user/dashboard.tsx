@@ -805,8 +805,8 @@ function RecordDetail({
                                     ];
 
                                 if (!val) {
-return null;
-}
+                                    return null;
+                                }
 
                                 return (
                                     <div
@@ -902,8 +902,8 @@ return null;
                                 },
                             ].map(({ label, value, unit }) => {
                                 if (!value) {
-return null;
-}
+                                    return null;
+                                }
 
                                 return (
                                     <div
@@ -1447,8 +1447,8 @@ export default function PatientDashboard(): ReactElement {
 
     function handleCancel(id: number): void {
         if (!confirm('Are you sure you want to cancel this appointment?')) {
-return;
-}
+            return;
+        }
 
         router.post(
             `/user/appointments/${id}/cancel`,

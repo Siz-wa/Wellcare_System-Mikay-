@@ -154,8 +154,8 @@ export default function StepPersonal({
                                 const n = parseInt(raw, 10);
 
                                 if (isNaN(n)) {
-return;
-}
+                                    return;
+                                }
 
                                 setData(
                                     'age',

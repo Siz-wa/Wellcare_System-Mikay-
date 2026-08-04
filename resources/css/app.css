@@ -2,35 +2,35 @@
    WELLCARE DESIGN SYSTEM — MAIN ENTRY
  
    ========================================================================== */
-@import "./tokens.css";
-@import "./base.css";
-@import "./components.css";
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
 
 /* ── Tailwind (if using Tailwind v4) ─────────────────────── */
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* ── Tailwind Theme Override with Wellcare Tokens ─────────── */
 @theme {
-  --font-sans:    "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Bricolage Grotesque", sans-serif;
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Bricolage Grotesque', sans-serif;
 
-  --color-brand-primary:   #0056b3;
-  --color-brand-secondary: #00a8e8;
-  --color-brand-accent:    #f8f9fa;
-  --color-brand-dark:      #1a1a1a;
+    --color-brand-primary: #0056b3;
+    --color-brand-secondary: #00a8e8;
+    --color-brand-accent: #f8f9fa;
+    --color-brand-dark: #1a1a1a;
 
-  --color-wc-blue-50:  #eff6ff;
-  --color-wc-blue-100: #dbeafe;
-  --color-wc-blue-600: #0056b3;
-  --color-wc-blue-700: #004494;
-  --color-wc-blue-800: #003370;
-  --color-wc-blue-900: #001f45;
+    --color-wc-blue-50: #eff6ff;
+    --color-wc-blue-100: #dbeafe;
+    --color-wc-blue-600: #0056b3;
+    --color-wc-blue-700: #004494;
+    --color-wc-blue-800: #003370;
+    --color-wc-blue-900: #001f45;
 
-  --color-wc-sky-400:  #38bdf8;
-  --color-wc-sky-500:  #00a8e8;
-  --color-wc-sky-600:  #0284c7;
+    --color-wc-sky-400: #38bdf8;
+    --color-wc-sky-500: #00a8e8;
+    --color-wc-sky-600: #0284c7;
 }
 
 #nprogress .bar {
-  z-index: 9999 !important;
+    z-index: 9999 !important;
 }

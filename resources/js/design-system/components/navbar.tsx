@@ -79,20 +79,20 @@ export type NavLabel = (typeof NAV_LINKS)[number]['label'];
 
 function getDashboardUrl(roles: string[]): string {
     if (roles.includes('doctor')) {
-return '/doctor/appointments';
-}
+        return '/doctor/appointments';
+    }
 
     if (roles.includes('hr')) {
-return '/hr/dashboard';
-}
+        return '/hr/dashboard';
+    }
 
     if (roles.includes('admin')) {
-return '/hr/dashboard';
-}
+        return '/hr/dashboard';
+    }
 
     if (roles.includes('user')) {
-return '/user/dashboard';
-}
+        return '/user/dashboard';
+    }
 
     return '/user/dashboard';
 }
@@ -208,8 +208,8 @@ export default function Navbar({ active }: NavbarProps) {
     useEffect(() => {
         const onResize = () => {
             if (window.innerWidth > 768) {
-setMobileOpen(false);
-}
+                setMobileOpen(false);
+            }
         };
         window.addEventListener('resize', onResize);
 

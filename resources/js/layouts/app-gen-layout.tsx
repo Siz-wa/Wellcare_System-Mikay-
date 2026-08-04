@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Footer from '@/design-system/components/footer';
 import Navbar from '@/design-system/components/navbar';
-import type {NavLabel} from '@/design-system/components/navbar';
+import type { NavLabel } from '@/design-system/components/navbar';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface WellcareLayoutProps {

@@ -77,8 +77,8 @@ export default function RegisterFormPanel({
         }
 
         if (Object.keys(pageErrors).length === 0) {
-return;
-}
+            return;
+        }
 
         // Walk steps 1 → 2 in priority order.
         // Jump to the first step that owns at least one returned error key.

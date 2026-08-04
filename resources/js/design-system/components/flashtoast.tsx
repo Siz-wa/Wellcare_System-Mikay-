@@ -24,8 +24,8 @@ export function FlashToast(): ReactElement | null {
     }, [props.flash]);
 
     if (!visible || !message) {
-return null;
-}
+        return null;
+    }
 
     const isSuccess = type === 'success';
 

@@ -1,4 +1,4 @@
-import type { ReactElement} from 'react';
+import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { AppSidebar } from '../layout/AppSidebar';
 import { AppTopbar } from '../layout/AppTopbar';
