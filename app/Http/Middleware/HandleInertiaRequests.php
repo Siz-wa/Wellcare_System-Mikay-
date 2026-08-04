@@ -44,7 +44,7 @@ class HandleInertiaRequests extends Middleware
                 'title' => $n->subject,
                 'body' => $n->body,
                 'icon' => $this->iconForType($n->type),
-                'action_url' => $this->urlForNotification($n->type, $user),
+                'action_url' => $n->actionUrlFor($user),
                 'role_hint' => null,
                 'read' => (bool) $n->read,
                 'time' => $n->created_at->diffForHumans(),
@@ -130,6 +130,7 @@ class HandleInertiaRequests extends Middleware
             'confirmed' => 'check-circle',
             'cancelled' => 'x-circle',
             'checked_in' => 'user-check',
+            'consultation_started' => 'video',
             'consultation_done' => 'clipboard-check',
             'hmo_submitted' => 'calendar',
             'hmo_approved' => 'check-circle',
@@ -142,33 +143,9 @@ class HandleInertiaRequests extends Middleware
         };
     }
 
-    private function urlForNotification(string $type, User $user): string
-    {
-        $roles = $user->getRoleNames()->toArray();
-
-        if (in_array('doctor', $roles)) {
-            return match ($type) {
-                // A recorded or critical result is only actionable on the
-                // review page — sending the doctor to the appointment list
-                // would bury the thing the notification is about.
-                'lab_recorded', 'lab_critical' => '/doctor/lab-reviews',
-                default => '/doctor/appointments',
-            };
-        }
-
-        if (in_array('hr', $roles) || in_array('admin', $roles)) {
-            return match ($type) {
-                'hmo_submitted', 'hmo_approved', 'hmo_rejected' => '/hr/hmo-approvals',
-                default => '/hr/dashboard',
-            };
-        }
-
-        // Nurses only have the one workspace.
-        if (in_array('nurse', $roles)) {
-            return '/nurse/lab-queue';
-        }
-
-        // Patient
-        return '/user/dashboard';
-    }
+    // Notification routing lives on AppointmentNotification::actionUrlFor().
+    // It used to live here, and PatientDashboardController — which builds its
+    // own notification payload and overrides this shared prop entirely — set
+    // action_url to null, so every notification on the dashboard was a dead
+    // click that no change here could fix.
 }

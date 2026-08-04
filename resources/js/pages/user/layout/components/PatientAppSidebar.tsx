@@ -15,6 +15,7 @@ import {
     LogOut,
     ChevronRight,
     Stethoscope,
+    Video,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
@@ -36,6 +37,7 @@ const ICON_MAP: Record<IconKey, ReactElement> = {
     labreviews: <FlaskConical size={17} strokeWidth={1.8} />,
     records: <FolderOpen size={17} strokeWidth={1.8} />,
     settings: <Settings size={17} strokeWidth={1.8} />,
+    video: <Video size={17} strokeWidth={1.8} />,
 };
 
 export function SidebarLogo(): ReactElement {

@@ -56,4 +56,28 @@ class AppointmentFactory extends Factory
     {
         return $this->state(fn () => ['status' => 'in_progress']);
     }
+
+    public function checkedIn(): static
+    {
+        return $this->state(fn () => ['status' => 'checked_in']);
+    }
+
+    public function completed(): static
+    {
+        return $this->state(fn () => ['status' => 'completed']);
+    }
+
+    public function cancelled(): static
+    {
+        return $this->state(fn () => ['status' => 'cancelled']);
+    }
+
+    /**
+     * A video visit. Does not move `status` — `consultation_type` is orthogonal
+     * to the state machine, so compose it: `->virtual()->checkedIn()`.
+     */
+    public function virtual(): static
+    {
+        return $this->state(fn () => ['consultation_type' => 'virtual']);
+    }
 }

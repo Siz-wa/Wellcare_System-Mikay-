@@ -8,6 +8,7 @@
 // a doctor, and is validated there instead.
 
 import type { BookingFormData } from '@/pages/user/book-appointment/sections/bookingdata';
+import { supportsVirtual } from '@/pages/user/book-appointment/sections/bookingdata';
 
 // ── Error shapes ──────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ export interface Step1Errors {
 export interface Step2Errors {
     service?: string;
     patientStatus?: string;
+    consultationType?: string;
     appointmentDate?: string;
     // appointmentTime intentionally absent — validated in Step 3
 }
@@ -48,47 +50,47 @@ function validateStep1(data: BookingFormData): Step1Errors {
     const fn = data.firstName?.trim() ?? '';
 
     if (!fn) {
-e.firstName = 'First name is required.';
-} else if (fn.length > 50) {
-e.firstName = 'First name must be under 50 characters.';
-}
+        e.firstName = 'First name is required.';
+    } else if (fn.length > 50) {
+        e.firstName = 'First name must be under 50 characters.';
+    }
 
     const ln = data.lastName?.trim() ?? '';
 
     if (!ln) {
-e.lastName = 'Last name is required.';
-} else if (ln.length > 50) {
-e.lastName = 'Last name must be under 50 characters.';
-}
+        e.lastName = 'Last name is required.';
+    } else if (ln.length > 50) {
+        e.lastName = 'Last name must be under 50 characters.';
+    }
 
     const em = data.email?.trim() ?? '';
 
     if (!em) {
-e.email = 'Email address is required.';
-} else if (!EMAIL_RE.test(em)) {
-e.email = 'Please enter a valid email address.';
-}
+        e.email = 'Email address is required.';
+    } else if (!EMAIL_RE.test(em)) {
+        e.email = 'Please enter a valid email address.';
+    }
 
     const phone = (data.contactNumber ?? '').replace(/\s/g, '');
 
     if (!phone || phone === '+63') {
-e.contactNumber = 'Contact number is required.';
-} else if (!PH_PHONE.test(phone)) {
-e.contactNumber =
+        e.contactNumber = 'Contact number is required.';
+    } else if (!PH_PHONE.test(phone)) {
+        e.contactNumber =
             'Enter a valid PH number (09XXXXXXXXX or +639XXXXXXXXX).';
-}
+    }
 
     const age = String(data.age ?? '').trim();
 
     if (!age) {
-e.age = 'Age is required.';
-} else if (Number(age) < 1 || Number(age) > 120) {
-e.age = 'Age must be between 1 and 120.';
-}
+        e.age = 'Age is required.';
+    } else if (Number(age) < 1 || Number(age) > 120) {
+        e.age = 'Age must be between 1 and 120.';
+    }
 
     if (!data.gender) {
-e.gender = 'Please select your biological sex.';
-}
+        e.gender = 'Please select your biological sex.';
+    }
 
     return e;
 }
@@ -99,12 +101,24 @@ function validateStep2(data: BookingFormData): Step2Errors {
     const e: Step2Errors = {};
 
     if (!data.service) {
-e.service = 'Please select a service.';
-}
+        e.service = 'Please select a service.';
+    }
 
     if (!data.patientStatus) {
-e.patientStatus = 'Please select your patient status.';
-}
+        e.patientStatus = 'Please select your patient status.';
+    }
+
+    // Defaults to in_person, so an empty value means the field was cleared
+    // rather than never answered. Both are worth blocking.
+    if (!data.consultationType) {
+        e.consultationType = 'Please choose how you want to be seen.';
+    } else if (
+        data.consultationType === 'virtual' &&
+        !supportsVirtual(data.service)
+    ) {
+        e.consultationType =
+            'This service requires an in-person visit and cannot be booked as a video consultation.';
+    }
 
     if (!data.appointmentDate) {
         e.appointmentDate = 'Please select a preferred date.';
@@ -117,11 +131,11 @@ e.patientStatus = 'Please select your patient status.';
         maxDate.setDate(maxDate.getDate() + BOOKING_MAX_DAYS);
 
         if (chosen < tomorrow) {
-e.appointmentDate =
+            e.appointmentDate =
                 'The appointment date must be at least tomorrow.';
-} else if (chosen > maxDate) {
-e.appointmentDate = `Appointments cannot be booked more than ${BOOKING_MAX_DAYS} days in advance.`;
-}
+        } else if (chosen > maxDate) {
+            e.appointmentDate = `Appointments cannot be booked more than ${BOOKING_MAX_DAYS} days in advance.`;
+        }
     }
 
     return e;
@@ -133,24 +147,24 @@ function validateStep3(data: BookingFormData): Step3Errors {
     const e: Step3Errors = {};
 
     if (!data.coverage) {
-e.coverage = 'Please select a mode of coverage.';
-}
+        e.coverage = 'Please select a mode of coverage.';
+    }
 
     if (data.coverage === 'hmo') {
         if (!data.hmo) {
-e.hmo = 'Please select your HMO provider.';
-}
+            e.hmo = 'Please select your HMO provider.';
+        }
 
         if (!data.hmoId) {
-e.hmoId = 'Please enter your HMO ID number.';
-} else if (data.hmoId.length < 6) {
-e.hmoId = 'HMO ID must be at least 6 characters.';
-}
+            e.hmoId = 'Please enter your HMO ID number.';
+        } else if (data.hmoId.length < 6) {
+            e.hmoId = 'HMO ID must be at least 6 characters.';
+        }
     }
 
     if (!data.appointmentTime) {
-e.appointmentTime = 'Please select a time slot.';
-}
+        e.appointmentTime = 'Please select a time slot.';
+    }
 
     return e;
 }

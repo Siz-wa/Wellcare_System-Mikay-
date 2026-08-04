@@ -134,6 +134,7 @@ class AppointmentController extends Controller
                 'appointment_date' => $request->input('appointmentDate', $request->input('appointment_date')),
                 'appointment_time' => $request->input('appointmentTime', $request->input('appointment_time')),
                 'patient_status' => $request->input('patientStatus', $request->input('patient_status')),
+                'consultation_type' => $request->input('consultationType', $request->input('consultation_type')),
                 'coverage' => $request->input('coverage'),
                 'hmo' => $request->input('hmo'),
                 'hmo_id' => $request->input('hmoId', $request->input('hmo_id')),

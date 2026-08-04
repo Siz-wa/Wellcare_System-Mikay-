@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminPatientController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\ConsultationRoomController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Doctor\AvailabilityController;
 use App\Http\Controllers\Doctor\DoctorAppointmentController;
@@ -20,10 +21,11 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Nurse\AppointmentMonitorController;
 use App\Http\Controllers\Nurse\LabQueueController;
 use App\Http\Controllers\Nurse\LoaMonitoringController;
-use App\Http\Controllers\Nurse\NurseDashboardController;
 // Doctor\PatientRecordController holds the plain name above; the nurse's is
 // aliased for the same reason the patient portal's is.
+use App\Http\Controllers\Nurse\NurseDashboardController;
 use App\Http\Controllers\Nurse\PatientRecordController as NursePatientRecordController;
+use App\Http\Controllers\Patient\PatientConsultationController;
 use App\Http\Controllers\Patient\PatientDashboardController;
 use App\Http\Controllers\Patient\PatientLabResultController;
 use App\Http\Controllers\Patient\PatientLoaController;
@@ -53,6 +55,18 @@ Route::controller(GenController::class)->group(function () {
 Route::middleware(['auth'])->group(function () {
     // Canonical landing route — redirects to the dashboard for the user's role.
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // ── Consultation room — shared by both peers ─────────────────────────────
+    // Intentionally NOT role-gated. The doctor and the patient are symmetric
+    // participants once a call is up, and `role:doctor` would admit every
+    // doctor in the clinic to every room. Authorization is
+    // ConsultationSessionService::mayJoinRoom() — the same call
+    // routes/channels.php makes for the WebSocket subscribe.
+    Route::controller(ConsultationRoomController::class)->group(function () {
+        Route::post('/consultations/rooms/{roomId}/signal', 'signal')->name('consultations.rooms.signal');
+        Route::post('/consultations/rooms/{roomId}/join', 'join')->name('consultations.rooms.join');
+        Route::post('/consultations/rooms/{roomId}/leave', 'leave')->name('consultations.rooms.leave');
+    });
 
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
@@ -91,6 +105,10 @@ Route::middleware(['auth', 'verified', 'role:doctor'])->group(function () {
         Route::get('/doctor/consultations/patient-history', 'patientHistory')->name('doctor.consultations.history');
         Route::post('/doctor/consultations/{appointment}/save', 'saveSession')->name('doctor.consultations.save');
         Route::post('/doctor/consultations/{appointment}/start', 'start')->name('doctor.consultations.start');
+        // POST, not GET on /room — this mints a room_id and writes clinical
+        // state, so a refresh or a link prefetch must not trigger it.
+        Route::post('/doctor/consultations/{appointment}/start-virtual', 'startVirtual')->name('doctor.consultations.start-virtual');
+        Route::get('/doctor/consultations/{appointment}/room', 'room')->name('doctor.consultations.room');
         Route::post('/doctor/consultations/{appointment}/complete', 'complete')->name('doctor.consultations.complete');
         Route::post('/doctor/consultations/{appointment}/lab-request', 'requestLab')->name('doctor.consultations.lab-request');
     });
@@ -188,6 +206,14 @@ Route::middleware(['auth', 'role:user'])->group(function () {
     // "Check LOA status" — Objective 1.6, Fig. 11's LOA Status process.
     Route::get('/user/loa-status', [PatientLoaController::class, 'index'])->name('user.loa-status');
 
+    // Virtual consultation — Fig. 11 "Consultation Interface / Session Access".
+    // The literal `/user/consultations` stays ahead of the {appointment}
+    // wildcard below it, per the convention at the top of this file.
+    Route::controller(PatientConsultationController::class)->group(function () {
+        Route::get('/user/consultations', 'index')->name('user.consultations');
+        Route::get('/user/consultations/{appointment}', 'room')->name('user.consultations.room');
+    });
+
     Route::controller(AppointmentController::class)->group(function () {
         Route::get('/book', 'bookingPage')->name('book');
         // Slots — MUST come before /{appointment} wildcard
@@ -247,3 +273,11 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::post('/admin/doctors/{doctorId}/out-of-office', [AppointmentController::class, 'markOutOfOffice'])
         ->name('admin.doctors.out-of-office');
 });
+
+// The WebRTC spike lived here and was deleted 2026-08-04, once presence had been
+// verified on two devices and the real room had no remaining unanswered
+// question. It was three unauthenticated `local`-only routes backing a static
+// page — deliberately outside `auth` because the page carried no session — and
+// that is not a shape worth leaving in a repository a moment longer than it
+// earns its keep. Everything it proved now lives in
+// ConsultationRoomController and is covered by tests.

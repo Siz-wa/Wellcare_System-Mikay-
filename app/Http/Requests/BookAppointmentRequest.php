@@ -24,6 +24,16 @@ class BookAppointmentRequest extends FormRequest
     /** Mirrors SERVICE_ELIGIBILITY in bookingdata.ts */
     public const PEDIATRICS_MAX_AGE = 18;
 
+    /**
+     * Services that cannot be delivered over video, because they require the
+     * patient physically present — a blood draw, a scan, hands-on therapy.
+     *
+     * Mirrors `IN_PERSON_ONLY_SERVICES` in bookingdata.ts, which greys the
+     * virtual option out. This constant is the enforcement; the frontend copy
+     * is only the courtesy.
+     */
+    public const IN_PERSON_ONLY_SERVICES = ['laboratory', 'imaging', 'physical-therapy'];
+
     public function authorize(): bool
     {
         return true;
@@ -42,6 +52,7 @@ class BookAppointmentRequest extends FormRequest
             'appointment_date' => $this->input('appointmentDate', $this->input('appointment_date')),
             'appointment_time' => $this->input('appointmentTime', $this->input('appointment_time')),
             'patient_status' => $this->input('patientStatus', $this->input('patient_status')),
+            'consultation_type' => $this->input('consultationType', $this->input('consultation_type')),
             'hmo_id' => $this->input('hmoId', $this->input('hmo_id')),
             'doctor_id' => $this->input('doctorId', $this->input('doctor_id')),
             'additional_info' => $this->input('additionalInfo', $this->input('additional_info')),
@@ -72,6 +83,10 @@ class BookAppointmentRequest extends FormRequest
             // InvalidFormatException on anything unparseable.
             'appointment_time' => ['required', 'string', 'date_format:g:i A'],
             'patient_status' => ['required', Rule::in(['new', 'returning'])],
+            // Nullable, not required: the column defaults to in_person, and
+            // making it required would reject every request from a client that
+            // predates this field for no clinical reason.
+            'consultation_type' => ['nullable', Rule::in(['in_person', 'virtual'])],
 
             // ── Step 3: Coverage ────────────────────────────────────────────
             'coverage' => ['required', Rule::in(['cash', 'hmo', 'philhealth', 'corporate'])],
@@ -119,6 +134,18 @@ class BookAppointmentRequest extends FormRequest
                     $validator->errors()->add(
                         'service',
                         'Pediatrics is only available for patients aged '.self::PEDIATRICS_MAX_AGE.' and below.'
+                    );
+                }
+
+                // A lab draw, a scan and hands-on therapy all need the patient
+                // in the building. Booking one "virtually" would produce an
+                // appointment the clinic cannot deliver, and the doctor would
+                // discover it at the appointment time.
+                if ($this->input('consultation_type') === 'virtual'
+                    && in_array($service, self::IN_PERSON_ONLY_SERVICES, true)) {
+                    $validator->errors()->add(
+                        'consultation_type',
+                        'This service requires an in-person visit and cannot be booked as a video consultation.'
                     );
                 }
             },

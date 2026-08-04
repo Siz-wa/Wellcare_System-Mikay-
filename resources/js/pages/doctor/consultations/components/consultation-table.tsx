@@ -6,6 +6,7 @@
 //   - Status badge now handles rawStatus from DB
 //   - Empty state shows when no records returned from server
 
+import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { consultationsMeta } from '../consultations-data';
 import type {
@@ -263,6 +264,25 @@ function ConsultationRow({
                         gap: 'var(--space-3)',
                     }}
                 >
+                    {/* Video room — virtual bookings only, and only inside the
+                        window ConsultationSessionService will accept. Posts
+                        rather than links because opening a room mints a
+                        room_id and writes clinical state. */}
+                    {record.canStartVideo && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                router.post(
+                                    `/doctor/consultations/${record.id}/start-virtual`,
+                                )
+                            }
+                            className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill"
+                            style={{ whiteSpace: 'nowrap' }}
+                        >
+                            {record.roomIsLive ? 'Rejoin Video' : 'Start Video'}
+                        </button>
+                    )}
+
                     {/* Start/Continue session button — only for active consultations */}
                     {(record.rawStatus === 'checked_in' ||
                         record.rawStatus === 'in_progress') && (

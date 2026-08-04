@@ -5,10 +5,14 @@ import type { ReactElement } from 'react';
 import type { Step2Errors } from '@/hooks/use-step-validators';
 import type { BookingFormData } from '@/pages/user/book-appointment/sections/bookingdata';
 import {
+    consultationTypeOptions,
+    CONSULTATION_TYPE_HINT,
     eligibleServices,
+    IN_PERSON_ONLY_NOTICE,
     isServiceEligible,
     patientStatusOptions,
     STEP_HEADINGS,
+    supportsVirtual,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import { Field, ToggleCard, StepNav, IconCalendar } from '../components';
 
@@ -49,6 +53,18 @@ export default function StepAppointment({
             setData('service', '');
         }
     }, [data.service, data.gender, data.age, setData]);
+
+    const virtualAllowed = supportsVirtual(data.service);
+
+    // Switching to a service that must happen at the clinic forces the mode
+    // back. Same pattern as the service-eligibility reset above: correct it in
+    // an effect, never during render, or the submitted value and the rendered
+    // value disagree and the server rejects a form that looked valid.
+    useEffect(() => {
+        if (!virtualAllowed && data.consultationType === 'virtual') {
+            setData('consultationType', 'in_person');
+        }
+    }, [virtualAllowed, data.consultationType, setData]);
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -103,6 +119,39 @@ export default function StepAppointment({
                             </option>
                         ))}
                     </select>
+                </Field>
+
+                {/* Consultation type */}
+                <Field
+                    label="Consultation Type"
+                    required
+                    error={errors.consultationType}
+                    hint={
+                        !errors.consultationType
+                            ? virtualAllowed
+                                ? CONSULTATION_TYPE_HINT
+                                : IN_PERSON_ONLY_NOTICE
+                            : undefined
+                    }
+                >
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        {consultationTypeOptions
+                            .filter(
+                                (o) => o.value !== 'virtual' || virtualAllowed,
+                            )
+                            .map((o) => (
+                                <ToggleCard
+                                    key={o.value}
+                                    value={o.value}
+                                    label={o.label}
+                                    iconKey={o.value}
+                                    active={data.consultationType === o.value}
+                                    onClick={() =>
+                                        setData('consultationType', o.value)
+                                    }
+                                />
+                            ))}
+                    </div>
                 </Field>
 
                 {/* Patient status */}

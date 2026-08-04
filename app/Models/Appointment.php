@@ -53,6 +53,7 @@ final class Appointment extends Model
         'gender',
         'doctor_id',          // FK → users.id (doctor), nullable = next available
         'service',
+        'consultation_type',  // in_person | virtual — chosen by the patient at booking
         'branch',
         'appointment_date',
         'appointment_time',
@@ -120,5 +121,22 @@ final class Appointment extends Model
     public function isTerminal(): bool
     {
         return in_array($this->status, ['completed', 'cancelled', 'no_show'], true);
+    }
+
+    /** The patient asked for a video visit rather than an in-clinic one. */
+    public function isVirtual(): bool
+    {
+        return $this->consultation_type === 'virtual';
+    }
+
+    /**
+     * The visit is underway — the only window in which a video room may open.
+     *
+     * Excludes `confirmed`: a room opened before the patient checks in has no
+     * one to admit, and excludes everything terminal for the obvious reason.
+     */
+    public function isInConsultation(): bool
+    {
+        return in_array($this->status, ['checked_in', 'in_progress'], true);
     }
 }

@@ -237,6 +237,11 @@ class BookingService
                 'gender' => $validated['gender'],
                 'doctor_id' => $doctorId,
                 'service' => $validated['service'],
+                // Null-coalesced rather than required: the column defaults to
+                // in_person, and every caller that predates Phase 3 — including
+                // DoubleBookingTest and DailyPatientCapTest, which build their
+                // own payload arrays — must keep working untouched.
+                'consultation_type' => $validated['consultation_type'] ?? 'in_person',
                 'branch' => $validated['branch'] ?? 'Wellcare Dasmarinas',
                 'appointment_date' => $date,
                 'appointment_time' => $time,

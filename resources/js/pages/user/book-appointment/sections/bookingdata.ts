@@ -87,6 +87,35 @@ export const patientStatusOptions: SelectOption[] = [
     { value: 'returning', label: 'Returning Patient' },
 ];
 
+export const consultationTypeOptions: SelectOption[] = [
+    { value: 'in_person', label: 'In-Person Visit' },
+    { value: 'virtual', label: 'Video Consultation' },
+];
+
+/**
+ * Services that need the patient physically present — a blood draw, a scan,
+ * hands-on therapy. Selecting one hides the video option entirely rather than
+ * showing a choice that would be rejected on submit.
+ *
+ * Mirrors BookAppointmentRequest::IN_PERSON_ONLY_SERVICES, which is the actual
+ * enforcement — this list is only what keeps the user from picking an
+ * impossible combination in the first place.
+ */
+export const IN_PERSON_ONLY_SERVICES = [
+    'laboratory',
+    'imaging',
+    'physical-therapy',
+];
+
+export const supportsVirtual = (service: string): boolean =>
+    service !== '' && !IN_PERSON_ONLY_SERVICES.includes(service);
+
+export const CONSULTATION_TYPE_HINT =
+    'Video consultations run in your browser — no app to install. You will get a join link on this dashboard when your doctor starts the session.';
+
+export const IN_PERSON_ONLY_NOTICE =
+    'This service must be done at the clinic, so it is booked as an in-person visit.';
+
 export const serviceOptions: SelectOption[] = [
     { value: '', label: 'Select a service' },
     { value: 'general', label: 'General Consultation' },
@@ -128,19 +157,19 @@ export function isServiceEligible(
     const rule = SERVICE_ELIGIBILITY[value];
 
     if (!rule) {
-return true;
-}
+        return true;
+    }
 
     if (rule.sex === 'female' && gender === 'male') {
-return false;
-}
+        return false;
+    }
 
     if (rule.maxAge !== undefined && age !== '') {
         const parsed = Number(age);
 
         if (Number.isFinite(parsed) && parsed > rule.maxAge) {
-return false;
-}
+            return false;
+        }
     }
 
     return true;
@@ -214,6 +243,7 @@ export const REVIEW_LABELS: Record<string, string> = {
     appointmentDate: 'Preferred Date',
     appointmentTime: 'Time Slot',
     patientStatus: 'Patient Status',
+    consultationType: 'Consultation Type',
     coverage: 'Mode of Coverage',
     hmo: 'HMO Provider',
     hmoId: 'HMO ID Number',
@@ -237,6 +267,7 @@ export interface BookingFormData {
     appointmentDate: string;
     appointmentTime: string;
     patientStatus: string;
+    consultationType: string;
     coverage: string;
     hmo: string;
     hmoId: string;
@@ -275,6 +306,10 @@ export const BOOKING_FORM_DEFAULTS: BookingFormData = {
     appointmentDate: '',
     appointmentTime: '',
     patientStatus: '',
+    // Pre-selected rather than blank: in-person is what the clinic did before
+    // this feature existed, so a patient who ignores the control gets the
+    // status quo instead of a validation error.
+    consultationType: 'in_person',
     coverage: '',
     hmo: '',
     hmoId: '',

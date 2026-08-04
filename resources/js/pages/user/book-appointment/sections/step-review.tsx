@@ -15,6 +15,7 @@ import {
     genderOptions,
     serviceOptions,
     patientStatusOptions,
+    consultationTypeOptions,
     coverageOptions,
     hmoOptions,
     REVIEW_LABELS,
@@ -41,8 +42,8 @@ function resolveLabel(
 
 function resolveDoctorName(id: number | null, doctors: DoctorOption[]): string {
     if (id === null) {
-return 'Next available';
-}
+        return 'Next available';
+    }
 
     return doctors.find((d) => d.id === id)?.name ?? 'Unknown';
 }
@@ -161,6 +162,13 @@ export default function StepReview({
                         <ReviewRow
                             label={REVIEW_LABELS.service}
                             value={resolveLabel(data.service, serviceOptions)}
+                        />
+                        <ReviewRow
+                            label={REVIEW_LABELS.consultationType}
+                            value={resolveLabel(
+                                data.consultationType,
+                                consultationTypeOptions,
+                            )}
                         />
                         <ReviewRow
                             label={REVIEW_LABELS.patientStatus}
