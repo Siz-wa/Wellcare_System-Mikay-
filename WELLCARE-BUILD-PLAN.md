@@ -3072,3 +3072,56 @@ stated confidently and were wrong:
    it exercised the page I had just fixed rather than the page the user was on.
    The replacement asserts every page that ships notifications, and was proven
    red first.
+
+---
+
+### 2026-08-04 (seventh entry) — `composer ci:check` passes for the first time
+
+Pushed to `origin/feat/patient-portal-records`.
+
+**The 202 ESLint errors were 48.** `lint:check` runs `eslint .`, and
+`.claude/worktrees/` holds three full duplicate checkouts of this repository.
+They are gitignored, but ESLint's flat config does not read `.gitignore`, so
+every finding in real source was counted once per worktree plus once for the
+original. Adding `.claude/**` to the ignore list removed three quarters of the
+number without touching a line of source — worth recording, because the inflated
+count is exactly what made this backlog look too big to approach.
+
+**Three of the remaining 48 were real defects, each masked by the noise:**
+
+| File | Defect |
+|---|---|
+| `pages/doctor/components/stat-cards.tsx` | A hook called inside `.map()`. Survives only because the list is a fixed-length constant; hook order breaks the moment it is filtered or fetched |
+| `session-editor/session-editor.tsx` | The prepopulate effect depended on `[consultation]` — a fresh object every parent render — so an unrelated re-render of the list **overwrote clinical notes the doctor was typing** with the last saved values |
+| `consultations/components/consultation-detail-modal.tsx` | Patient-history fetch had no cancellation, so switching patients quickly could land the first response after the second and show **one patient's history under another's name** |
+
+The second and third are the kind this project cannot afford: silent, plausible,
+and about clinical data. Neither had a test, and neither would have been found by
+reading the feature — they were found by taking a lint rule seriously instead of
+suppressing it.
+
+The rest were the same shape as each other: state mirroring props is now derived,
+and state that must be *adjusted* when props change uses a comparison during
+render (React's documented pattern) rather than an effect that renders once with
+stale values and again with correct ones.
+
+**Formatting was committed separately from behaviour, both times.** Prettier (84
+files) and Pint (40 files) each got their own commit, verified mechanical rather
+than assumed — for Prettier by reconstructing each file from HEAD and comparing
+byte-for-byte. Neither had ever been run over these files, which is why
+`ci:check` failed regardless of what a given change touched.
+
+**Six `exhaustive-deps` warnings remain, deliberately.** They are warnings, and
+each needs a judgement about whether adding the dependency changes behaviour.
+Bulk-applying them is how a lint pass turns into a regression.
+
+**Gate results — all green:**
+
+| Gate | Result |
+|---|---|
+| `npm run lint:check` | 0 errors, 6 warnings |
+| `npm run format:check` | clean |
+| `npm run types:check` | clean |
+| `vendor/bin/pint --test` | pass |
+| `php artisan test` | **409 passed (1564 assertions)** |
+| **`composer ci:check`** | **passes end to end — first time** |
