@@ -23,12 +23,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->foreignId('recorded_by')    // the doctor/nurse who recorded it
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->string('allergen');          // e.g. "Penicillin", "Shellfish"
             $table->enum('severity', ['mild', 'moderate', 'severe'])->default('moderate');
@@ -45,17 +45,17 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->foreignId('appointment_id')
-                  ->nullable()    // can exist without a specific appointment
-                  ->constrained('appointments')
-                  ->nullOnDelete();
+                ->nullable()    // can exist without a specific appointment
+                ->constrained('appointments')
+                ->nullOnDelete();
 
             $table->foreignId('recorded_by')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->string('icd_code')->nullable();    // e.g. "J06.9"
             $table->string('diagnosis');               // e.g. "Acute Upper Respiratory Infection"
@@ -75,21 +75,21 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->foreignId('appointment_id')
-                  ->nullable()
-                  ->constrained('appointments')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('appointments')
+                ->nullOnDelete();
 
             $table->foreignId('uploaded_by')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->string('title');             // "CBC Results - March 2026"
             $table->enum('type', ['lab', 'imaging', 'referral', 'prescription', 'report', 'other'])
-                  ->default('other');
+                ->default('other');
             $table->string('file_path');         // storage path
             $table->string('file_name');         // original filename
             $table->string('mime_type', 100);

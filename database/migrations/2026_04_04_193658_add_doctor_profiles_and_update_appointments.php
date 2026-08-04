@@ -19,9 +19,9 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')
-                  ->unique()
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->unique()
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->string('display_name');
             $table->string('specialty', 100);

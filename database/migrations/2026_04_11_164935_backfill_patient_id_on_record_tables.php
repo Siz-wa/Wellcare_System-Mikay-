@@ -23,8 +23,12 @@ return new class extends Migration
     public function up(): void
     {
         foreach (['patient_allergies', 'patient_diagnoses', 'patient_documents'] as $table) {
-            if (! \Schema::hasTable($table)) continue;
-            if (! \Schema::hasColumn($table, 'patient_id')) continue;
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+            if (! Schema::hasColumn($table, 'patient_id')) {
+                continue;
+            }
 
             // For each record missing patient_id, try to find the patient
             DB::table($table)

@@ -34,9 +34,9 @@ return new class extends Migration
             // The booking account — nullable because walk-in / guest bookings
             // may not have an account. This is the "guarantor", NOT the patient.
             $table->foreignId('guarantor_id')
-                  ->nullable()
-                  ->constrained('users')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
 
             // Core identity — what the booking form collects
             $table->string('first_name');
@@ -73,10 +73,10 @@ return new class extends Migration
         // ── 2. Link appointments to patients ─────────────────────────────────
         Schema::table('appointments', function (Blueprint $table) {
             $table->foreignId('patient_id')
-                  ->nullable()
-                  ->after('user_id')
-                  ->constrained('patients')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('user_id')
+                ->constrained('patients')
+                ->nullOnDelete();
 
             $table->index('patient_id');
         });
@@ -89,10 +89,10 @@ return new class extends Migration
             if (Schema::hasTable($table)) {
                 Schema::table($table, function (Blueprint $t) {
                     $t->foreignId('patient_id')
-                      ->nullable()
-                      ->after('user_id')
-                      ->constrained('patients')
-                      ->nullOnDelete();
+                        ->nullable()
+                        ->after('user_id')
+                        ->constrained('patients')
+                        ->nullOnDelete();
                     $t->index('patient_id');
                 });
             }

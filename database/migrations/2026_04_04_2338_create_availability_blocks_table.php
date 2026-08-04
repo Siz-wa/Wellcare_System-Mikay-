@@ -23,8 +23,8 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('doctor_id')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             // ── Recurrence ──────────────────────────────────────────────────
             // day_of_week: 0 = Sunday … 6 = Saturday (null = one-off date)

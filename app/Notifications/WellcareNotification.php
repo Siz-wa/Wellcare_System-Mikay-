@@ -1,14 +1,14 @@
 <?php
 
 namespace App\Notifications;
- 
+
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
- 
+
 abstract class WellcareNotification extends Notification
 {
     use Queueable;
- 
+
     /**
      * Return the structured payload for this notification.
      *
@@ -22,12 +22,12 @@ abstract class WellcareNotification extends Notification
      * }
      */
     abstract public function toWellcare(object $notifiable): array;
- 
+
     public function via(object $notifiable): array
     {
         return ['database'];
     }
- 
+
     public function toArray(object $notifiable): array
     {
         return $this->toWellcare($notifiable);

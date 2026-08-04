@@ -16,25 +16,25 @@ class HRDashboardController extends Controller
             ->orderBy('appointment_time')
             ->get()
             ->map(fn (Appointment $a) => [
-                'id'         => $a->id,
-                'patient'    => trim($a->first_name . ' ' . $a->last_name),
-                'initials'   => strtoupper(substr($a->first_name, 0, 1) . substr($a->last_name, 0, 1)),
-                'service'    => ucwords(str_replace('-', ' ', $a->service)),
-                'date'       => $a->appointment_date->format('d M Y'),
-                'time'       => $a->appointment_time,
-                'hmo'        => $a->hmo,
-                'hmoId'      => $a->hmo_id,
-                'isToday'    => $a->appointment_date->isToday(),
+                'id' => $a->id,
+                'patient' => trim($a->first_name.' '.$a->last_name),
+                'initials' => strtoupper(substr($a->first_name, 0, 1).substr($a->last_name, 0, 1)),
+                'service' => ucwords(str_replace('-', ' ', $a->service)),
+                'date' => $a->appointment_date->format('d M Y'),
+                'time' => $a->appointment_time,
+                'hmo' => $a->hmo,
+                'hmoId' => $a->hmo_id,
+                'isToday' => $a->appointment_date->isToday(),
                 'isTomorrow' => $a->appointment_date->isTomorrow(),
             ]);
 
         $stats = [
-            'pendingHmo'        => $pending->count(),
-            'approvedToday'     => Appointment::where('coverage', 'hmo')
+            'pendingHmo' => $pending->count(),
+            'approvedToday' => Appointment::where('coverage', 'hmo')
                 ->where('status', 'requested')
                 ->whereDate('updated_at', today())
                 ->count(),
-            'rejectedToday'     => Appointment::where('coverage', 'hmo')
+            'rejectedToday' => Appointment::where('coverage', 'hmo')
                 ->where('status', 'cancelled')
                 ->whereDate('cancelled_at', today())
                 ->count(),
@@ -45,7 +45,7 @@ class HRDashboardController extends Controller
 
         return Inertia::render('hr/dashboard', [
             'pending' => $pending,
-            'stats'   => $stats,
+            'stats' => $stats,
         ]);
     }
 }
