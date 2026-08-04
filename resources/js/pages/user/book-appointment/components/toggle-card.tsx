@@ -15,7 +15,6 @@ interface ToggleCardProps {
 }
 
 export function ToggleCard({
-    value,
     label,
     iconKey,
     active,

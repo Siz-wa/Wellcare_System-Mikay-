@@ -24,7 +24,6 @@ export default function StepPersonal({
     data,
     errors,
     setData,
-    valid,
     onNext,
 }: StepPersonalProps): ReactElement {
     const { title, subtitle } = STEP_HEADINGS[1];
@@ -69,7 +68,7 @@ export default function StepPersonal({
                                 e: React.ChangeEvent<HTMLInputElement>,
                             ) => {
                                 const clean = e.target.value
-                                    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s'\-]/g, '')
+                                    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s'-]/g, '')
                                     .slice(0, 50);
                                 setData('firstName', clean);
                             }}
@@ -85,7 +84,7 @@ export default function StepPersonal({
                                 e: React.ChangeEvent<HTMLInputElement>,
                             ) => {
                                 const clean = e.target.value
-                                    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s'\-]/g, '')
+                                    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ\s'-]/g, '')
                                     .slice(0, 50);
                                 setData('lastName', clean);
                             }}

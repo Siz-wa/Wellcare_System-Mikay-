@@ -13,7 +13,6 @@ import React from 'react';
 import type { PageProps } from '@/types';
 import { DashboardLayout } from '../layout/dashboard-layout';
 import {
-    patientRecordsMeta,
     SEVERITY_CONFIG,
     DIAGNOSIS_STATUS_CONFIG,
     DOC_TYPE_LABEL,

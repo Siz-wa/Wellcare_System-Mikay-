@@ -5,7 +5,7 @@
 
 import type { ReactElement } from 'react';
 import { labReviewsMeta } from '../lab-reviews-data';
-import type { LabSubmission, LabResultStatus } from '../lab-reviews-data';
+import type { LabSubmission } from '../lab-reviews-data';
 
 // ── Lab flask icon (matches image — small blue flask SVG) ─────────────────────
 
@@ -41,20 +41,6 @@ function FlaskAvatar({ color }: { color: string }): ReactElement {
 }
 
 // ── Status badge (optional — image shows no per-row badge, kept for filtering) ─
-
-const STATUS_CONFIG: Record<
-    LabResultStatus,
-    { label: string; bg: string; color: string }
-> = {
-    pending: {
-        label: 'Pending',
-        bg: 'var(--wc-blue-50)',
-        color: 'var(--wc-blue-600)',
-    },
-    reviewed: { label: 'Reviewed', bg: '#dcfce7', color: '#15803d' },
-    critical: { label: 'Critical', bg: '#fee2e2', color: '#b91c1c' },
-    normal: { label: 'Normal', bg: '#f0fdf4', color: '#15803d' },
-};
 
 // ── Single submission row ─────────────────────────────────────────────────────
 

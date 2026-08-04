@@ -52,7 +52,6 @@ export default function StepCoverage({
     data,
     errors,
     setData,
-    valid,
     onNext,
     onBack,
     doctors,
@@ -68,25 +67,53 @@ export default function StepCoverage({
     // which means they have one but it is full. `remaining` is how many patients
     // the clinic's daily cap still allows, which is what a patient actually cares
     // about; `slots` alone would advertise hours the cap will not honour.
-    const [availability, setAvailability] = useState<
-        Record<number, DoctorDayAvailability>
-    >({});
-    const [loadingAvail, setLoadingAvail] = useState(false);
-    const [doctorSlots, setDoctorSlots] = useState<string[]>([]);
-    const [slotsLoading, setSlotsLoading] = useState(false);
-    const [doctorHasSchedule, setDoctorHasSchedule] = useState<boolean | null>(
-        null,
-    );
+    const [availabilityFor, setAvailabilityFor] = useState<{
+        date: string;
+        map: Record<number, DoctorDayAvailability>;
+    } | null>(null);
 
-    // 1. Fetch per-doctor slot counts on date change
+    const availability =
+        availabilityFor?.date === data.appointmentDate
+            ? availabilityFor.map
+            : {};
+
+    // Both 'loading' flags are derived: we are loading exactly when a request
+    // is warranted and the result we hold is not for it. Storing them meant a
+    // setState in each effect body, and left a frame where the old data was on
+    // screen with no spinner.
+    const loadingAvail =
+        data.appointmentDate !== '' &&
+        availabilityFor?.date !== data.appointmentDate;
+
+    const slotsKey = `${data.doctorId ?? ''}:${data.appointmentDate}`;
+    const [slotsFor, setSlotsFor] = useState<{
+        key: string;
+        slots: string[];
+        hasSchedule: boolean | null;
+    } | null>(null);
+
+    const forThisRequest = slotsFor?.key === slotsKey ? slotsFor : null;
+    const slotsLoading =
+        data.doctorId !== null &&
+        data.appointmentDate !== '' &&
+        forThisRequest === null;
+    const doctorSlots = forThisRequest?.slots ?? [];
+    const doctorHasSchedule = forThisRequest?.hasSchedule ?? null;
+
+    /*
+     * 1. Fetch per-doctor slot counts on date change.
+     *
+     * The result is tagged with the date it describes and `availability` is
+     * derived from that tag, rather than being cleared from inside the effect.
+     * Besides removing the setState-in-an-effect-body, it closes a stale-data
+     * window: between picking a new date and the response landing, the old
+     * date's slot counts were still on screen next to the new date.
+     */
     useEffect(() => {
         if (!data.appointmentDate) {
-            setAvailability({});
-
             return;
         }
 
-        setLoadingAvail(true);
         fetch(`/appointments/doctor-availability?date=${data.appointmentDate}`)
             .then((r) => r.json())
             .then((d) => {
@@ -101,30 +128,39 @@ export default function StepCoverage({
                     };
                 }
 
-                setAvailability(map);
+                setAvailabilityFor({ date: data.appointmentDate, map });
             })
-            .catch(() => {})
-            .finally(() => setLoadingAvail(false));
+            .catch(() =>
+                setAvailabilityFor({ date: data.appointmentDate, map: {} }),
+            );
     }, [data.appointmentDate]);
 
-    // 2. Fetch actual slot list when doctor + date are both set
+    /*
+     * 2. Fetch the actual slot list once doctor + date are both set.
+     *
+     * `doctorSlots` and `doctorHasSchedule` are derived from a tagged result for
+     * the same reason as above — showing one doctor's times under another's name
+     * is the failure worth designing out. Clearing the chosen time stays in the
+     * effect: `setData` writes to the Inertia form, which is external state and
+     * must not be touched during render.
+     */
     useEffect(() => {
         if (!data.doctorId || !data.appointmentDate) {
-            setDoctorSlots([]);
-            setDoctorHasSchedule(null);
             setData('appointmentTime', '');
 
             return;
         }
 
-        setSlotsLoading(true);
         fetch(
             `/appointments/slots?doctor_id=${data.doctorId}&date=${data.appointmentDate}`,
         )
             .then((r) => r.json())
             .then((d) => {
-                setDoctorSlots(d.slots ?? []);
-                setDoctorHasSchedule(d.has_schedule === true);
+                setSlotsFor({
+                    key: slotsKey,
+                    slots: d.slots ?? [],
+                    hasSchedule: d.has_schedule === true,
+                });
 
                 if (
                     data.appointmentTime &&
@@ -134,10 +170,8 @@ export default function StepCoverage({
                 }
             })
             .catch(() => {
-                setDoctorSlots([]);
-                setDoctorHasSchedule(null);
-            })
-            .finally(() => setSlotsLoading(false));
+                setSlotsFor({ key: slotsKey, slots: [], hasSchedule: null });
+            });
     }, [data.doctorId, data.appointmentDate]);
 
     const hasFetched =
@@ -196,9 +230,21 @@ export default function StepCoverage({
         safePage * DOCS_PER_PAGE,
     );
 
-    useEffect(() => {
+    /**
+     * Back to page 1 whenever the filters change.
+     *
+     * Compared during render rather than written from an effect: the effect
+     * version painted one frame of the *old* page number against the new filter
+     * results before correcting itself, which is visible as a flicker when the
+     * doctor list is short enough that page 2 no longer exists.
+     */
+    const filterKey = `${docSearch} ${specialtyFilter} ${data.service}`;
+    const [lastFilterKey, setLastFilterKey] = useState(filterKey);
+
+    if (filterKey !== lastFilterKey) {
+        setLastFilterKey(filterKey);
         setCurrentPage(1);
-    }, [docSearch, specialtyFilter, data.service]);
+    }
 
     const handleCoverageChange = (value: string) => {
         setData('coverage', value);

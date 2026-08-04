@@ -1,18 +1,8 @@
 // resources/js/layouts/Navbar.tsx
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from '@/design-system/components/notification-bell';
-import {
-    home,
-    about,
-    services,
-    doctors,
-    contact,
-    faqs,
-    login,
-    book,
-} from '@/routes';
-import { dashboard as patientDashboard } from '@/routes/user';
+import { home, about, services, doctors, contact, faqs, login } from '@/routes';
 import type { PageProps } from '@/types';
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -216,9 +206,11 @@ export default function Navbar({ active }: NavbarProps) {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    useEffect(() => {
-        setMobileOpen(false);
-    }, [url]);
+    // Close on a real navigation. Setting state in an effect body cascades a
+    // render; `router.on('navigate')` is the external-subscription shape the
+    // rule is asking for, and it is what the notification bell and the patient
+    // drawer both use.
+    useEffect(() => router.on('navigate', () => setMobileOpen(false)), []);
 
     return (
         <>

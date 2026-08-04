@@ -983,9 +983,6 @@ function HistoryPanel({
     onClose: () => void;
 }): ReactElement {
     const [open, setOpen] = useState(false);
-    const [selectedGroup, setSelectedGroup] = useState<PatientGroup | null>(
-        null,
-    );
     const [selectedRecord, setSelectedRecord] = useState<PastRecord | null>(
         null,
     );
@@ -1251,7 +1248,7 @@ function HistoryPanel({
                                                 'max-height 0.3s cubic-bezier(0.16,1,0.3,1)',
                                         }}
                                     >
-                                        {group.records.map((record, ri) => (
+                                        {group.records.map((record) => (
                                             <button
                                                 key={record.id}
                                                 type="button"

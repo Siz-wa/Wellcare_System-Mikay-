@@ -69,28 +69,37 @@ export function SessionEditor({
     );
     const [mountAnim, setMountAnim] = useState(false);
 
-    // Pre-populate from existing session data
-    useEffect(() => {
-        if (consultation?.soap) {
-            setSoap({
-                subjective: consultation.soap.subjective ?? '',
-                objective: consultation.soap.objective ?? '',
-                assessment: consultation.soap.assessment ?? '',
-                plan: consultation.soap.plan ?? '',
-            });
-        }
+    /**
+     * Pre-populate the editor when a *different* consultation is opened.
+     *
+     * Adjusted during render rather than from an effect, and keyed on the
+     * consultation **id** rather than the object identity. The effect version
+     * depended on `[consultation]`, which is a fresh object on every parent
+     * re-render — so any unrelated re-render of the list while the editor was
+     * open overwrote whatever the doctor had typed with the last saved values.
+     * That is silent clinical-note loss, not just a wasted render.
+     */
+    const [loadedId, setLoadedId] = useState(consultation?.id);
 
-        if (consultation?.vitals) {
-            setVitals({
-                bloodPressure: consultation.vitals.bloodPressure ?? '',
-                heartRate: consultation.vitals.heartRate ?? '',
-                temperature: consultation.vitals.temperature ?? '',
-                oxygenSaturation: consultation.vitals.oxygenSaturation ?? '',
-                weight: consultation.vitals.weight ?? '',
-                height: consultation.vitals.height ?? '',
-            });
-        }
-    }, [consultation]);
+    if (consultation?.id !== loadedId) {
+        setLoadedId(consultation?.id);
+
+        setSoap({
+            subjective: consultation?.soap?.subjective ?? '',
+            objective: consultation?.soap?.objective ?? '',
+            assessment: consultation?.soap?.assessment ?? '',
+            plan: consultation?.soap?.plan ?? '',
+        });
+
+        setVitals({
+            bloodPressure: consultation?.vitals?.bloodPressure ?? '',
+            heartRate: consultation?.vitals?.heartRate ?? '',
+            temperature: consultation?.vitals?.temperature ?? '',
+            oxygenSaturation: consultation?.vitals?.oxygenSaturation ?? '',
+            weight: consultation?.vitals?.weight ?? '',
+            height: consultation?.vitals?.height ?? '',
+        });
+    }
 
     useEffect(() => {
         const t = setTimeout(() => setMountAnim(true), 10);

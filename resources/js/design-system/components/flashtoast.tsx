@@ -5,29 +5,37 @@ import type { PageProps } from '@/types';
 
 export function FlashToast(): ReactElement | null {
     const { props } = usePage<PageProps>();
-    const [visible, setVisible] = useState(false);
-    const [message, setMessage] = useState('');
-    const [type, setType] = useState<'success' | 'error'>('success');
+
+    // Derived, not stored. `message` and `type` are pure functions of the flash
+    // prop, and mirroring them into state meant three setState calls in an
+    // effect body — a cascading render on every page visit that carried a flash.
+    const success = props.flash?.success;
+    const error = props.flash?.error;
+    const message = success ?? error ?? '';
+
+    // The only genuine state: which message has already had its four seconds.
+    // Keyed by the message itself, so a new flash is visible again without
+    // anything having to reset a boolean.
+    const [expired, setExpired] = useState<string | null>(null);
 
     useEffect(() => {
-        const success = props.flash?.success;
-        const error = props.flash?.error;
-
-        if (success || error) {
-            setMessage(success ?? error ?? '');
-            setType(success ? 'success' : 'error');
-            setVisible(true);
-            const t = setTimeout(() => setVisible(false), 4000);
-
-            return () => clearTimeout(t);
+        if (!message) {
+            return;
         }
-    }, [props.flash]);
 
-    if (!visible || !message) {
+        // setState inside the timeout callback, which is the shape the rule
+        // wants — the effect subscribes to something external (a timer) rather
+        // than writing state as it runs.
+        const t = setTimeout(() => setExpired(message), 4000);
+
+        return () => clearTimeout(t);
+    }, [message]);
+
+    if (!message || expired === message) {
         return null;
     }
 
-    const isSuccess = type === 'success';
+    const isSuccess = Boolean(success);
 
     return (
         <div
@@ -80,7 +88,7 @@ export function FlashToast(): ReactElement | null {
             )}
             <span style={{ flex: 1 }}>{message}</span>
             <button
-                onClick={() => setVisible(false)}
+                onClick={() => setExpired(message)}
                 style={{
                     background: 'none',
                     border: 'none',

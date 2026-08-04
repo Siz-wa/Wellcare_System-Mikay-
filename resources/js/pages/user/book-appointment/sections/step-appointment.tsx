@@ -34,7 +34,6 @@ export default function StepAppointment({
     data,
     errors,
     setData,
-    valid,
     onNext,
     onBack,
 }: StepAppointmentProps): ReactElement {

@@ -14,12 +14,10 @@ import {
     Settings,
     LogOut,
     ChevronRight,
-    Stethoscope,
     Video,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { WellcareLogo } from '@/design-system/components/navbar';
 import { navGroups } from '@/pages/user/layout/patient-dashboard-data';
 import type { NavItem } from '@/pages/user/layout/patient-dashboard-data';
 

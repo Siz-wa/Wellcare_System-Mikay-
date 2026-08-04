@@ -6,10 +6,8 @@
 //   export default function SomePage() {
 //     return <UnderConstruction title="Page Title" />;
 //   }
-import { Link, router, usePage } from '@inertiajs/react';
-import { LogOut, Settings } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
 import type { NavLabel } from '@/design-system/components/navbar';
-import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import WellcareLayout from '@/layouts/app-gen-layout';
 import { logout, contact, home } from '@/routes';
 import type { PageProps } from '@/types';
@@ -302,12 +300,6 @@ export default function UnderConstruction({
     activeNav,
     eta,
 }: UnderConstructionProps) {
-    const cleanup = useMobileNavigation();
-    const handleLogout = () => {
-        cleanup();
-        router.flushAll();
-    };
-
     return (
         <WellcareLayout activeNav={activeNav}>
             <section className="wc-section">

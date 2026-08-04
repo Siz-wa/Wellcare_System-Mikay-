@@ -2,7 +2,6 @@
 // All static content for the Services page.
 // Swap text here without touching any component files.
 
-import type { ReactElement } from 'react';
 import { images } from '@/hooks/images';
 import { book as appointmentsCreate } from '@/routes';
 

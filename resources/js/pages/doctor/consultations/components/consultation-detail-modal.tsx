@@ -15,7 +15,7 @@
 
 import type { ReactElement } from 'react';
 import { useState, useEffect } from 'react';
-import { IconClock, IconCheck, IconSchedule } from '@/pages/doctor/icons';
+import { IconSchedule } from '@/pages/doctor/icons';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -271,22 +271,49 @@ function HistoryPanel({
     excludeId: number;
     onClose: () => void;
 }): ReactElement {
-    const [history, setHistory] = useState<HistoryVisit[]>([]);
-    const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<number | null>(null);
 
+    /**
+     * One piece of state instead of three, tagged with the request it answers.
+     *
+     * `loading` is then derived — "the data I hold is not for the patient I am
+     * showing" — which removes the setState-in-an-effect-body *and* closes a
+     * race the old version had: there was no cancellation, so switching
+     * patients quickly could land the first response after the second and show
+     * one patient's history under another's name. In a medical record that is
+     * the kind of bug worth going out of your way to make impossible.
+     */
+    const requestKey = `${email}:${excludeId}`;
+    const [loaded, setLoaded] = useState<{
+        key: string;
+        visits: HistoryVisit[];
+    } | null>(null);
+
     useEffect(() => {
-        setLoading(true);
+        let cancelled = false;
+
         fetch(
             `/dashboard/consultations/patient-history?email=${encodeURIComponent(email)}&exclude_id=${excludeId}`,
         )
             .then((r) => r.json())
             .then((data) => {
-                setHistory(data.history ?? []);
-                setLoading(false);
+                if (!cancelled) {
+                    setLoaded({ key: requestKey, visits: data.history ?? [] });
+                }
             })
-            .catch(() => setLoading(false));
-    }, [email, excludeId]);
+            .catch(() => {
+                if (!cancelled) {
+                    setLoaded({ key: requestKey, visits: [] });
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [requestKey, email, excludeId]);
+
+    const loading = loaded?.key !== requestKey;
+    const history = loaded?.key === requestKey ? loaded.visits : [];
 
     return (
         <div

@@ -1,6 +1,4 @@
 // resources/js/layouts/WellcareLayout.tsx
-import { router } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Footer from '@/design-system/components/footer';
 import Navbar from '@/design-system/components/navbar';

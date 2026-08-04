@@ -1,6 +1,5 @@
 // resources/js/pages/user/contact/sections/ContactFormSection.tsx
 import { useState } from 'react';
-import SearchInput from '@/design-system/components/search-input';
 import { useInView } from '@/hooks/useInView';
 import { contactFormData, hoursData } from './contact-data';
 

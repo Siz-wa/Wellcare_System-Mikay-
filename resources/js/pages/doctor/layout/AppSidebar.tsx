@@ -27,8 +27,6 @@ import {
     FolderOpen,
     Settings,
     LogOut,
-    UserRound,
-    Stethoscope,
     ChevronRight,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
