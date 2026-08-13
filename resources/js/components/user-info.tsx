@@ -31,7 +31,7 @@ export function UserInfo({
             <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{displayName}</span>
                 {showEmail && (
-                    <span className="text-muted-foreground truncate text-xs">
+                    <span className="truncate text-xs text-muted-foreground">
                         {user.email}
                     </span>
                 )}

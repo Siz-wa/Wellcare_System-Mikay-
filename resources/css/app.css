@@ -9,6 +9,13 @@
 /* ── Tailwind (if using Tailwind v4) ─────────────────────── */
 @import 'tailwindcss';
 
+/* Radix enter/exit animations for components/ui/*.
+   `tw-animate-css` was already a dependency but was never imported, so every
+   `animate-in`, `slide-in-from-right`, `fade-in-0` and `zoom-in-95` in the
+   shadcn primitives compiled to nothing — dialogs and sheets appeared and
+   vanished with no transition at all. */
+@import 'tw-animate-css';
+
 /* ── Tailwind Theme Override with Wellcare Tokens ─────────── */
 @theme {
     --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
@@ -29,6 +36,31 @@
     --color-wc-sky-400: #38bdf8;
     --color-wc-sky-500: #00a8e8;
     --color-wc-sky-600: #0284c7;
+
+    /* ── shadcn semantic tokens ────────────────────────────────────────────
+       components/ui/* is stock shadcn and styles itself with `bg-background`,
+       `text-muted-foreground`, `border-border` and friends. Those were never
+       defined here, so they compiled to nothing: every Dialog and Sheet in the
+       app — the 2FA modal, the delete-account confirm, the mobile sidebar —
+       rendered with a transparent panel over the page.
+
+       Mapped onto the Wellcare palette rather than shadcn's own scale, so the
+       primitives inherit the brand instead of introducing a second one. */
+    --color-background: #ffffff;
+    --color-foreground: #0f172a;
+    --color-card: #ffffff;
+    --color-card-foreground: #0f172a;
+    --color-popover: #ffffff;
+    --color-popover-foreground: #0f172a;
+    --color-muted: #f1f5f9;
+    --color-muted-foreground: #64748b;
+    --color-accent: #eff6ff;
+    --color-accent-foreground: #004494;
+    --color-border: #e2e8f0;
+    --color-input: #e2e8f0;
+    --color-ring: #00a8e8;
+    --color-destructive: #dc2626;
+    --color-destructive-foreground: #ffffff;
 }
 
 #nprogress .bar {

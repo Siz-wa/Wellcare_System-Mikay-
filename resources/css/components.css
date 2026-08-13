@@ -1777,3 +1777,79 @@
         opacity: 1;
     }
 }
+
+/* ── Radix dialog / sheet titles ──────────────────────────
+   DialogTitle and SheetTitle render an <h2>, so base.css's global heading rule
+   hits them with the display font at --text-4xl and weight 800. Inside a modal
+   that reads as a page banner rather than a title, and it overflows the panel.
+   Scoped to the data-slot attributes shadcn already emits. */
+[data-slot='dialog-title'],
+[data-slot='sheet-title'] {
+    font-family: var(--font-sans);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    letter-spacing: normal;
+    line-height: var(--leading-snug);
+    color: var(--wc-gray-900);
+}
+
+[data-slot='dialog-description'],
+[data-slot='sheet-description'] {
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--wc-gray-500);
+}
+
+/* ── Radix dialog / sheet stacking ────────────────────────
+   components/ui/* is stock shadcn and stacks its overlay and panel at Tailwind's
+   `z-50`. This project's nav sits at --z-nav (5000), well above that, so every
+   Radix modal rendered *underneath* the header: the sheet lost its title behind
+   the navbar and the dialog could be overlapped entirely.
+
+   Expressed against --z-nav rather than a fixed number so the two cannot drift
+   apart again. */
+[data-slot='dialog-overlay'],
+[data-slot='dialog-content'],
+[data-slot='sheet-overlay'],
+[data-slot='sheet-content'] {
+    z-index: calc(var(--z-nav) + 10);
+}
+
+/* A dropdown opened inside a sheet portals to the body at Tailwind's z-50, so
+   without this it renders behind the very panel that opened it. */
+[data-slot='select-content'] {
+    z-index: calc(var(--z-nav) + 20);
+}
+
+/* ── Branded dropdown list ────────────────────────────────
+   The rows inside a Radix Select. A native <select> cannot be styled past its
+   closed control — the list it drops is OS chrome — so the sheet uses Radix and
+   these rules give it the Wellcare treatment. */
+.wc-select-item {
+    padding: 10px var(--space-3);
+    padding-right: var(--space-8);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--wc-gray-700);
+    cursor: pointer;
+    transition: background var(--duration-base) var(--ease-out);
+}
+
+.wc-select-item[data-highlighted],
+.wc-select-item:hover {
+    background: var(--wc-blue-50);
+    color: var(--wc-blue-700);
+    outline: none;
+}
+
+.wc-select-item[data-state='checked'] {
+    font-weight: 600;
+    color: var(--wc-blue-700);
+}
+
+/* The trigger keeps the wc-input look, but Radix ships its own height and
+   width rules on it that would otherwise win. */
+[data-slot='select-trigger'].wc-input {
+    min-height: 44px;
+    text-align: left;
+}
