@@ -3,6 +3,7 @@
 use App\Models\Appointment;
 use App\Models\AvailabilityBlock;
 use App\Models\DoctorProfile;
+use App\Models\Patient;
 use Carbon\Carbon;
 
 /**
@@ -48,18 +49,24 @@ beforeEach(function () {
         'is_available' => true,
     ]);
 
-    $this->payload = fn (array $overrides = []) => array_merge([
-        'firstName' => 'Juan',
-        'lastName' => 'Dela Cruz',
+    // Who the appointment is for is now chosen before the wizard starts, so the
+    // POST names a patient instead of retyping their identity. Name, email,
+    // contact, age and sex are read off this record by BookingService.
+    $this->patientRecord = Patient::factory()->forGuarantor($this->patient)->create([
+        'first_name' => 'Juan',
+        'last_name' => 'Dela Cruz',
         'email' => 'juan.delacruz@gmail.com',
-        'contactNumber' => '09171234567',
+        'contact_number' => '09171234567',
         'age' => 34,
         'gender' => 'male',
+    ]);
+
+    $this->payload = fn (array $overrides = []) => array_merge([
+        'patientId' => $this->patientRecord->id,
         'service' => 'general',
         'branch' => 'Wellcare Dasmarinas',
         'appointmentDate' => $this->date->toDateString(),
         'appointmentTime' => '9:00 AM',
-        'patientStatus' => 'new',
         'coverage' => 'cash',
         'doctorId' => $this->doctor->id,
     ], $overrides);

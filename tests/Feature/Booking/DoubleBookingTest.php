@@ -41,9 +41,14 @@ beforeEach(function () {
     $this->date = Carbon::parse('next monday');
     $this->booking = app(BookingService::class);
 
+    // One guarantor for the whole file unless a test overrides it. Patient
+    // dedup is scoped per guarantor, so sharing the account is what keeps
+    // "the same person booking twice" resolving to one Patient row.
+    $this->guarantor = User::factory()->create();
+
     $this->book = function (array $overrides = []) {
         return $this->booking->bookSlot(array_merge([
-            'user_id' => User::factory()->create()->id,
+            'user_id' => $this->guarantor->id,
             'first_name' => 'Juan',
             'last_name' => 'Dela Cruz',
             'email' => 'juan@example.com',
@@ -84,17 +89,39 @@ it('refuses the same patient twice on one day even at a different time', functio
     expect(Appointment::count())->toBe(1);
 });
 
-it('treats one person booked through two accounts as the same patient', function () {
+it('treats one person booked twice through the same account as the same patient', function () {
     ($this->book)();
 
-    // A guarantor booking for the same person from a second account. The dedup
-    // in Patient::findOrCreateFromBooking() is what makes this collide.
-    expect(fn () => ($this->book)([
-        'user_id' => User::factory()->create()->id,
-        'appointment_time' => '3:00 PM',
-    ]))->toThrow(SlotUnavailableException::class);
+    // The same person, same guarantor, a later slot. The dedup in
+    // Patient::findOrCreateFromBooking() is what makes this collide.
+    expect(fn () => ($this->book)(['appointment_time' => '3:00 PM']))
+        ->toThrow(SlotUnavailableException::class);
 
     expect(Patient::count())->toBe(1);
+});
+
+/**
+ * The dedup is scoped to the guarantor, and this is why.
+ *
+ * Matching on lowercased name + contact_number alone is not identity — two
+ * unrelated families can collide on it. Reusing the found row would hand the
+ * second booking a Patient owned by someone else, and every allergy, diagnosis
+ * and document on that record would come with it. `guarantor_id` is never
+ * reassigned on the found branch, so the bleed would be silent and permanent.
+ *
+ * Two accounts therefore mean two records, even when the details match exactly.
+ */
+it('keeps identical details under two different accounts as separate patients', function () {
+    ($this->book)();
+
+    $second = ($this->book)([
+        'user_id' => User::factory()->create()->id,
+        'appointment_time' => '3:00 PM',
+    ]);
+
+    expect($second)->not->toBeNull()
+        ->and(Patient::count())->toBe(2)
+        ->and(Patient::pluck('guarantor_id')->unique())->toHaveCount(2);
 });
 
 /**

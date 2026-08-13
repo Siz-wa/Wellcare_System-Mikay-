@@ -25,11 +25,23 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
 
             // ── Personal ──────────────────────────────────────────────────
+            // contact_number, gender and birthdate are required, not optional.
+            // The registration form has always marked all three with an
+            // asterisk, but the rules let them through empty — and a profile
+            // missing any of them cannot be promoted into the account holder's
+            // own Patient record (patients.contact_number is NOT NULL, and the
+            // booking flow needs a birthdate and a sex). That left new accounts
+            // with no "Myself" patient and nothing in the booking gate.
             'address' => ['nullable', 'string', 'max:500'],
             'company' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:20'],
-            'gender' => ['nullable', Rule::in(['M', 'F'])],
-            'birthdate' => ['nullable', 'date', 'before:today'],
+            'contact_number' => ['required', 'string', 'regex:/^(\+639|09)\d{9}$/'],
+            'gender' => ['required', Rule::in(['M', 'F'])],
+            'birthdate' => [
+                'required',
+                'date',
+                'before:today',
+                'after:'.now()->subYears(120)->toDateString(),
+            ],
             'civil_status' => ['nullable', Rule::in(['single', 'married', 'widowed'])],
 
             // ── Medical ───────────────────────────────────────────────────
@@ -45,7 +57,12 @@ class CreateNewUser implements CreatesNewUsers
             'last_name.required' => 'Last name is required.',
             'last_name.min' => 'Last name must be at least 2 characters.',
             'email.unique' => 'An account with this email already exists.',
+            'contact_number.required' => 'Contact number is required.',
+            'contact_number.regex' => 'Please enter a valid PH number (e.g. +639XXXXXXXXX or 09XXXXXXXXX).',
+            'gender.required' => 'Please select your biological sex.',
+            'birthdate.required' => 'Birthdate is required.',
             'birthdate.before' => 'Birthdate must be in the past.',
+            'birthdate.after' => 'Please check the birth year.',
             'blood_pressure.regex' => 'Blood pressure must be in format 120/80.',
         ])->validate();
 

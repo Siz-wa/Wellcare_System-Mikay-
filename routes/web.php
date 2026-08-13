@@ -25,6 +25,7 @@ use App\Http\Controllers\Nurse\LoaMonitoringController;
 // aliased for the same reason the patient portal's is.
 use App\Http\Controllers\Nurse\NurseDashboardController;
 use App\Http\Controllers\Nurse\PatientRecordController as NursePatientRecordController;
+use App\Http\Controllers\Patient\GuarantorPatientController;
 use App\Http\Controllers\Patient\PatientConsultationController;
 use App\Http\Controllers\Patient\PatientDashboardController;
 use App\Http\Controllers\Patient\PatientLabResultController;
@@ -199,6 +200,15 @@ Route::middleware(['auth', 'role:user'])->group(function () {
         Route::get('/user/records', 'index')->name('user.records');
         Route::get('/user/records/documents/{document}/download', 'downloadDocument')->name('user.records.documents.download');
         Route::get('/user/records/{patient}', 'show')->name('user.records.show');
+    });
+
+    // "My Patients" — the people this guarantor books for. Demographics only;
+    // the clinical record stays read-only on PatientPortalRecordController above.
+    Route::controller(GuarantorPatientController::class)->group(function () {
+        Route::get('/user/patients', 'index')->name('user.patients.index');
+        Route::post('/user/patients', 'store')->name('user.patients.store');
+        Route::patch('/user/patients/{patient}', 'update')->name('user.patients.update');
+        Route::delete('/user/patients/{patient}', 'destroy')->name('user.patients.destroy');
     });
 
     Route::get('/user/lab-results', [PatientLabResultController::class, 'index'])->name('user.lab-results');

@@ -16,7 +16,16 @@ class BookingService
 {
     private const MIN_LEAD_HOURS = 2;
 
-    private const MAX_LEAD_MONTHS = 3;
+    /**
+     * How far ahead the clinic accepts bookings.
+     *
+     * Public because it is the single source of truth for three layers that
+     * previously disagreed: assertLeadTime() below, BookAppointmentRequest's
+     * `before:` rule, and the date picker's `max` — which had drifted to a
+     * hardcoded 365 days and let patients pick dates a year out that the server
+     * then refused.
+     */
+    public const MAX_LEAD_MONTHS = 3;
 
     private const HOLD_MINUTES = 10;
 
@@ -144,13 +153,28 @@ class BookingService
             $date = $validated['appointment_date'];
             $time = $validated['appointment_time'];
 
-            // 1. Resolve patient identity — find or create Patient record
+            // 1. Resolve patient identity.
             // The Patient represents the actual person being seen, independent
             // of which account (user_id) was used to book.
-            $patient = Patient::findOrCreateFromBooking(
-                $validated,
-                $validated['user_id'] ?? null
-            );
+            //
+            // The web form now names the patient outright — the guarantor picks
+            // "who is this appointment for" before the wizard starts — so the
+            // identity fields are read off the record rather than the request.
+            // That is the point: a name typed slightly differently can no longer
+            // fork a second Patient row, and a forged payload cannot rewrite
+            // someone's name on the way through.
+            //
+            // The name-matching fallback stays for callers that have no patient
+            // id: staff walk-ins, seeders, and the booking tests.
+            if (! empty($validated['patient_id'])) {
+                $patient = Patient::findOrFail($validated['patient_id']);
+                $validated = [...$validated, ...self::identityOf($patient)];
+            } else {
+                $patient = Patient::findOrCreateFromBooking(
+                    $validated,
+                    $validated['user_id'] ?? null
+                );
+            }
 
             // 2. Resolve a concrete doctor.
             // "Next available" must never persist as NULL: every NULL row shares
@@ -245,7 +269,13 @@ class BookingService
                 'branch' => $validated['branch'] ?? 'Wellcare Dasmarinas',
                 'appointment_date' => $date,
                 'appointment_time' => $time,
-                'patient_status' => $validated['patient_status'],
+                // Derived, never asked. Whether someone is new or returning is a
+                // fact about their record, not an opinion they hold about it —
+                // and asking meant a first-time child could be filed as
+                // "returning" because their mother had visited before.
+                // Callers that still pass it explicitly (seeders, tests) win.
+                'patient_status' => $validated['patient_status']
+                    ?? $this->derivePatientStatus($patient),
                 'coverage' => $validated['coverage'],
                 'hmo' => $validated['hmo'] ?? null,
                 'hmo_id' => $validated['hmo_id'] ?? null,
@@ -267,11 +297,73 @@ class BookingService
                 $this->loaRequests->submit($appointment);
             }
 
+            // 5c. Remember how this visit was covered, so the next booking for
+            // the same person arrives with the Coverage step already filled.
+            // Only ever widens what is known — a blank hmo_id on a cash visit
+            // must not erase the member number captured on the last HMO one.
+            $this->rememberCoverage($patient, $validated);
+
             $this->bustSlotCache($doctorId, $date);
 
             return $appointment;
 
         }, attempts: 3);
+    }
+
+    /**
+     * The identity fields an Appointment snapshots off the Patient record.
+     *
+     * `appointments` denormalises name, email, contact, age and sex — all NOT
+     * NULL — so the row still reads correctly years later even if the patient's
+     * details change. Sourcing them here, from the record rather than the
+     * request, is what makes the client unable to spoof them.
+     *
+     * @return array<string, mixed>
+     */
+    private static function identityOf(Patient $patient): array
+    {
+        return [
+            'first_name' => $patient->first_name,
+            'last_name' => $patient->last_name,
+            'email' => $patient->email,
+            'contact_number' => $patient->contact_number,
+            // Derived, not the stored column: a patient recorded at 17 three
+            // years ago is not 17 today, and this value is snapshotted onto the
+            // appointment where the clinic will read it as current.
+            'age' => $patient->current_age,
+            'gender' => $patient->gender,
+        ];
+    }
+
+    /**
+     * A patient who has been seen before is returning; everyone else is new.
+     *
+     * Cancelled and no-show appointments do not count — the clinic never saw
+     * them, so there is no chart to pull.
+     */
+    private function derivePatientStatus(Patient $patient): string
+    {
+        return $patient->appointments()
+            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->exists()
+            ? 'returning'
+            : 'new';
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function rememberCoverage(Patient $patient, array $validated): void
+    {
+        $changes = array_filter([
+            'default_coverage' => $validated['coverage'] ?? null,
+            'hmo_provider' => $validated['hmo'] ?? null,
+            'hmo_id' => $validated['hmo_id'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        if ($changes !== []) {
+            $patient->update($changes);
+        }
     }
 
     public function cancelAppointment(Appointment $appointment, string $reason): Appointment

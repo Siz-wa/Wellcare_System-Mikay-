@@ -1,19 +1,21 @@
 // resources/js/pages/user/book-appointment/sections/step-coverage.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 3: Coverage, Doctor & Time
+// Step 2: Coverage, Doctor & Time
 //
 // Fix: SERVICE_TO_SPECIALTIES now maps to DB specialty slugs (e.g. "cardiology")
 // not display strings (e.g. "Internal Medicine"), so the filter actually works.
 
 import type { ReactElement } from 'react';
 import { useMemo, useEffect, useState } from 'react';
-import type { Step3Errors } from '@/hooks/use-step-validators';
+import type { Step2Errors } from '@/hooks/use-step-validators';
 import { specialtyLabel, doctorRoleLabel } from '@/lib/specialties';
+import { BrandSelect } from '../components';
 import { sanitizeHmoId, makePasteHandler } from '../utils/sanitizers';
 import type {
     BookingFormData,
     CoverageOption,
     DoctorOption,
+    PatientOption,
 } from './bookingdata';
 import {
     coverageOptions,
@@ -21,6 +23,7 @@ import {
     STEP_HEADINGS,
     SERVICE_TO_SPECIALTIES,
     HMO_NOTICE,
+    MINOR_COVERAGE_NOTICE,
 } from './bookingdata';
 
 const HMO_MAX = 20;
@@ -37,11 +40,13 @@ interface DoctorDayAvailability {
 
 interface StepCoverageProps {
     data: BookingFormData;
-    errors: Partial<Step3Errors>;
+    errors: Partial<Step2Errors>;
     setData: <K extends keyof BookingFormData>(
         field: K,
         value: BookingFormData[K],
     ) => void;
+    /** Whose age decides whether a coverage choice is offered at all. */
+    patient: PatientOption;
     valid: boolean;
     onNext: () => void;
     onBack: () => void;
@@ -52,11 +57,12 @@ export default function StepCoverage({
     data,
     errors,
     setData,
+    patient,
     onNext,
     onBack,
     doctors,
 }: StepCoverageProps): ReactElement {
-    const { title, subtitle } = STEP_HEADINGS[3];
+    const { title, subtitle } = STEP_HEADINGS[2];
 
     const [docSearch, setDocSearch] = useState('');
     const [specialtyFilter, setSpecialtyFilter] = useState('all');
@@ -238,7 +244,7 @@ export default function StepCoverage({
      * results before correcting itself, which is visible as a flicker when the
      * doctor list is short enough that page 2 no longer exists.
      */
-    const filterKey = `${docSearch} ${specialtyFilter} ${data.service}`;
+    const filterKey = `${docSearch}|${specialtyFilter}|${data.service}`;
     const [lastFilterKey, setLastFilterKey] = useState(filterKey);
 
     if (filterKey !== lastFilterKey) {
@@ -293,7 +299,7 @@ export default function StepCoverage({
                         letterSpacing: '0.08em',
                     }}
                 >
-                    Step 3 of 4
+                    Step 2 of 3
                 </span>
                 <h2
                     style={{
@@ -317,143 +323,170 @@ export default function StepCoverage({
                     gap: 'var(--space-6)',
                 }}
             >
-                {/* ── Mode of Coverage ── */}
-                <div>
-                    <label
-                        style={{
-                            display: 'block',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: 'var(--wc-gray-500)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.07em',
-                            marginBottom: '10px',
-                        }}
-                    >
-                        Mode of Coverage{' '}
-                        <span style={{ color: 'var(--wc-error)' }}>*</span>
-                    </label>
+                {/* ── Mode of Coverage ──
+                    A minor cannot hold their own HMO or PhilHealth membership;
+                    the visit is billed to their guarantor. Rather than offer
+                    three options and reject two, the chooser is replaced by a
+                    line saying so, and booking-form.tsx has already seeded the
+                    coverage as cash. */}
+                {patient.isMinor ? (
                     <div
                         style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(3, 1fr)',
-                            gap: 'var(--space-3)',
+                            padding: '14px 18px',
+                            borderRadius: '12px',
+                            background: 'var(--wc-blue-50)',
+                            border: '1px solid var(--wc-blue-100)',
                         }}
                     >
-                        {coverageOptions.map((o: CoverageOption) => {
-                            const isActive = data.coverage === o.value;
-
-                            return (
-                                <button
-                                    key={o.value}
-                                    type="button"
-                                    onClick={() =>
-                                        handleCoverageChange(o.value)
-                                    }
-                                    style={{
-                                        padding: '14px 16px',
-                                        borderRadius: '12px',
-                                        border: isActive
-                                            ? '2px solid var(--wc-blue-600)'
-                                            : '1.5px solid var(--wc-gray-200)',
-                                        background: isActive
-                                            ? 'var(--wc-blue-50)'
-                                            : '#fff',
-                                        color: isActive
-                                            ? 'var(--wc-blue-700)'
-                                            : 'var(--wc-gray-600)',
-                                        fontWeight: isActive ? 700 : 500,
-                                        fontSize: 'var(--text-sm)',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '6px',
-                                        transition: 'all 0.15s ease',
-                                        boxShadow: isActive
-                                            ? '0 0 0 4px rgba(37,99,235,0.08)'
-                                            : 'none',
-                                    }}
-                                >
-                                    {/* Icon */}
-                                    {o.value === 'cash' && (
-                                        <svg
-                                            width="20"
-                                            height="20"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.8}
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <rect
-                                                x="2"
-                                                y="6"
-                                                width="20"
-                                                height="12"
-                                                rx="2"
-                                            />
-                                            <circle cx="12" cy="12" r="3" />
-                                            <path d="M6 12h.01M18 12h.01" />
-                                        </svg>
-                                    )}
-                                    {o.value === 'hmo' && (
-                                        <svg
-                                            width="20"
-                                            height="20"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.8}
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                        </svg>
-                                    )}
-                                    {o.value === 'philhealth' && (
-                                        <svg
-                                            width="20"
-                                            height="20"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth={1.8}
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-                                        </svg>
-                                    )}
-                                    <span>{o.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {errors.coverage && (
                         <p
                             style={{
-                                margin: '6px 0 0',
-                                fontSize: '11px',
-                                color: 'var(--wc-error)',
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
+                                margin: 0,
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--wc-blue-700)',
+                                lineHeight: 1.6,
                             }}
                         >
-                            <svg
-                                width="10"
-                                height="10"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
-                            {errors.coverage}
+                            {MINOR_COVERAGE_NOTICE}
                         </p>
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <div>
+                        <label
+                            style={{
+                                display: 'block',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: 'var(--wc-gray-500)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.07em',
+                                marginBottom: '10px',
+                            }}
+                        >
+                            Mode of Coverage{' '}
+                            <span style={{ color: 'var(--wc-error)' }}>*</span>
+                        </label>
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gap: 'var(--space-3)',
+                            }}
+                        >
+                            {coverageOptions.map((o: CoverageOption) => {
+                                const isActive = data.coverage === o.value;
+
+                                return (
+                                    <button
+                                        key={o.value}
+                                        type="button"
+                                        onClick={() =>
+                                            handleCoverageChange(o.value)
+                                        }
+                                        style={{
+                                            padding: '14px 16px',
+                                            borderRadius: '12px',
+                                            border: isActive
+                                                ? '2px solid var(--wc-blue-600)'
+                                                : '1.5px solid var(--wc-gray-200)',
+                                            background: isActive
+                                                ? 'var(--wc-blue-50)'
+                                                : '#fff',
+                                            color: isActive
+                                                ? 'var(--wc-blue-700)'
+                                                : 'var(--wc-gray-600)',
+                                            fontWeight: isActive ? 700 : 500,
+                                            fontSize: 'var(--text-sm)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            transition: 'all 0.15s ease',
+                                            boxShadow: isActive
+                                                ? '0 0 0 4px rgba(37,99,235,0.08)'
+                                                : 'none',
+                                        }}
+                                    >
+                                        {/* Icon */}
+                                        {o.value === 'cash' && (
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={1.8}
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <rect
+                                                    x="2"
+                                                    y="6"
+                                                    width="20"
+                                                    height="12"
+                                                    rx="2"
+                                                />
+                                                <circle cx="12" cy="12" r="3" />
+                                                <path d="M6 12h.01M18 12h.01" />
+                                            </svg>
+                                        )}
+                                        {o.value === 'hmo' && (
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={1.8}
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                            </svg>
+                                        )}
+                                        {o.value === 'philhealth' && (
+                                            <svg
+                                                width="20"
+                                                height="20"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={1.8}
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                                            </svg>
+                                        )}
+                                        <span>{o.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {errors.coverage && (
+                            <p
+                                style={{
+                                    margin: '6px 0 0',
+                                    fontSize: '11px',
+                                    color: 'var(--wc-error)',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                }}
+                            >
+                                <svg
+                                    width="10"
+                                    height="10"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth={2.5}
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                {errors.coverage}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* ── HMO notice ── */}
                 {data.coverage === 'hmo' && (
@@ -518,17 +551,13 @@ export default function StepCoverage({
                                     *
                                 </span>
                             </label>
-                            <select
-                                className={`wc-input wc-select${errors.hmo ? 'wc-input-error' : ''}`}
+                            <BrandSelect
                                 value={data.hmo}
-                                onChange={(e) => setData('hmo', e.target.value)}
-                            >
-                                {hmoOptions.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                        {o.label}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(v) => setData('hmo', v)}
+                                options={hmoOptions}
+                                invalid={Boolean(errors.hmo)}
+                                aria-label="HMO provider"
+                            />
                             {errors.hmo && (
                                 <p
                                     style={{
@@ -787,25 +816,23 @@ export default function StepCoverage({
                         </div>
                         {/* Only show specialty dropdown when service has no restriction (null) */}
                         {!isFiltered && (
-                            <select
-                                className="wc-input wc-select"
-                                value={specialtyFilter}
-                                onChange={(e) =>
-                                    setSpecialtyFilter(e.target.value)
-                                }
-                                style={{
-                                    fontSize: 'var(--text-sm)',
-                                    minWidth: 180,
-                                    height: 40,
-                                }}
-                            >
-                                <option value="all">All Specialties</option>
-                                {allSpecialties.map((s) => (
-                                    <option key={s} value={s}>
-                                        {specialtyLabel(s)}
-                                    </option>
-                                ))}
-                            </select>
+                            <div style={{ minWidth: 180 }}>
+                                <BrandSelect
+                                    value={specialtyFilter}
+                                    onChange={setSpecialtyFilter}
+                                    options={[
+                                        {
+                                            value: 'all',
+                                            label: 'All Specialties',
+                                        },
+                                        ...allSpecialties.map((s) => ({
+                                            value: s,
+                                            label: specialtyLabel(s),
+                                        })),
+                                    ]}
+                                    aria-label="Filter by specialty"
+                                />
+                            </div>
                         )}
                     </div>
 

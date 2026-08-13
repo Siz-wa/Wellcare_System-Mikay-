@@ -37,6 +37,13 @@ export const navGroups: NavGroup[] = [
                 iconKey: 'dashboard',
             },
             {
+                // Not `patients` — the FAQs entry below already claims that id.
+                id: 'my-patients',
+                label: 'My Patients',
+                href: '/user/patients',
+                iconKey: 'patients',
+            },
+            {
                 id: 'records',
                 label: 'My Records',
                 href: '/user/records',
