@@ -346,16 +346,16 @@ single figure states together.
 | **Manage patient** | ✅ `Admin\AdminPatientController` — demographics only; clinical data stays with the doctor — *Phase 4* |
 | **Monitor system / Activity Log** | ✅ `spatie/laravel-activitylog` + `Admin\AdminActivityLogController`, read-only — *Phase 4* |
 | **Archive** | ✅ `Admin\AdminArchiveController` over the existing `softDeletes()` — *Phase 4* |
-| **Generate reports** | ❌ — deferred to Phase 6; it is the same aggregation as Objective 1.5 |
+| **Generate reports** | ✅ `HR\AnalyticsController` + `AnalyticsService`, `/hr/analytics` with CSV export — *Phase 6, 2026-08-05* |
 | **Backup database** | ❌ — deferred to Phase 7; a `mysqldump` runbook step, not a web feature |
 | **Manage virtual consultation / generate meeting links** | ❌ — Phase 3, still unscoped (§5.2) |
 | Manage appointments (approve/cancel/reassign doctor) | ❌ (doctors self-confirm) |
 | Verify & upload lab results | ❌ (duplicates the nurse/doctor lab flow) |
 
-**As of Phase 4, 6 of the 12 admin/HR flows in Figure 4 are built** (dashboard,
-LOA, user management, manage user/roles, add new user, deactivate/reactivate),
-plus Figure 3's Archive, Activity Log, User Management and Manage Patient ovals.
-Before Phase 4 it was 1 of 12.
+**As of Phase 6, 7 of the 12 admin/HR flows in Figure 4 are built** (dashboard,
+LOA, user management, manage user/roles, add new user, deactivate/reactivate,
+and now **Generate Reports**), plus Figure 3's Archive, Activity Log, User
+Management and Manage Patient ovals. Before Phase 4 it was 1 of 12.
 
 `role:admin` now guards **14** routes across five controllers, and
 `DashboardController::routeForUser()` sends admins to `admin.dashboard`. They
@@ -628,20 +628,30 @@ currently gives away for free:
 | Patient portal (records/labs/LOA) | ✅ | ✅ | ~90% — *LOA status page shipped* |
 | **Nurse module** | ✅ | ✅ | ~85% — *Phase 5, 2026-08-01. All 5 Fig. 10 processes + dashboard + appointment monitor. Diagnoses deliberately read-only* |
 | **Admin module** | ✅ | ✅ | ~70% — *Phase 4, 2026-07-31. Reports + backup deliberately deferred* |
-| Analytics / reports (Obj. 1.5) | ✅ | ❌ | 0% |
+| **Analytics / reports (Obj. 1.5)** | ✅ | ✅ | ~90% — *Phase 6 + 6.1, 2026-08-05. Five reports + CSV export, admin and HR. **Descriptive and diagnostic tiers, plus rule-based prescriptive actions; predictive deliberately excluded on evidence (§11)**. No scheduled/emailed reports* |
 | **Activity log · Archive** | ✅ | ✅ | ~85% — *Phase 4. No retention sweep yet* |
 | Database backup | ✅ | ❌ | 0% — *reclassified: a Phase 7 runbook step, not a web feature* |
 | **Virtual consultation** | ⚠️ *(11 places, none of them an objective — §5.2, wording proposed in §5.2a)* | ✅ | ~95% — *Phase 3 built 2026-08-03; Phase 3.1 hardening 2026-08-04. Two-device call verified across separate networks. Real teardown, monotonic call state, role-aware leave, ICE-restart recovery from either side, peer mute/camera state, departure on every exit path, autosave, scheduled sweep of abandoned rooms. Presence verified on two devices; spike deleted; **§12 risk 7 closed on a 24m 12s cross-network call, pair `srflx ⇄ srflx (udp)`, no relay**. No engineering work remains — what is left is the §5.2a objective wording, which is a paragraph in the paper* |
 | **ISO 25010 evaluation (Obj. 4)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 | **Implementation & training plan (Obj. 5)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 
-**Updated 2026-08-04 (Phase 3.1).** Five of the concentrated gaps are now
-closed: the patient read-side portal (Phase 1), the LOA/HMO domain (Phase 2),
-the admin module (Phase 4), the nurse module (Phase 5) and virtual consultation
-(Phase 3 + 3.1). **The largest remaining software gap is analytics (Obj. 1.5,
-still 0%)** — every other module is at 70% or above. After that the remaining
-work is Phase 6 (analytics) and Phase 7 (Objectives 4 and 5, neither of which is
-code).
+**Updated 2026-08-05 (Phase 6).** All six concentrated gaps are now closed: the
+patient read-side portal (Phase 1), the LOA/HMO domain (Phase 2), virtual
+consultation (Phase 3 + 3.1), the admin module (Phase 4), the nurse module
+(Phase 5) and analytics (Phase 6). **Every module in the scorecard is at 70% or
+above, and no software gap remains.**
+
+**Everything still open is a paper deliverable, not code:** Phase 7 (Objective 4's
+ISO 25010 evaluation and Objective 5's implementation plan — both graded, neither
+a build task), §5.2a's sub-objective 1.7 wording, and the parallel
+document-correction track. Note that Objective 4 has been waiting on the system
+being walkable end to end, and as of this phase it is — **§12 risk 5 says booking
+evaluator time late is how capstones miss submission, and that recruitment is now
+the critical path.**
+
+*Database backup remains at 0% by decision, not omission* — it is a Phase 7
+`mysqldump` runbook step, since a backup button behind an authenticated web
+request is a liability rather than a feature.
 
 Virtual consultation has moved from 0% to ~90% and is **no longer a build
 question**. Feasibility, NAT traversal and call durability are all answered:
@@ -954,14 +964,80 @@ retention sweep** (Spatie ships `activitylog:clean`, nothing schedules it yet).
       roles. See §11.
 - [x] Daily appointment monitor — `/nurse/appointments`, read-only, any date.
 
-### Phase 6 — Analytics
+### Phase 6 — Analytics ✅ *done 2026-08-05*
 
-*Objective 1.5 — currently 0%. Needs Phase 2 done first for the LOA metrics.*
+*Objective 1.5, and Figure 4's "Generate Reports" — the flow Phase 4 deferred
+here rather than building the same aggregation twice.*
 
-- [ ] Patient trends.
-- [ ] Appointment volume.
-- [ ] Clinic performance.
-- [ ] LOA turnaround.
+One report per clause of Objective 1.5's sentence, all four on `/hr/analytics`
+in the existing `role:hr|admin` group, with a `30d · 90d · 12m` period filter
+and a CSV export per report.
+
+- [x] Patient trends — new vs. returning bookings, registrations, gender, age
+      bands, coverage mix, top services.
+- [x] Appointment volume — per-period series, status, weekday, doctor, time
+      slot, in-person vs. virtual.
+- [x] Clinic performance — completion / cancellation / no-show rates, booking
+      lead time, per-doctor load against `max_patients_per_day`, and the
+      lab chain-of-custody turnaround.
+- [x] LOA turnaround — submissions vs. decisions, approval rate, average
+      decision time, pending-queue ageing, breakdown by HMO provider.
+- [x] **Not in the original plan:** CSV export (`/hr/analytics/export/{report}`),
+      because Fig. 4 says *Generate Reports*, not *display reports*. It projects
+      the same `AnalyticsService` output the screen renders — `AnalyticsExportTest`
+      asserts the two agree, so the export cannot grow its own query and drift.
+- [x] **Not in the original plan:** removed three dead `href="/reports"` links in
+      the doctor dashboard components. They pointed at a route that never
+      existed; doctors are not in Objective 1.5's audience, so the affordance is
+      gone rather than repointed at a page they would get 403 on.
+
+*Two data-quality guards, both added after real numbers came back wrong — see
+the Change Log:* lead time counts forward-booked appointments only, and LOA
+decision time counts only requests decided after they were submitted. Both
+report their sample size on screen and in the CSV rather than silently
+narrowing.
+
+### Phase 6.1 — Diagnostic and prescriptive analytics ✅ *done 2026-08-05*
+
+*Still Objective 1.5 — its wording is "tracking and **analyzing**", and Phase 6
+delivered only the tracking half. No paper change; see §11.*
+
+The four analytics tiers, and where this system stands on each:
+
+| Tier | State |
+|---|---|
+| **Descriptive** — what happened | ✅ Phase 6. Counts, series, distributions, rates, averages |
+| **Diagnostic** — why | ✅ Phase 6.1. Four attributions, below |
+| **Prescriptive** — what to do | ✅ Phase 6.1, rule-based. A ranked "Needs attention" list, each item carrying its evidence and threshold |
+| **Predictive** — what will happen | ❌ **Deliberately excluded on evidence.** 102 appointments over 12 distinct dates and **zero recorded no-shows**: a risk model has no positive class and a forecast has no series. See §11 |
+
+- [x] `App\Concerns\AggregatesClinicData` — period, bucketing and label helpers
+      extracted from `AnalyticsService` so the descriptive and diagnostic halves
+      cannot resolve the same window differently.
+- [x] **Why appointments fail** — cancellation/no-show concentration per segment
+      across lead time, coverage, weekday, time slot, service, consultation type
+      and doctor, each against the clinic-wide baseline.
+- [x] **Where LOA time goes** — share of accumulated wait per provider, decision
+      time by outcome, and the longest-waiting undecided requests.
+- [x] **Where the lab backs up** — which of nurse encoding or doctor review
+      dominates end-to-end time, plus the stalled backlog at each stage.
+- [x] **Where capacity strains** — daily-cap breaches by doctor and date, load
+      concentration, and unassigned upcoming bookings.
+- [x] Fifth tab and a fifth CSV export, both reached by adding one slug to
+      `AnalyticsService::REPORTS` — which extended the access and export tests
+      automatically, since both drive their datasets from that constant.
+
+**Three guards keep the diagnostics honest**, each with its own regression test,
+and all three are stated on screen rather than applied invisibly:
+
+1. **Baseline comparison, never a raw rate.** A segment is a driver by how far
+   it sits above the clinic-wide failure rate and by its share of all failures.
+2. **Minimum 5 appointments, minimum 2 failures, minimum 5pp of lift.** The
+   first two stop one stray cancellation becoming a finding; the third stops a
+   segment that is nearly the whole population topping the list on share alone.
+   Suppressed segments are counted and reported.
+3. **No causal language.** Copy says "concentrated in" and "accounts for", never
+   "caused by" — enforced by keeping the wording in one file.
 
 ### Phase 7 — Objectives 4 and 5
 
@@ -1075,7 +1151,24 @@ New Pest features per phase:
   ✅ *Phase 5 — 47 tests.*
 - `ConsultationChannelAuthTest` — only the assigned doctor and the appointment's
   guarantor may subscribe to `consultation.{roomId}`. Everyone else is rejected.
-  ❌ *Phase 3, not started.*
+  ✅ *Phase 3.*
+- `AnalyticsAccessTest` / `AnalyticsMetricsTest` / `AnalyticsExportTest` — the
+  only surface in the system that aggregates *across* patients, so access is
+  asserted on the page **and separately on every export**, which hands over the
+  whole dataset in one request. The metrics file pins numbers against
+  hand-counted fixtures and guards the silent failures: division by zero on an
+  empty range, archived rows inflating totals, pending LOAs counted as instant
+  decisions, and decisions recorded before their own submission. The export file
+  asserts the CSV and the screen report the same figures.
+  ✅ *Phase 6 — 57 tests.*
+- `AnalyticsDiagnosticsTest` — the statistics behind the diagnostic tier, which
+  is where this kind of feature breaks: it reports a real number over the wrong
+  population and nothing on screen looks wrong. Pins the baseline comparison,
+  the three noise guards (minimum sample, minimum failures, minimum lift) with a
+  named regression test each, contribution-not-rate ranking, every prescriptive
+  threshold firing at its boundary and not below, a healthy clinic producing an
+  **empty** action list, and no patient name reaching the pending-queue payload.
+  ✅ *Phase 6.1 — 27 tests.*
 
 ---
 
@@ -1094,6 +1187,13 @@ New Pest features per phase:
 | 2026-08-01 | Committing the working tree — **reverses the 2026-07-31 deferral** | **Commit and push.** The deferral was sound when one phase was at stake; by 2026-08-01 three were, and the branch it created had never been committed to. Four layered commits, then pushed to `origin`. See the Change Log for why the layering is narrative rather than bisectable. |
 | 2026-08-01 | Nurse write scope on patient records | **Nurse may write demographics, allergies and documents; diagnoses stay read-only.** Fig. 10's "Update Patient Records" is an encoding task — authoring a diagnosis is the attending doctor's clinical judgment, and the Scope assigns it to them. The nurse still *reads* diagnoses, because knowing what a patient is treated for is what makes their intake and lab work safe. Same reasoning as Phase 4 withholding `hmo_id`: a deliberate, logged narrowing beats an accidental over-grant. |
 | 2026-08-01 | Nurse record controller shape | **A separate `Nurse\PatientRecordController`, not `role:nurse|doctor` on the doctor's routes.** The plan called for the shared-guard approach; it cannot express the split above, since a route group grants all of a controller's methods. The read half is shared through `App\Concerns\ReadsPatientRecords` instead, so the legacy-record fallback exists in exactly one place. |
+| 2026-08-05 | Charting library | **Approved: `recharts` (^3.10).** The alternative was hand-rolling SVG chart primitives in `design-system/`, which keeps the dependency count at zero but costs about a day and reinvents axes, legends and tooltips. Vite code-splits it into its own 420 kB chunk (121 kB gzipped) loaded only by `/hr/analytics`, so no other page pays for it. |
+| 2026-08-05 | Analytics audience and placement | **`/hr/analytics` inside the existing `role:hr|admin` group, not a second admin-prefixed copy.** Fig. 4 treats Admin\HR as one entity for *Generate Reports*, admins are already members of that group, and the admin sidebar already links into it for HMO Approvals. Both sidebars carry the nav item; one route, one service, two roles. |
+| 2026-08-05 | Reports include an export | **Yes — CSV per report.** Fig. 4's flow is *Generate Reports*. On-screen-only would have left it half-answered, and a download is what a clinic actually files. The export projects the same `AnalyticsService` output as the screen, and a test asserts they agree. |
+| 2026-08-05 | **Which of the four analytics types this system implements** | **Descriptive and diagnostic, plus rule-based prescriptive actions. Predictive is excluded, on evidence.** The record holds 102 appointments across **12 distinct appointment dates** with **zero recorded no-shows** — a no-show risk model has no positive class to learn from, and a twelve-point series cannot carry a forecast. Building one anyway would be decoration that a panel could dismantle in a question. **This row is the answer if the four-types question is asked at defence:** the exclusion is a measured judgement, not an oversight, and it reverses the moment the clinic accumulates real history. |
+| 2026-08-05 | Diagnostic tier and the paper | **Build it; change nothing in the paper.** Objective 1.5 already reads "tracking and **analyzing**", and Phase 6 delivered only the tracking half — diagnostic work is what "analyzing" means, so it needs no new sub-objective. Group 5's call, taken this session: these tiers are fundamental to an analytics module rather than a new claim, so unlike virtual consultation (§5.2a) there is no wording gap to close. |
+| 2026-08-05 | Prescriptive without a model | **Threshold rules, not scoring.** Every recommendation states a number a human can re-check (7 days pending, 48 hours stalled, over the daily cap). Defensible, debuggable, and honest about what it is. A learned "priority score" over this dataset would be the predictive problem wearing a different hat. |
+| 2026-08-05 | Un-timeable records in averages | **Exclude and state the sample size; never clamp.** Two averages had rows that cannot be measured: appointments back-entered after the visit (no lead time) and LOA requests back-filled by the Phase 2 migration with a decision predating their own submission. Clamping to zero would have hidden them; excluding them and printing "over N …" keeps the figure honest and auditable. Neither is a live-code bug — `BookingService` and `LoaService` cannot produce either ordering. |
 
 ---
 
@@ -3125,3 +3225,178 @@ Bulk-applying them is how a lint pass turns into a regression.
 | `vendor/bin/pint --test` | pass |
 | `php artisan test` | **409 passed (1564 assertions)** |
 | **`composer ci:check`** | **passes end to end — first time** |
+
+---
+
+### 2026-08-05 — Phase 6: analytics and report generation
+
+**Phase:** 6 · **Status:** done
+
+**Changed:**
+- `app/Services/AnalyticsService.php` (new — the four reports + the CSV projection)
+- `app/Http/Controllers/HR/AnalyticsController.php` (new)
+- `routes/web.php` — 2 routes in the existing `role:hr|admin` group
+- `resources/js/pages/hr/analytics/` (new — page, data, 4 sections, 4 components)
+- `resources/js/pages/hr/layout/hr-dashboard-data.ts`,
+  `.../admin/layout/admin-dashboard-data.ts` — nav
+- `resources/js/pages/doctor/components/{clinic-activity,clinic-workflow,patient-activity}.tsx`
+  — removed three links to a `/reports` route that never existed
+- `package.json` — `recharts` ^3.10 (approved, §11)
+- `tests/Feature/Analytics/{AnalyticsAccessTest,AnalyticsMetricsTest,AnalyticsExportTest}.php`
+  (new — 57 tests)
+
+**Why:** Objective 1.5 asks, verbatim, for *"analytics tools for tracking and
+analyzing patient trends, appointment data, clinic performance and LOA
+requests"*, and the scorecard had it at **0%** while every other module sat at
+70% or above. It was the last remaining software gap; Phase 7 is not code.
+It also closes Figure 4's **Generate Reports**, which Phase 4 deferred here
+rather than building the same aggregation twice — a decision recorded in
+`AdminDashboardController`'s own docblock.
+
+No migration was needed. Every figure comes from tables that already existed.
+
+**Verified:**
+- `npm run build` **before** the suite, per §10 — new page enters the manifest.
+  recharts code-splits to `chart-card-*.js`, **420 kB (121 kB gzipped)**, loaded
+  only by `/hr/analytics`
+- `php artisan test --compact --filter=Analytics` → **57 passed (179 assertions)**
+- `php artisan test --compact` → **466 passed (1743 assertions)**, up from 409;
+  nothing regressed
+- `composer ci:check` → **passes end to end** (lint, format, types, 466 tests)
+- Authenticated walkthrough against the seeded `wellcare_db` as
+  `hr.garcia@wellcare.com`: page 200, component `hr/analytics/analytics`,
+  82 appointments across 14 weekly buckets, 35 doctor-load rows. Guest → 302.
+- CSV downloaded and read end to end: provenance header, period, and
+  `Turnaround | Average hours to decision | 0 | over 25 timed decisions`
+
+**Two wrong numbers that no test would have caught**, both found by running the
+service against the real database rather than fixtures. Both are the same shape
+— a record created *after* the event it claims to measure — and both rendered
+without any error:
+
+| Reported | Cause |
+|---|---|
+| Lead time **−32.5 days** | Back-entered appointments whose `appointment_date` precedes their own `created_at`. `BookingService` enforces a two-hour minimum lead, so a *booked* appointment cannot invert; these are records typed in after the visit — exactly what Objective 5's manual-to-digital transition will produce more of |
+| LOA turnaround **−284.9 hours** | 10 of 35 decided rows came from Phase 2's backfill migration, which created LOA records for HMO appointments already approved before `loa_requests` existed. `LoaService` stamps `requested_at` then `approved_at` and cannot produce this |
+
+Neither is a bug in the live workflow, and neither was clamped. Both averages now
+exclude the un-timeable rows and **print the sample size** on screen and in the
+CSV, so the figure is auditable rather than quietly narrowed. Each has a
+regression test naming the original wrong value.
+
+The pattern is the one Phase 3 recorded: the failure was silent, plausible, and
+the suite was green throughout — the fixtures had sensible timestamps and the
+seeded data did not.
+
+**Blocked / left out:**
+- **No scheduled or emailed reports.** Fig. 4 asks only that reports be
+  generated; delivery is not documented anywhere. Related: Table 6's "Send LOA
+  request to HMO via email" is still unbuilt, and mail is still the `log` driver.
+- **Reports are retrospective.** Every range ends today, so future bookings
+  appear in none of them. That reads Objective 1.5's "tracking and analyzing"
+  as backward-looking, which is defensible, but an upcoming-volume view would be
+  a separate ask. Asserted by a test so the property is explicit, not accidental.
+- **No caching.** Read-only aggregates over a single-branch dataset; adding a
+  TTL now would only make the numbers stale. Revisit if `EXPLAIN` shows a scan.
+- **The chart palette is hex literals, not `var(--wc-*)`.** recharts emits
+  colours as SVG *presentation attributes*, where custom-property resolution is
+  unreliable across browsers and fails silently — a black or unrendered mark,
+  no error. Each literal carries its token name in a comment, and the existing
+  hand-rolled chart in `doctor/components/patient-activity` uses hex for the
+  same reason. Keeping the two in step is manual.
+- **Not visually verified in a browser.** The page was fetched authenticated and
+  its Inertia props inspected, and the CSV was read end to end, but nobody has
+  looked at the rendered charts. That is the one remaining check, and it is the
+  check the palette note above most concerns.
+
+---
+
+### 2026-08-05 (second entry) — Phase 6.1: diagnostic and prescriptive analytics
+
+**Phase:** 6.1 · **Status:** done
+
+**Changed:**
+- `app/Concerns/AggregatesClinicData.php` (new — extracted from `AnalyticsService`)
+- `app/Services/ClinicDiagnosticsService.php` (new)
+- `app/Services/AnalyticsService.php` — uses the trait; `diagnostics` added to `REPORTS`
+- `app/Http/Controllers/HR/AnalyticsController.php` — second service injected, export branch
+- `resources/js/pages/hr/analytics/analytics-data.ts` — diagnostics types, tab, copy
+- `resources/js/pages/hr/analytics/sections/diagnostics-report.tsx` (new)
+- `resources/js/pages/hr/analytics/components/{attention-list,driver-bars}.tsx` (new)
+- `tests/Feature/Analytics/AnalyticsDiagnosticsTest.php` (new — 27 tests)
+
+**Why:** asked directly which of the four analytics types the system implements.
+The honest audit: Phase 6 was **descriptive**, with diagnostic value only by
+accident (the lab stage split, the cap comparison). Nothing said *why*, and
+nothing said *what to do*. Objective 1.5's own wording is "tracking and
+**analyzing**" — Phase 6 had delivered the tracking half only.
+
+**No routes, no migration, no paper change.** One slug added to
+`AnalyticsService::REPORTS` produced both the fifth tab and the fifth export,
+and extended `AnalyticsAccessTest` and `AnalyticsExportTest` automatically —
+those iterate that constant, so the new export was access-tested against all
+five roles without a line of new test code. Worth noting as a payoff from how
+Phase 6 was structured rather than as luck.
+
+**Verified:**
+- `npm run build` before the suite, per §10
+- `php artisan test --compact --filter=AnalyticsDiagnostics` → **27 passed (89 assertions)**, first run
+- `php artisan test --compact --filter=Analytics` → **90 passed (278 assertions)**
+  — 57 from Phase 6, 27 new, and **6 added automatically** by the new export slug
+- `php artisan test --compact` → **499 passed (1842 assertions)**, up from 466
+- `composer ci:check` → **green end to end**
+- Authenticated walkthrough as `admin@wellcare.com` at `?range=12m`: 4 attention
+  items ranked high → medium, `criteria` shipped to the client, lab dominant
+  stage `Doctor review (60%)`, LOA `pending=5 chase=5`, capacity `breaches=0`
+- **Cross-checked by hand against the database**, not just through the service:
+
+  ```sql
+  SELECT service, COUNT(*), SUM(status IN ('cancelled','no_show')) ...
+  ```
+
+  returned `Diabetes Management 10/10 = 100%`, every other service `0`, and
+  `general` at 2 appointments — which the report correctly suppressed as below
+  the 5-appointment floor. 10 failures over 92 appointments is the 10.9%
+  baseline the page shows. Independent query, same numbers.
+
+**The trait extraction was the risky part, and was treated as such.**
+`resolveRange()`, `bucket()`, `appointmentsInRange()`, `rate()` and `humanise()`
+moved out of `AnalyticsService` into a shared concern, following the precedent
+`ReadsPatientRecords` set in Phase 5. Two services resolving `90d` differently
+would put two plausible, disagreeing numbers on one screen, and each half would
+be internally consistent enough that no test would catch it. The 57 Phase 6
+tests were run immediately after the move and before anything was built on top —
+all green, so the extraction changed no behaviour.
+
+**Two defects found by running it, not by reading it:**
+
+| Symptom | Cause |
+|---|---|
+| The time-slot dimension returned **eight "findings"**, each +0.2 to +5.8pp above baseline | Every slot held exactly one cancellation. One event is an anecdote; the dimension was reporting a single cancellation eight times |
+| **"In-person" ranked top** on 100% contribution at +0.3pp lift | It held 89 of 92 appointments, so it carries ~all failures by construction. A segment that is essentially the whole population explains nothing |
+
+Fixed with `MIN_FAILURES = 2` and `MIN_LIFT = 5.0` alongside the existing
+`MIN_SAMPLE = 5`. Both have named regression tests. Without them the tab would
+have shipped looking analytical while saying nothing — the failure mode this
+phase exists to avoid.
+
+Also fixed: `humanise()` double-spaced any already-spaced Title Case input
+(`Diabetes  Management`), because the camelCase splitter inserts a space before
+every capital. Pre-existing — **it was visible on Phase 6's service chart too.**
+
+**Blocked / left out:**
+- **Predictive analytics, deliberately** — see the §11 row. 12 distinct
+  appointment dates and 0 no-shows cannot support a forecast or a risk model.
+  The page states this in plain language rather than staying silent about it.
+- **LOA wait attribution is near-empty on seeded data**, and legitimately so:
+  the seeder approves requests in the same second they are created, so there is
+  no accumulated wait to attribute. The card renders its empty state explaining
+  that. The *pending* half has real signal — 5 requests over 7 days old.
+- **Capacity shows no breaches** on seeded data: load runs ~1.5 against a cap of
+  5. Also a correct empty result, and asserted by a test rather than assumed.
+- **Still not visually verified in a browser.** Props and CSV were inspected and
+  cross-checked, but nobody has looked at the rendered tab. The `driver-bars`
+  baseline marker is hand-drawn CSS rather than recharts, so it does not carry
+  Phase 6's SVG custom-property risk — but it has not been seen.
+- The attention list is only on the analytics page. Surfacing the same items on
+  the HR and admin dashboards would be useful and was not in scope.
