@@ -187,14 +187,36 @@ function NotificationDropdown({
         router.post('/notifications/read-all', {}, { preserveScroll: true });
     }
 
+    /**
+     * Navigate FIRST, mark read afterwards.
+     *
+     * These used to run in the opposite order, and `markRead` posts to an
+     * endpoint that answers `back()` — a redirect to the page you are already
+     * on. Two Inertia visits then raced, and the cheap `back()` routinely
+     * resolved last, landing you exactly where you started. The notification
+     * looked like a dead link.
+     *
+     * It was invisible for as long as every notification pointed at the page
+     * its owner was already likely to be on. The first one with a genuinely
+     * different destination — `consultation_started` → the consultations list —
+     * is what exposed it.
+     */
     function handleClick(n: NotificationItem): void {
-        if (!n.read) {
-markRead(n.id);
-}
-
         if (n.action_url) {
             onClose();
-            router.visit(n.action_url);
+            router.visit(n.action_url, {
+                onFinish: () => {
+                    if (!n.read) {
+                        markRead(n.id);
+                    }
+                },
+            });
+
+            return;
+        }
+
+        if (!n.read) {
+            markRead(n.id);
         }
     }
 
@@ -337,8 +359,8 @@ markRead(n.id);
                                     );
 
                                 if (btn) {
-btn.style.opacity = '1';
-}
+                                    btn.style.opacity = '1';
+                                }
                             }}
                             onMouseLeave={(e) => {
                                 const el = e.currentTarget as HTMLDivElement;
@@ -351,8 +373,8 @@ btn.style.opacity = '1';
                                     );
 
                                 if (btn) {
-btn.style.opacity = '0';
-}
+                                    btn.style.opacity = '0';
+                                }
                             }}
                         >
                             <NotifIcon type={n.type} />
@@ -493,10 +515,23 @@ export function NotificationBell(): ReactElement {
         return () => document.removeEventListener('mousedown', handleOutside);
     }, []);
 
-    // Close on route change
-    useEffect(() => {
-        setOpen(false);
-    }, [props]);
+    /**
+     * Close when the user actually navigates — not on every re-render.
+     *
+     * This used to depend on `props`, which `usePage()` hands back as a fresh
+     * object identity on *every* render, so any prop update at all slammed the
+     * panel shut. That was survivable while these pages were static.
+     *
+     * It stopped being survivable the moment the consultations list started
+     * polling every 15 seconds: each poll re-rendered, the dropdown closed
+     * itself, and a notification the user was in the middle of pressing simply
+     * vanished from under their finger. The click landed on nothing, which looks
+     * exactly like a dead link.
+     *
+     * `router.on('navigate')` is also what the mobile drawer uses, and it avoids
+     * the setState-in-an-effect-body that the old version tripped.
+     */
+    useEffect(() => router.on('navigate', () => setOpen(false)), []);
 
     return (
         <div ref={ref} style={{ position: 'relative' }}>

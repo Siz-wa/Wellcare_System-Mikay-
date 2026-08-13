@@ -4,11 +4,12 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\User;
-use App\Notifications\AppointmentRequestedNotification;
-use App\Notifications\AppointmentConfirmedNotification;
 use App\Notifications\AppointmentCancelledNotification;
-use App\Notifications\PatientCheckedInNotification;
+use App\Notifications\AppointmentConfirmedNotification;
+use App\Notifications\AppointmentRequestedNotification;
 use App\Notifications\ConsultationFinalizedNotification;
+use App\Notifications\PatientCheckedInNotification;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Role;
 
@@ -67,7 +68,9 @@ class NotificationService
         // Assigned doctor
         if ($appointment->doctor_id) {
             $doctor = User::find($appointment->doctor_id);
-            if ($doctor) $recipients->push($doctor);
+            if ($doctor) {
+                $recipients->push($doctor);
+            }
         }
 
         // All nurses
@@ -95,7 +98,7 @@ class NotificationService
         return $appointment->user_id ? User::find($appointment->user_id) : null;
     }
 
-    private function getUsersByRoles(array $roleNames): \Illuminate\Support\Collection
+    private function getUsersByRoles(array $roleNames): Collection
     {
         return User::whereHas('roles', fn ($q) => $q->whereIn('name', $roleNames))->get();
     }

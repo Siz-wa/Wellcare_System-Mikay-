@@ -1,64 +1,96 @@
-// resources/js/pages/generals/book-appointment/sections/step-appointment.tsx
+// resources/js/pages/user/book-appointment/sections/step-appointment.tsx
 
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
-import type { Step2Errors } from '@/hooks/use-step-validators';
-import type { BookingFormData } from '@/pages/user/book-appointment/sections/bookingdata';
-import {
-    eligibleServices,
-    isServiceEligible,
-    patientStatusOptions,
-    STEP_HEADINGS,
+import type { Step1Errors } from '@/hooks/use-step-validators';
+import type {
+    BookingFormData,
+    BookingWindow,
+    PatientOption,
 } from '@/pages/user/book-appointment/sections/bookingdata';
-import { Field, ToggleCard, StepNav, IconCalendar } from '../components';
+import {
+    consultationTypeOptions,
+    CONSULTATION_TYPE_HINT,
+    eligibleServices,
+    IN_PERSON_ONLY_NOTICE,
+    isServiceEligible,
+    STEP_HEADINGS,
+    supportsVirtual,
+} from '@/pages/user/book-appointment/sections/bookingdata';
+import {
+    BrandSelect,
+    Field,
+    ToggleCard,
+    StepNav,
+    IconCalendar,
+} from '../components';
 
 interface StepAppointmentProps {
     data: BookingFormData;
-    errors: Step2Errors;
+    errors: Step1Errors;
     setData: <K extends keyof BookingFormData>(
         field: K,
         value: BookingFormData[K],
     ) => void;
+    /** Whose record drives service eligibility (OB-Gyne, Pediatrics) */
+    patient: PatientOption;
+    bookingWindow: BookingWindow;
     valid: boolean;
     onNext: () => void;
-    onBack: () => void;
 }
-
-const BOOKING_MAX_DAYS = 365;
 
 export default function StepAppointment({
     data,
     errors,
     setData,
-    valid,
+    patient,
+    bookingWindow,
     onNext,
-    onBack,
 }: StepAppointmentProps): ReactElement {
-    const { title, subtitle } = STEP_HEADINGS[2];
+    const { title, subtitle } = STEP_HEADINGS[1];
 
-    // Age and gender are answered back in Step 1, so the patient can return there
-    // and change them after picking a service. Drop the selection if it no longer
-    // applies — in an effect, never during render.
-    const services = eligibleServices(data.gender, data.age);
+    // Eligibility now reads the patient record rather than form inputs, which is
+    // also what BookAppointmentRequest enforces server-side. Editing a patient's
+    // age or sex reloads this page with fresh props, so the selection can still
+    // go stale — drop it in an effect, never during render.
+    const patientGender = patient.gender ?? '';
+    const patientAge = patient.age === null ? '' : String(patient.age);
+    const services = eligibleServices(patientGender, patientAge);
 
     useEffect(() => {
         if (
             data.service &&
-            !isServiceEligible(data.service, data.gender, data.age)
+            !isServiceEligible(data.service, patientGender, patientAge)
         ) {
             setData('service', '');
         }
-    }, [data.service, data.gender, data.age, setData]);
+    }, [data.service, patientGender, patientAge, setData]);
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const minDate = tomorrow.toISOString().split('T')[0];
+    const virtualAllowed = supportsVirtual(data.service);
 
-    const maxDateObj = new Date();
-    maxDateObj.setDate(maxDateObj.getDate() + BOOKING_MAX_DAYS);
-    maxDateObj.setHours(0, 0, 0, 0);
-    const maxDate = maxDateObj.toISOString().split('T')[0];
+    // Switching to a service that must happen at the clinic forces the mode
+    // back. Same pattern as the service-eligibility reset above: correct it in
+    // an effect, never during render, or the submitted value and the rendered
+    // value disagree and the server rejects a form that looked valid.
+    useEffect(() => {
+        if (!virtualAllowed && data.consultationType === 'virtual') {
+            setData('consultationType', 'in_person');
+        }
+    }, [virtualAllowed, data.consultationType, setData]);
+
+    // Both bounds arrive from the server, already ISO and already in the clinic's
+    // timezone. Deriving them here with `new Date().toISOString()` is what used
+    // to shift local midnight back a day in UTC+8 — and the local 365-day cap
+    // disagreed with the server's 3-month rule, which is how dates in 2027 got
+    // through the picker only to be rejected on submit.
+    const { min: minDate, max: maxDate } = bookingWindow;
+
+    const formatWindowDate = (iso: string) =>
+        new Date(iso + 'T00:00:00').toLocaleDateString('en-PH', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+        });
 
     const col: React.CSSProperties = {
         display: 'flex',
@@ -77,7 +109,7 @@ export default function StepAppointment({
                         marginBottom: 'var(--space-2)',
                     }}
                 >
-                    Step 2 of 4
+                    Step 1 of 3
                 </span>
                 <h2 style={{ marginBottom: 'var(--space-1)' }}>{title}</h2>
                 <p style={{ margin: 0 }}>{subtitle}</p>
@@ -90,42 +122,50 @@ export default function StepAppointment({
                     required
                     error={errors.service}
                 >
-                    <select
-                        className={`wc-input wc-select${errors.service ? 'wc-input-error' : ''}`}
+                    <BrandSelect
                         value={data.service}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                            setData('service', e.target.value)
-                        }
-                    >
-                        {services.map((o) => (
-                            <option key={o.value} value={o.value}>
-                                {o.label}
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(v) => setData('service', v)}
+                        options={services}
+                        invalid={Boolean(errors.service)}
+                        aria-label="Service to be availed"
+                    />
                 </Field>
 
-                {/* Patient status */}
+                {/* Consultation type */}
                 <Field
-                    label="Patient Record Status"
+                    label="Consultation Type"
                     required
-                    error={errors.patientStatus}
+                    error={errors.consultationType}
+                    hint={
+                        !errors.consultationType
+                            ? virtualAllowed
+                                ? CONSULTATION_TYPE_HINT
+                                : IN_PERSON_ONLY_NOTICE
+                            : undefined
+                    }
                 >
                     <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                        {patientStatusOptions.map((o) => (
-                            <ToggleCard
-                                key={o.value}
-                                value={o.value}
-                                label={o.label}
-                                iconKey={o.value}
-                                active={data.patientStatus === o.value}
-                                onClick={() =>
-                                    setData('patientStatus', o.value)
-                                }
-                            />
-                        ))}
+                        {consultationTypeOptions
+                            .filter(
+                                (o) => o.value !== 'virtual' || virtualAllowed,
+                            )
+                            .map((o) => (
+                                <ToggleCard
+                                    key={o.value}
+                                    value={o.value}
+                                    label={o.label}
+                                    iconKey={o.value}
+                                    active={data.consultationType === o.value}
+                                    onClick={() =>
+                                        setData('consultationType', o.value)
+                                    }
+                                />
+                            ))}
                     </div>
                 </Field>
+
+                {/* New vs returning is not asked here. It is derived from this
+                    patient's own visit history when the booking is created. */}
 
                 {/* Date */}
                 <Field
@@ -134,7 +174,7 @@ export default function StepAppointment({
                     error={errors.appointmentDate}
                     hint={
                         !errors.appointmentDate
-                            ? `Select a date between tomorrow and ${BOOKING_MAX_DAYS} days from now.`
+                            ? `Select a date between ${formatWindowDate(minDate)} and ${formatWindowDate(maxDate)}.`
                             : undefined
                     }
                 >
@@ -173,8 +213,9 @@ export default function StepAppointment({
                 {/* Time slot moved to Step 3 — shown below doctor selection */}
             </div>
 
+            {/* No Back: this is the first step. Changing who the appointment is
+                for is done from the patient card above the wizard. */}
             <StepNav
-                onBack={onBack}
                 onNext={onNext}
                 nextLabel="Continue to Coverage"
                 nextDisabled={false}

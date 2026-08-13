@@ -1,18 +1,8 @@
 // resources/js/layouts/Navbar.tsx
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from '@/design-system/components/notification-bell';
-import {
-    home,
-    about,
-    services,
-    doctors,
-    contact,
-    faqs,
-    login,
-    book,
-} from '@/routes';
-import { dashboard as patientDashboard } from '@/routes/user';
+import { home, about, services, doctors, contact, faqs, login } from '@/routes';
 import type { PageProps } from '@/types';
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
@@ -79,20 +69,20 @@ export type NavLabel = (typeof NAV_LINKS)[number]['label'];
 
 function getDashboardUrl(roles: string[]): string {
     if (roles.includes('doctor')) {
-return '/doctor/appointments';
-}
+        return '/doctor/appointments';
+    }
 
     if (roles.includes('hr')) {
-return '/hr/dashboard';
-}
+        return '/hr/dashboard';
+    }
 
     if (roles.includes('admin')) {
-return '/hr/dashboard';
-}
+        return '/hr/dashboard';
+    }
 
     if (roles.includes('user')) {
-return '/user/dashboard';
-}
+        return '/user/dashboard';
+    }
 
     return '/user/dashboard';
 }
@@ -208,17 +198,19 @@ export default function Navbar({ active }: NavbarProps) {
     useEffect(() => {
         const onResize = () => {
             if (window.innerWidth > 768) {
-setMobileOpen(false);
-}
+                setMobileOpen(false);
+            }
         };
         window.addEventListener('resize', onResize);
 
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    useEffect(() => {
-        setMobileOpen(false);
-    }, [url]);
+    // Close on a real navigation. Setting state in an effect body cascades a
+    // render; `router.on('navigate')` is the external-subscription shape the
+    // rule is asking for, and it is what the notification bell and the patient
+    // drawer both use.
+    useEffect(() => router.on('navigate', () => setMobileOpen(false)), []);
 
     return (
         <>

@@ -10,11 +10,12 @@ import type {
     BookingFormData,
     StepId,
     DoctorOption,
+    PatientOption,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import {
     genderOptions,
     serviceOptions,
-    patientStatusOptions,
+    consultationTypeOptions,
     coverageOptions,
     hmoOptions,
     REVIEW_LABELS,
@@ -41,8 +42,8 @@ function resolveLabel(
 
 function resolveDoctorName(id: number | null, doctors: DoctorOption[]): string {
     if (id === null) {
-return 'Next available';
-}
+        return 'Next available';
+    }
 
     return doctors.find((d) => d.id === id)?.name ?? 'Unknown';
 }
@@ -56,9 +57,13 @@ interface StepReviewProps {
         field: K,
         value: BookingFormData[K],
     ) => void;
+    /** The person this appointment is for, chosen at the gate */
+    patient: PatientOption;
     isProcessing: boolean;
     onBack: () => void;
     onGoToStep: (s: StepId) => void;
+    /** Reopens the gate — the "Edit" affordance for the patient card */
+    onChangePatient: () => void;
     /** Passed from the Inertia page prop to resolve display name from doctorId */
     doctors: DoctorOption[];
 }
@@ -67,12 +72,14 @@ export default function StepReview({
     data,
     errors,
     setData,
+    patient,
     isProcessing,
     onBack,
     onGoToStep,
+    onChangePatient,
     doctors,
 }: StepReviewProps): ReactElement {
-    const { title, subtitle } = STEP_HEADINGS[4];
+    const { title, subtitle } = STEP_HEADINGS[3];
     const { disclaimer, hipaa } = bookingMeta;
 
     const twoColGrid: React.CSSProperties = {
@@ -111,7 +118,7 @@ export default function StepReview({
                         marginBottom: 'var(--space-2)',
                     }}
                 >
-                    Step 4 of 4
+                    Step 3 of 3
                 </span>
                 <h2 style={{ marginBottom: 'var(--space-1)' }}>{title}</h2>
                 <p style={{ margin: 0 }}>{subtitle}</p>
@@ -125,28 +132,31 @@ export default function StepReview({
                     marginBottom: 'var(--space-6)',
                 }}
             >
-                {/* ── Personal Info ── */}
+                {/* ── Patient ──
+                    Read from the record, not from form inputs — these details
+                    were typed once when the patient was added. "Edit" reopens
+                    the gate rather than a step. */}
                 <ReviewGroup
                     iconKey="personal"
-                    title="Personal Info"
-                    onEdit={() => onGoToStep(1)}
+                    title="Patient"
+                    onEdit={onChangePatient}
                 >
                     <div style={twoColGrid}>
                         <ReviewRow
                             label={REVIEW_LABELS.fullName}
-                            value={`${data.firstName} ${data.lastName}`.trim()}
+                            value={patient.name}
                         />
                         <ReviewRow
                             label={REVIEW_LABELS.ageGender}
-                            value={`${data.age} yrs · ${resolveLabel(data.gender, genderOptions)}`}
+                            value={`${patient.age ?? '—'} yrs · ${resolveLabel(patient.gender ?? '', genderOptions)}`}
                         />
                         <ReviewRow
-                            label={REVIEW_LABELS.email}
-                            value={data.email}
+                            label={REVIEW_LABELS.relationship}
+                            value={patient.relationshipLabel ?? '—'}
                         />
                         <ReviewRow
                             label={REVIEW_LABELS.contactNumber}
-                            value={data.contactNumber}
+                            value={patient.contactNumber}
                         />
                     </div>
                 </ReviewGroup>
@@ -155,7 +165,7 @@ export default function StepReview({
                 <ReviewGroup
                     iconKey="appointment"
                     title="Appointment"
-                    onEdit={() => onGoToStep(2)}
+                    onEdit={() => onGoToStep(1)}
                 >
                     <div style={twoColGrid}>
                         <ReviewRow
@@ -163,10 +173,10 @@ export default function StepReview({
                             value={resolveLabel(data.service, serviceOptions)}
                         />
                         <ReviewRow
-                            label={REVIEW_LABELS.patientStatus}
+                            label={REVIEW_LABELS.consultationType}
                             value={resolveLabel(
-                                data.patientStatus,
-                                patientStatusOptions,
+                                data.consultationType,
+                                consultationTypeOptions,
                             )}
                         />
                         <ReviewRow
@@ -184,7 +194,7 @@ export default function StepReview({
                 <ReviewGroup
                     iconKey="coverage"
                     title="Coverage & Doctor"
-                    onEdit={() => onGoToStep(3)}
+                    onEdit={() => onGoToStep(2)}
                     fullWidth
                 >
                     <div style={twoColGrid}>

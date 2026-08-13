@@ -20,13 +20,13 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('appointment_id')
-                  ->unique()                    // one session per appointment
-                  ->constrained('appointments')
-                  ->cascadeOnDelete();
+                ->unique()                    // one session per appointment
+                ->constrained('appointments')
+                ->cascadeOnDelete();
 
             $table->foreignId('doctor_id')
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             // ── SOAP Notes ───────────────────────────────────────────────────
             $table->text('subjective')->nullable();
@@ -35,12 +35,12 @@ return new class extends Migration
             $table->text('plan')->nullable();
 
             // ── Vitals ───────────────────────────────────────────────────────
-            $table->string('blood_pressure',    20)->nullable();
-            $table->string('heart_rate',        10)->nullable();
-            $table->string('temperature',       10)->nullable();
+            $table->string('blood_pressure', 20)->nullable();
+            $table->string('heart_rate', 10)->nullable();
+            $table->string('temperature', 10)->nullable();
             $table->string('oxygen_saturation', 10)->nullable();
-            $table->string('weight',            10)->nullable();
-            $table->string('height',            10)->nullable();
+            $table->string('weight', 10)->nullable();
+            $table->string('height', 10)->nullable();
 
             // ── Session state ────────────────────────────────────────────────
             $table->enum('status', ['draft', 'finalized'])->default('draft');
@@ -55,8 +55,8 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('session_id')
-                  ->constrained('consultation_sessions')
-                  ->cascadeOnDelete();
+                ->constrained('consultation_sessions')
+                ->cascadeOnDelete();
 
             $table->string('name');            // e.g. "Amoxicillin 500mg"
             $table->string('instructions');    // e.g. "Twice daily after meals • 7 Days"

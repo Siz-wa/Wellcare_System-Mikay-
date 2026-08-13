@@ -805,8 +805,8 @@ function RecordDetail({
                                     ];
 
                                 if (!val) {
-return null;
-}
+                                    return null;
+                                }
 
                                 return (
                                     <div
@@ -902,8 +902,8 @@ return null;
                                 },
                             ].map(({ label, value, unit }) => {
                                 if (!value) {
-return null;
-}
+                                    return null;
+                                }
 
                                 return (
                                     <div
@@ -983,9 +983,6 @@ function HistoryPanel({
     onClose: () => void;
 }): ReactElement {
     const [open, setOpen] = useState(false);
-    const [selectedGroup, setSelectedGroup] = useState<PatientGroup | null>(
-        null,
-    );
     const [selectedRecord, setSelectedRecord] = useState<PastRecord | null>(
         null,
     );
@@ -1251,7 +1248,7 @@ function HistoryPanel({
                                                 'max-height 0.3s cubic-bezier(0.16,1,0.3,1)',
                                         }}
                                     >
-                                        {group.records.map((record, ri) => (
+                                        {group.records.map((record) => (
                                             <button
                                                 key={record.id}
                                                 type="button"
@@ -1447,8 +1444,8 @@ export default function PatientDashboard(): ReactElement {
 
     function handleCancel(id: number): void {
         if (!confirm('Are you sure you want to cancel this appointment?')) {
-return;
-}
+            return;
+        }
 
         router.post(
             `/user/appointments/${id}/cancel`,

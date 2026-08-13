@@ -13,8 +13,8 @@ interface ReviewRowProps {
 
 export function ReviewRow({ label, value }: ReviewRowProps): ReactElement {
     if (!value) {
-return <></>;
-}
+        return <></>;
+    }
 
     return (
         <div

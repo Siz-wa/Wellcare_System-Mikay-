@@ -9,7 +9,6 @@ import { useInView } from '@/hooks/useInView';
 import { workflowSteps, dashboardMeta } from '../dashboard-data';
 import type { WorkflowStep } from '../dashboard-data';
 import { WorkflowIcon } from '../icons';
-import { IconArrowRight } from '../icons';
 
 // ── Single step row ───────────────────────────────────────────────────────────
 
@@ -154,29 +153,7 @@ export function ClinicWorkflow(): ReactElement {
                 >
                     {meta.clinicWorkflowTitle}
                 </h2>
-                <a
-                    href="/reports"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-1)',
-                        fontSize: 'var(--text-sm)',
-                        fontWeight: 600,
-                        color: 'var(--wc-sky-500)',
-                        textDecoration: 'none',
-                        transition: 'color 150ms var(--ease-out)',
-                    }}
-                    onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.color =
-                            'var(--wc-blue-600)';
-                    }}
-                    onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.color =
-                            'var(--wc-sky-500)';
-                    }}
-                >
-                    {meta.viewAll} <IconArrowRight />
-                </a>
+                {/* See clinic-activity.tsx — /reports never existed. */}
             </div>
 
             <div>

@@ -1,27 +1,25 @@
-// resources/js/pages/generals/book-appointment/sections/booking-form.tsx
+// resources/js/pages/user/book-appointment/sections/booking-form.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Changes from previous version:
-//   - Accepts `doctors: DoctorOption[]` as a prop (from the Inertia page).
-//   - Passes `doctors` down to StepCoverage.
-//   - No other changes.
+// The wizard shell. Three steps now, not four: who the appointment is for is
+// settled at the gate before this component renders, so the form only asks
+// what actually changes from visit to visit.
 
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { useBookingStore } from '@/hooks/use-booking-store';
 import { useStepValidators } from '@/hooks/use-step-validators';
 import { useInView } from '@/hooks/useInView';
 import { BOOKING_FORM_DEFAULTS } from '@/pages/user/book-appointment/sections/bookingdata';
 import type {
-    StepId,
+    BookingWindow,
     DoctorOption,
-    BookingPrefill,
+    PatientOption,
+    StepId,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import { store } from '@/routes/appointments';
-import { StepIndicator } from '../components';
+import { PatientSummaryCard, StepIndicator } from '../components';
 import StepAppointment from './step-appointment';
 import StepCoverage from './step-coverage';
-import StepPersonal from './step-personal';
 import StepReview from './step-review';
 // Wayfinder generates route files keyed by the first segment of the route name.
 // Route `appointments.store` → file @/routes/appointments, named export `store`.
@@ -32,19 +30,36 @@ import StepReview from './step-review';
 interface BookingFormProps {
     /** Active doctors from doctor_profiles, passed via Inertia page prop */
     doctors: DoctorOption[];
-    /** Known details for the signed-in patient; empty object for guests */
-    prefill?: BookingPrefill;
+    /** The person this appointment is for, chosen at the gate */
+    patient: PatientOption;
+    /** Bookable date range, computed server-side */
+    bookingWindow: BookingWindow;
+    /** Reopens the gate */
+    onChangePatient: () => void;
 }
 
 export default function BookingForm({
     doctors,
-    prefill,
+    patient,
+    bookingWindow,
+    onChangePatient,
 }: BookingFormProps): ReactElement {
     const { ref, inView } = useInView();
-    const { step, completed, goTo, markDone, setSubmitted } = useBookingStore();
 
-    // Signed-in patients start with their own details filled in. Every field
-    // stays editable — the patient may be booking on behalf of someone else.
+    // Ordinary component state. The previous module-level store was cached by
+    // React Compiler (no reactive dependencies) so clicking Continue changed
+    // the step without repainting, and it outlived the page so returning to
+    // /book resumed mid-wizard. See book-appointment.tsx for the full note.
+    const [step, setStep] = useState<StepId>(1);
+    const [completed, setCompleted] = useState<Set<StepId>>(() => new Set());
+
+    // Coverage is seeded from the patient's record, so a repeat HMO visit is
+    // not retyped — but it stays editable, because the same person may pay cash
+    // one visit and use their HMO the next.
+    //
+    // A minor is the exception: they are billed to their guarantor, so the visit
+    // is cash and the Coverage step does not ask. Seeding it here rather than in
+    // the step keeps the submitted value and the rendered one in agreement.
     const {
         data,
         setData,
@@ -53,24 +68,33 @@ export default function BookingForm({
         errors: serverErrors,
     } = useForm({
         ...BOOKING_FORM_DEFAULTS,
-        ...(prefill ?? {}),
+        patientId: patient.id,
+        coverage: patient.isMinor ? 'cash' : (patient.defaultCoverage ?? ''),
+        hmo: patient.isMinor ? '' : (patient.hmoProvider ?? ''),
+        hmoId: patient.isMinor ? '' : (patient.hmoId ?? ''),
     });
 
     const [attempted1, setAttempted1] = useState(false);
     const [attempted2, setAttempted2] = useState(false);
-    const [attempted3, setAttempted3] = useState(false);
 
-    const { step1Valid, step2Valid, step3Valid, errors1, errors2, errors3 } =
-        useStepValidators(data);
+    const { step1Valid, step2Valid, errors1, errors2 } = useStepValidators(
+        data,
+        bookingWindow,
+    );
 
     // ── Navigation handlers ────────────────────────────────────────────────────
+
+    const goTo = (target: StepId) => setStep(target);
+
+    const markDone = (s: StepId) =>
+        setCompleted((prev) => new Set([...prev, s]));
 
     const handleNext1 = () => {
         setAttempted1(true);
 
         if (!step1Valid) {
-return;
-}
+            return;
+        }
 
         markDone(1);
         goTo(2);
@@ -80,31 +104,18 @@ return;
         setAttempted2(true);
 
         if (!step2Valid) {
-return;
-}
+            return;
+        }
 
         markDone(2);
         goTo(3);
-    };
-
-    const handleNext3 = () => {
-        setAttempted3(true);
-
-        if (!step3Valid) {
-return;
-}
-
-        markDone(3);
-        goTo(4);
     };
 
     // ── Submit ─────────────────────────────────────────────────────────────────
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(store().url, {
-            onSuccess: () => setSubmitted(true),
-        });
+        post(store().url);
     };
 
     const cardStyle: React.CSSProperties = {
@@ -124,6 +135,11 @@ return;
             }}
         >
             <div className="wc-container" style={{ maxWidth: 860 }}>
+                <PatientSummaryCard
+                    patient={patient}
+                    onChange={onChangePatient}
+                />
+
                 <StepIndicator current={step} completed={completed} />
 
                 <div
@@ -136,47 +152,41 @@ return;
                         style={{ padding: 'var(--space-8)' }}
                     >
                         {step === 1 && (
-                            <StepPersonal
+                            <StepAppointment
                                 data={data}
                                 errors={attempted1 ? errors1 : {}}
                                 setData={setData}
+                                patient={patient}
+                                bookingWindow={bookingWindow}
                                 valid={step1Valid}
                                 onNext={handleNext1}
                             />
                         )}
 
                         {step === 2 && (
-                            <StepAppointment
+                            <StepCoverage
                                 data={data}
                                 errors={attempted2 ? errors2 : {}}
                                 setData={setData}
+                                patient={patient}
                                 valid={step2Valid}
                                 onNext={handleNext2}
                                 onBack={() => goTo(1)}
-                            />
-                        )}
-
-                        {step === 3 && (
-                            <StepCoverage
-                                data={data}
-                                errors={attempted3 ? errors3 : {}}
-                                setData={setData}
-                                valid={step3Valid}
-                                onNext={handleNext3}
-                                onBack={() => goTo(2)}
                                 doctors={doctors}
                             />
                         )}
 
-                        {step === 4 && (
+                        {step === 3 && (
                             <form onSubmit={handleSubmit} noValidate>
                                 <StepReview
                                     data={data}
                                     errors={serverErrors}
                                     setData={setData}
+                                    patient={patient}
                                     isProcessing={processing}
-                                    onBack={() => goTo(3)}
+                                    onBack={() => goTo(2)}
                                     onGoToStep={(s: StepId) => goTo(s)}
+                                    onChangePatient={onChangePatient}
                                     doctors={doctors}
                                 />
                             </form>

@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import { useState } from 'react';
 import {
     about,
     services,
@@ -83,8 +82,6 @@ const SOCIAL_LINKS = [
 ] as const;
 
 export default function Footer() {
-    const [email, setEmail] = useState('');
-
     return (
         <footer className="wc-footer">
             <div className="wc-footer__inner">

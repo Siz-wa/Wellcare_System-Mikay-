@@ -46,8 +46,8 @@ export default function LabQueuePage({
         notes: string;
     }): void {
         if (!selected) {
-return;
-}
+            return;
+        }
 
         setProcessing(true);
 

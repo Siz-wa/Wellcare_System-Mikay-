@@ -120,8 +120,8 @@ export function LabOrders({
 
     function handleRequest(): void {
         if (appointmentId === null) {
-return;
-}
+            return;
+        }
 
         if (!testName) {
             setError(copy.customPlaceholder);

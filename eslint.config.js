@@ -110,6 +110,11 @@ export default [
             'node_modules',
             'public',
             'bootstrap/ssr',
+            // Claude Code worktrees — full duplicate checkouts of this repo,
+            // gitignored. `lint:check` runs `eslint .`, so without this every
+            // finding in real source was reported once per worktree plus once
+            // for the original: 48 errors read as 202.
+            '.claude/**',
             'tailwind.config.js',
             'vite.config.ts',
             'resources/js/actions/**',

@@ -9,8 +9,8 @@ export function useInView(threshold = 0.15) {
         const el = ref.current;
 
         if (!el) {
-return;
-}
+            return;
+        }
 
         const obs = new IntersectionObserver(
             ([entry]) => {

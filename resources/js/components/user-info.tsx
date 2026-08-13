@@ -15,7 +15,10 @@ export function UserInfo({
 
     // Resolve display name — Laravel appends `name` via getNameAttribute()
     // but fall back gracefully if it ever arrives undefined
-    const displayName = (user.name ?? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()) || 'User';
+    const displayName =
+        (user.name ??
+            `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()) ||
+        'User';
 
     return (
         <>

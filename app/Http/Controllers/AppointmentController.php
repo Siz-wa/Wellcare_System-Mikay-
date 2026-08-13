@@ -3,16 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\SlotUnavailableException;
+use App\Http\Controllers\Patient\GuarantorPatientController;
 use App\Http\Requests\BookAppointmentRequest;
 use App\Http\Resources\DoctorResource;
 use App\Models\Appointment;
 use App\Models\AppointmentNotification;
 use App\Models\DoctorProfile;
+use App\Models\Patient;
 use App\Models\User;
 use App\Services\BookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,74 +25,68 @@ class AppointmentController extends Controller
 {
     public function __construct(private readonly BookingService $booking) {}
 
-    public function bookingPage(): Response
+    public function bookingPage(Request $request): Response
     {
+        $user = Auth::user();
+
         $doctors = DoctorProfile::active()
             ->with('user')
             ->orderBy('specialty')
             ->orderBy('display_name')
             ->get();
 
+        // Idempotent, and the reason a brand-new account rarely meets an empty
+        // gate: promotes the account holder's own profile into a Patient row.
+        Patient::ensureSelfPatient($user);
+
+        $patients = Patient::where('guarantor_id', $user->id)
+            ->orderByRaw("relationship_to_guarantor = 'self' DESC")
+            ->orderBy('first_name')
+            ->get();
+
         return Inertia::render('user/book-appointment/book-appointment', [
             'doctors' => DoctorResource::collection($doctors)->resolve(),
-            'prefill' => $this->prefillFor(Auth::user()),
+            'patients' => $patients
+                ->map(fn (Patient $p) => GuarantorPatientController::mapPatient($p))
+                ->values(),
+            // `?patient=` is a URL the user can edit. Resolve it against their
+            // own roster and fall back to "not chosen yet" rather than trusting
+            // it — otherwise the gate would open on a stranger's details.
+            'selectedPatientId' => $this->resolveSelectedPatient($request, $patients),
+            'bookingWindow' => self::bookingWindow(),
         ]);
     }
 
     /**
-     * Known details for a signed-in patient, so a returning patient doesn't
-     * retype their own name on every booking. Camel-cased to match the React
-     * form's field names; the form spreads this over BOOKING_FORM_DEFAULTS.
+     * The bookable date range, computed server-side in the app timezone.
      *
-     * Only non-empty values are returned — a blank string here would clobber a
-     * default that the form actually wants (e.g. contactNumber's "+63").
+     * The picker used to derive this in the browser with
+     * `new Date().setHours(0,0,0,0)` then `.toISOString()` — local midnight
+     * rendered as UTC, which in Asia/Manila shifts the string back a day and
+     * quietly let patients select today. Sending real dates removes both that
+     * skew and the second copy of the 3-month rule.
+     *
+     * `max` is inclusive for the date input; the request rule is `before:`,
+     * which is exclusive — hence subDay().
+     *
+     * @return array{min: string, max: string}
      */
-    private function prefillFor(?User $user): array
+    private static function bookingWindow(): array
     {
-        if (! $user) {
-            return [];
-        }
-
-        $profile = $user->profile;
-
-        $values = [
-            'firstName' => $profile?->first_name,
-            'lastName' => $profile?->last_name,
-            'email' => $user->email,
-            'contactNumber' => $profile?->contact_number,
-            'gender' => $this->normalizeGender($profile?->gender),
-            'age' => $profile?->birthdate
-                ? (string) $profile->birthdate->age
-                : null,
-            // Someone who has booked before is, by definition, returning.
-            'patientStatus' => Appointment::where('user_id', $user->id)->exists()
-                ? 'returning'
-                : null,
+        return [
+            'min' => now()->addDay()->toDateString(),
+            'max' => now()->addMonths(BookingService::MAX_LEAD_MONTHS)->subDay()->toDateString(),
         ];
-
-        return array_filter(
-            $values,
-            fn ($v) => $v !== null && $v !== ''
-        );
     }
 
     /**
-     * patient_profiles stores 'M'/'F'; the booking form and
-     * BookAppointmentRequest both use 'male'/'female'/'other'.
-     *
-     * Passing the raw column through would silently break two things: the
-     * gender <select> would match no option, and the OB-Gyne service filter
-     * (which tests gender === 'male') would never fire. Unrecognised values
-     * return null so the patient just picks for themselves.
+     * @param  Collection<int, Patient>  $patients
      */
-    private function normalizeGender(?string $gender): ?string
+    private function resolveSelectedPatient(Request $request, Collection $patients): ?int
     {
-        return match (strtolower(trim((string) $gender))) {
-            'm', 'male' => 'male',
-            'f', 'female' => 'female',
-            'other' => 'other',
-            default => null,
-        };
+        $requested = $request->integer('patient');
+
+        return $patients->contains('id', $requested) ? $requested : null;
     }
 
     public function index(): Response
@@ -121,19 +118,17 @@ class AppointmentController extends Controller
     public function store(BookAppointmentRequest $request): RedirectResponse
     {
         try {
+            // Identity fields are deliberately absent: BookingService reads name,
+            // email, contact, age and sex off the chosen Patient record, and
+            // derives patient_status from that record's own visit history.
             $payload = [
                 'user_id' => Auth::id(),
-                'first_name' => $request->input('firstName', $request->input('first_name')),
-                'last_name' => $request->input('lastName', $request->input('last_name')),
-                'email' => $request->input('email'),
-                'contact_number' => $request->input('contactNumber', $request->input('contact_number')),
-                'age' => $request->input('age'),
-                'gender' => $request->input('gender'),
+                'patient_id' => $request->input('patientId', $request->input('patient_id')),
                 'service' => $request->input('service'),
                 'branch' => $request->input('branch'),
                 'appointment_date' => $request->input('appointmentDate', $request->input('appointment_date')),
                 'appointment_time' => $request->input('appointmentTime', $request->input('appointment_time')),
-                'patient_status' => $request->input('patientStatus', $request->input('patient_status')),
+                'consultation_type' => $request->input('consultationType', $request->input('consultation_type')),
                 'coverage' => $request->input('coverage'),
                 'hmo' => $request->input('hmo'),
                 'hmo_id' => $request->input('hmoId', $request->input('hmo_id')),

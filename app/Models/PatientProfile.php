@@ -54,7 +54,7 @@ class PatientProfile extends Model
     private static function generateClientNumber(): string
     {
         do {
-            $number = 'WC-' . date('Y') . '-' . str_pad(random_int(1, 99999), 5, '0', STR_PAD_LEFT);
+            $number = 'WC-'.date('Y').'-'.str_pad(random_int(1, 99999), 5, '0', STR_PAD_LEFT);
         } while (self::where('client_number', $number)->exists());
 
         return $number;

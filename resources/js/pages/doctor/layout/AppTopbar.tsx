@@ -5,7 +5,6 @@
 
 import { usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useEffect, useState } from 'react';
 import { NotificationBell } from '@/design-system//components/notification-bell';
 import type { PageProps } from '@/types';
 

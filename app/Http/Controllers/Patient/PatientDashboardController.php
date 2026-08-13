@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\AppointmentNotification;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,11 +41,11 @@ class PatientDashboardController extends Controller
             ->get();
 
         $pastByPatient = $pastRaw
-            ->groupBy(fn (Appointment $a) => trim($a->first_name . ' ' . $a->last_name))
+            ->groupBy(fn (Appointment $a) => trim($a->first_name.' '.$a->last_name))
             ->map(fn ($group, $patientName) => [
-                'patient'  => $patientName,
+                'patient' => $patientName,
                 'initials' => strtoupper(
-                    substr(explode(' ', $patientName)[0], 0, 1) .
+                    substr(explode(' ', $patientName)[0], 0, 1).
                     substr(explode(' ', $patientName)[1] ?? '', 0, 1)
                 ),
                 'records' => $group->map(fn (Appointment $a) => $this->mapPastAppointment($a))->values(),
@@ -55,21 +54,27 @@ class PatientDashboardController extends Controller
 
         // Notifications — FIX: include `title` (alias for `subject`) so the
         // NotificationBell component always has a heading to display.
+        $user = Auth::user();
+
         $notifications = AppointmentNotification::where('user_id', $userId)
             ->with('appointment')
             ->orderByDesc('created_at')
             ->limit(20)
             ->get()
             ->map(fn (AppointmentNotification $n) => [
-                'id'            => $n->id,
-                'type'          => $n->type,
-                'title'         => $n->subject,   // ← NotificationBell reads `title`
-                'subject'       => $n->subject,   // ← kept for backwards compat
-                'body'          => $n->body,
-                'read'          => $n->read,
-                'time'          => $n->created_at->diffForHumans(),
-                'date'          => $n->created_at->format('d M Y'),
-                'action_url'    => null,
+                'id' => $n->id,
+                'type' => $n->type,
+                'title' => $n->subject,   // ← NotificationBell reads `title`
+                'subject' => $n->subject,   // ← kept for backwards compat
+                'body' => $n->body,
+                'read' => $n->read,
+                'time' => $n->created_at->diffForHumans(),
+                'date' => $n->created_at->format('d M Y'),
+                // Was hardcoded null, which made every notification on this page
+                // a dead click — this payload overrides the one
+                // HandleInertiaRequests shares, so the middleware's routing
+                // never reached the bell here.
+                'action_url' => $n->actionUrlFor($user),
                 'appointmentId' => $n->appointment_id,
             ]);
 
@@ -78,14 +83,14 @@ class PatientDashboardController extends Controller
             ->count();
 
         return Inertia::render('user/dashboard', [
-            'appointments'  => $appointments,
+            'appointments' => $appointments,
             'pastByPatient' => $pastByPatient,
             'notifications' => $notifications,
-            'unreadCount'   => $unreadCount,
-            'stats'         => [
-                'upcoming'  => $appointments->count(),
+            'unreadCount' => $unreadCount,
+            'stats' => [
+                'upcoming' => $appointments->count(),
                 'confirmed' => $appointments->where('status', 'confirmed')->count(),
-                'pending'   => $appointments->where('status', 'requested')->count(),
+                'pending' => $appointments->where('status', 'requested')->count(),
             ],
         ]);
     }
@@ -106,14 +111,14 @@ class PatientDashboardController extends Controller
 
         // Notify the assigned doctor that the patient has arrived
         if ($appointment->doctor_id) {
-            $name = trim($appointment->first_name . ' ' . $appointment->last_name);
+            $name = trim($appointment->first_name.' '.$appointment->last_name);
             AppointmentNotification::create([
                 'appointment_id' => $appointment->id,
-                'user_id'        => $appointment->doctor_id,
-                'type'           => 'checked_in',
-                'subject'        => 'Patient Has Checked In',
-                'body'           => "{$name} has checked in for their {$appointment->appointment_time} appointment and is ready to be seen.",
-                'read'           => false,
+                'user_id' => $appointment->doctor_id,
+                'type' => 'checked_in',
+                'subject' => 'Patient Has Checked In',
+                'body' => "{$name} has checked in for their {$appointment->appointment_time} appointment and is ready to be seen.",
+                'read' => false,
             ]);
         }
 
@@ -131,9 +136,9 @@ class PatientDashboardController extends Controller
         }
 
         $appointment->update([
-            'status'              => 'cancelled',
+            'status' => 'cancelled',
             'cancellation_reason' => 'Cancelled by patient',
-            'cancelled_at'        => now(),
+            'cancelled_at' => now(),
         ]);
 
         return back()->with('success', 'Your appointment has been cancelled.');
@@ -145,6 +150,7 @@ class PatientDashboardController extends Controller
     {
         abort_if($notification->user_id !== Auth::id(), 403);
         $notification->update(['read' => true]);
+
         return back();
     }
 
@@ -155,6 +161,7 @@ class PatientDashboardController extends Controller
         AppointmentNotification::where('user_id', Auth::id())
             ->where('read', false)
             ->update(['read' => true]);
+
         return back();
     }
 
@@ -163,32 +170,33 @@ class PatientDashboardController extends Controller
     private function mapPastAppointment(Appointment $a): array
     {
         $session = $a->consultationSession;
+
         return [
-            'id'             => $a->id,
-            'service'        => ucwords(str_replace('-', ' ', $a->service)),
-            'date'           => $a->appointment_date->format('d M Y'),
-            'rawDate'        => $a->appointment_date->toDateString(),
-            'time'           => $a->appointment_time,
-            'status'         => $a->status,
-            'coverage'       => $a->coverage,
-            'patientStatus'  => $a->patient_status,
+            'id' => $a->id,
+            'service' => ucwords(str_replace('-', ' ', $a->service)),
+            'date' => $a->appointment_date->format('d M Y'),
+            'rawDate' => $a->appointment_date->toDateString(),
+            'time' => $a->appointment_time,
+            'status' => $a->status,
+            'coverage' => $a->coverage,
+            'patientStatus' => $a->patient_status,
             'cancellationReason' => $a->cancellation_reason,
-            'doctor'         => $a->doctor_id
+            'doctor' => $a->doctor_id
                 ? ($a->doctor?->doctorProfile?->display_name ?? null)
                 : null,
             'soap' => $session ? [
                 'subjective' => $session->subjective ?? null,
-                'objective'  => $session->objective  ?? null,
+                'objective' => $session->objective ?? null,
                 'assessment' => $session->assessment ?? null,
-                'plan'       => $session->plan       ?? null,
+                'plan' => $session->plan ?? null,
             ] : null,
             'vitals' => $session ? [
-                'bloodPressure'    => $session->blood_pressure    ?? null,
-                'heartRate'        => $session->heart_rate        ?? null,
-                'temperature'      => $session->temperature       ?? null,
+                'bloodPressure' => $session->blood_pressure ?? null,
+                'heartRate' => $session->heart_rate ?? null,
+                'temperature' => $session->temperature ?? null,
                 'oxygenSaturation' => $session->oxygen_saturation ?? null,
-                'weight'           => $session->weight            ?? null,
-                'height'           => $session->height            ?? null,
+                'weight' => $session->weight ?? null,
+                'height' => $session->height ?? null,
             ] : null,
         ];
     }
@@ -198,19 +206,19 @@ class PatientDashboardController extends Controller
         $canCheckIn = $a->status === 'confirmed';
 
         return [
-            'id'             => $a->id,
-            'service'        => ucwords(str_replace('-', ' ', $a->service)),
-            'date'           => $a->appointment_date->format('d M Y'),
-            'rawDate'        => $a->appointment_date->toDateString(),
-            'time'           => $a->appointment_time,
-            'status'         => $a->status,
-            'coverage'       => $a->coverage,
-            'patientStatus'  => $a->patient_status,
+            'id' => $a->id,
+            'service' => ucwords(str_replace('-', ' ', $a->service)),
+            'date' => $a->appointment_date->format('d M Y'),
+            'rawDate' => $a->appointment_date->toDateString(),
+            'time' => $a->appointment_time,
+            'status' => $a->status,
+            'coverage' => $a->coverage,
+            'patientStatus' => $a->patient_status,
             'additionalInfo' => $a->additional_info,
-            'canCheckIn'     => $canCheckIn,
-            'isToday'        => $a->appointment_date->isToday(),
-            'isTomorrow'     => $a->appointment_date->isTomorrow(),
-            'doctor'         => $a->doctor_id
+            'canCheckIn' => $canCheckIn,
+            'isToday' => $a->appointment_date->isToday(),
+            'isTomorrow' => $a->appointment_date->isTomorrow(),
+            'doctor' => $a->doctor_id
                 ? ($a->doctor?->doctorProfile?->display_name ?? null)
                 : null,
         ];

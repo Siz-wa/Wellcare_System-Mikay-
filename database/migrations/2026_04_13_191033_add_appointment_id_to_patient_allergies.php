@@ -21,10 +21,10 @@ return new class extends Migration
     {
         Schema::table('patient_allergies', function (Blueprint $table) {
             $table->foreignId('appointment_id')
-                  ->nullable()
-                  ->after('user_id')
-                  ->constrained('appointments')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('user_id')
+                ->constrained('appointments')
+                ->nullOnDelete();
         });
     }
 

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * DoctorProfile
@@ -16,16 +16,16 @@ use Illuminate\Database\Eloquent\Builder;
  * Always query via the `active()` scope unless you intentionally need
  * inactive doctors (e.g. admin panel).
  *
- * @property int         $id
- * @property int         $user_id
- * @property string      $display_name
- * @property string      $specialty
+ * @property int $id
+ * @property int $user_id
+ * @property string $display_name
+ * @property string $specialty
  * @property string|null $specialization
  * @property string|null $initials
  * @property string|null $color
- * @property bool        $is_active
- * @property int         $max_patients_per_day
- * @property \App\Models\User $user
+ * @property bool $is_active
+ * @property int $max_patients_per_day
+ * @property User $user
  */
 class DoctorProfile extends Model
 {

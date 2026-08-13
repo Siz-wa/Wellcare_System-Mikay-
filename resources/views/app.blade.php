@@ -3,6 +3,10 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{-- The consultation room signals over fetch(), which — unlike axios —
+             does not read the XSRF-TOKEN cookie. Without this every signalling
+             POST would 419 and the call would silently never connect. --}}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx'])
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}

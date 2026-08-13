@@ -27,17 +27,28 @@ export function DoctorPicker({
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Sync display when parent resets the value
-    useEffect(() => {
-        setQuery(doctors.find((d) => d.id === value)?.name ?? '');
-    }, [value, doctors]);
+    /**
+     * Resync the display when the parent changes the selection.
+     *
+     * `query` cannot simply be derived — the user types into it to search. So it
+     * is state that has to be *adjusted* when a prop changes, and React's
+     * documented way to do that is a comparison during render rather than an
+     * effect. The effect version rendered once with the stale name and then
+     * again with the right one, which is the cascade the rule exists to stop.
+     */
+    const [lastValue, setLastValue] = useState(value);
+
+    if (value !== lastValue) {
+        setLastValue(value);
+        setQuery(selectedDoctor?.name ?? '');
+    }
 
     // Close on outside click
     useEffect(() => {
         const onMouseDown = (e: MouseEvent) => {
             if (containerRef.current?.contains(e.target as Node)) {
-return;
-}
+                return;
+            }
 
             setOpen(false);
             // Revert to last confirmed display name if user typed but didn't select
@@ -176,18 +187,18 @@ return;
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!isSelected) {
-(
+                                            (
                                                 e.currentTarget as HTMLButtonElement
                                             ).style.background =
                                                 'var(--wc-gray-50)';
-}
+                                        }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (!isSelected) {
-(
+                                            (
                                                 e.currentTarget as HTMLButtonElement
                                             ).style.background = 'transparent';
-}
+                                        }
                                     }}
                                 >
                                     {/* Avatar */}

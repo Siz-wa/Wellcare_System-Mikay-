@@ -32,9 +32,9 @@ return new class extends Migration
 
             // ── Patient identity ─────────────────────────────────────────────
             $table->foreignId('user_id')
-                  ->nullable()   // guest bookings allowed
-                  ->constrained('users')
-                  ->nullOnDelete();
+                ->nullable()   // guest bookings allowed
+                ->constrained('users')
+                ->nullOnDelete();
 
             $table->string('first_name');
             $table->string('last_name');
@@ -45,9 +45,9 @@ return new class extends Migration
 
             // ── Appointment details ──────────────────────────────────────────
             $table->foreignId('doctor_id')
-                  ->nullable()           // "next available" bookings
-                  ->constrained('users')
-                  ->nullOnDelete();
+                ->nullable()           // "next available" bookings
+                ->constrained('users')
+                ->nullOnDelete();
 
             $table->string('service');
             $table->string('branch');

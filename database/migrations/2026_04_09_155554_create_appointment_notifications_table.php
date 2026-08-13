@@ -24,12 +24,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('appointment_id')
-                  ->constrained('appointments')
-                  ->cascadeOnDelete();
+                ->constrained('appointments')
+                ->cascadeOnDelete();
 
             $table->foreignId('user_id')       // the patient
-                  ->constrained('users')
-                  ->cascadeOnDelete();
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->enum('type', ['confirmed', 'checked_in', 'cancelled', 'reminder']);
             $table->string('subject');

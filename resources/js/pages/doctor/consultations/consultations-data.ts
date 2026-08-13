@@ -21,6 +21,11 @@ export interface ConsultationRecord {
     diagnosis: string; // service label e.g. "General Consultation"
     status: ConsultationStatus;
     rawStatus: string; // actual DB value: checked_in | in_progress | completed
+    consultationType: string; // in_person | virtual
+    /** Server-computed: mirrors the window openVirtualRoom() will accept. */
+    canStartVideo: boolean;
+    /** A room is already waiting or active — the button reads "Rejoin". */
+    roomIsLive: boolean;
     coverage: string;
     patientStatus: string;
     additionalInfo: string | null;

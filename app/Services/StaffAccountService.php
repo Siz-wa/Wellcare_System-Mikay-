@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\AccountActionNotAllowedException;
+use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -58,6 +59,21 @@ class StaffAccountService
                 'blood_pressure' => $input['blood_pressure'] ?? null,
                 'hmo' => $input['hmo'] ?? null,
             ]);
+
+            // A patient account holder is themselves a patient.
+            //
+            // The account is a guarantor account — one login books for several
+            // people — and the person who registered is the first of them. Made
+            // here, in the same transaction, so the booking gate is never empty
+            // for a new account and "Myself" never has to be offered as
+            // something to add.
+            //
+            // Only for `user`: a doctor, nurse, HR or admin account is staff,
+            // and giving them a medical record would put them in patient lists
+            // and search results they have no business appearing in.
+            if ($role === 'user') {
+                Patient::ensureSelfPatient($user->fresh());
+            }
 
             return $user->fresh();
         });

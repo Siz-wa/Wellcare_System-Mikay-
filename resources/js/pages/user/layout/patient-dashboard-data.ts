@@ -15,7 +15,10 @@ export interface NavItem {
         | 'consultations'
         | 'labreviews'
         | 'records'
-        | 'settings';
+        | 'settings'
+        // Closed union — every key here needs a matching entry in ICON_MAP
+        // inside components/PatientAppSidebar.tsx or the sidebar fails to type.
+        | 'video';
 }
 
 export interface NavGroup {
@@ -34,6 +37,13 @@ export const navGroups: NavGroup[] = [
                 iconKey: 'dashboard',
             },
             {
+                // Not `patients` — the FAQs entry below already claims that id.
+                id: 'my-patients',
+                label: 'My Patients',
+                href: '/user/patients',
+                iconKey: 'patients',
+            },
+            {
                 id: 'records',
                 label: 'My Records',
                 href: '/user/records',
@@ -50,6 +60,12 @@ export const navGroups: NavGroup[] = [
                 label: 'LOA Status',
                 href: '/user/loa-status',
                 iconKey: 'consultations',
+            },
+            {
+                id: 'consultations',
+                label: 'Video Consultations',
+                href: '/user/consultations',
+                iconKey: 'video',
             },
         ],
     },

@@ -14,11 +14,10 @@ import {
     Settings,
     LogOut,
     ChevronRight,
-    Stethoscope,
+    Video,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { WellcareLogo } from '@/design-system/components/navbar';
 import { navGroups } from '@/pages/user/layout/patient-dashboard-data';
 import type { NavItem } from '@/pages/user/layout/patient-dashboard-data';
 
@@ -36,6 +35,7 @@ const ICON_MAP: Record<IconKey, ReactElement> = {
     labreviews: <FlaskConical size={17} strokeWidth={1.8} />,
     records: <FolderOpen size={17} strokeWidth={1.8} />,
     settings: <Settings size={17} strokeWidth={1.8} />,
+    video: <Video size={17} strokeWidth={1.8} />,
 };
 
 export function SidebarLogo(): ReactElement {

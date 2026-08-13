@@ -41,9 +41,9 @@ class DoctorAppointmentController extends Controller
         // FIX: whereDate('appointment_date', '>=', today()) removes stale past
         //      appointments that were never actioned from the Upcoming list.
         $upcoming = Appointment::where(function ($q) use ($doctorId) {
-                $q->where('doctor_id', $doctorId)
-                  ->orWhereNull('doctor_id');
-            })
+            $q->where('doctor_id', $doctorId)
+                ->orWhereNull('doctor_id');
+        })
             ->whereIn('status', ['requested', 'confirmed'])
             ->whereDate('appointment_date', '>=', today())   // ← ONLY today & future
             ->orderBy('appointment_date')
@@ -53,7 +53,7 @@ class DoctorAppointmentController extends Controller
 
         // Stats (kept without date filter — accurate counts regardless of date)
         $stats = [
-            'pending'   => Appointment::where(fn ($q) => $q->where('doctor_id', $doctorId)->orWhereNull('doctor_id'))
+            'pending' => Appointment::where(fn ($q) => $q->where('doctor_id', $doctorId)->orWhereNull('doctor_id'))
                 ->where('status', 'requested')
                 ->whereDate('appointment_date', '>=', today())
                 ->count(),
@@ -61,7 +61,7 @@ class DoctorAppointmentController extends Controller
                 ->where('status', 'confirmed')
                 ->whereDate('appointment_date', '>=', today())
                 ->count(),
-            'today'     => Appointment::where('doctor_id', $doctorId)
+            'today' => Appointment::where('doctor_id', $doctorId)
                 ->whereIn('status', ['confirmed', 'checked_in'])
                 ->whereDate('appointment_date', today())
                 ->count(),
@@ -69,7 +69,7 @@ class DoctorAppointmentController extends Controller
 
         return Inertia::render('doctor/appointments/appointments', [
             'appointments' => $upcoming,
-            'stats'        => $stats,
+            'stats' => $stats,
         ]);
     }
 
@@ -85,7 +85,7 @@ class DoctorAppointmentController extends Controller
 
         // Assign doctor if the appointment was unassigned
         $appointment->update([
-            'status'    => 'confirmed',
+            'status' => 'confirmed',
             'doctor_id' => $appointment->doctor_id ?? Auth::id(),
         ]);
 
@@ -96,11 +96,11 @@ class DoctorAppointmentController extends Controller
         if ($appointment->user_id) {
             AppointmentNotification::create([
                 'appointment_id' => $appointment->id,
-                'user_id'        => $appointment->user_id,
-                'type'           => 'confirmed',
-                'subject'        => 'Your appointment has been confirmed',
-                'body'           => "Your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been confirmed by your doctor. Please check in when you arrive at the clinic.",
-                'read'           => false,
+                'user_id' => $appointment->user_id,
+                'type' => 'confirmed',
+                'subject' => 'Your appointment has been confirmed',
+                'body' => "Your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been confirmed by your doctor. Please check in when you arrive at the clinic.",
+                'read' => false,
             ]);
         }
 
@@ -122,19 +122,19 @@ class DoctorAppointmentController extends Controller
         }
 
         $appointment->update([
-            'status'              => 'cancelled',
+            'status' => 'cancelled',
             'cancellation_reason' => $request->string('reason', 'Cancelled by doctor')->toString(),
-            'cancelled_at'        => now(),
+            'cancelled_at' => now(),
         ]);
 
         if ($appointment->user_id) {
             AppointmentNotification::create([
                 'appointment_id' => $appointment->id,
-                'user_id'        => $appointment->user_id,
-                'type'           => 'cancelled',
-                'subject'        => 'Your appointment has been cancelled',
-                'body'           => "We're sorry, your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been cancelled. Please book a new appointment at your convenience.",
-                'read'           => false,
+                'user_id' => $appointment->user_id,
+                'type' => 'cancelled',
+                'subject' => 'Your appointment has been cancelled',
+                'body' => "We're sorry, your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been cancelled. Please book a new appointment at your convenience.",
+                'read' => false,
             ]);
         }
 
@@ -162,25 +162,25 @@ class DoctorAppointmentController extends Controller
     private function mapAppointment(Appointment $a): array
     {
         return [
-            'id'             => $a->id,
-            'patientId'      => 'A-' . str_pad($a->id, 4, '0', STR_PAD_LEFT),
-            'patient'        => trim($a->first_name . ' ' . $a->last_name),
-            'initials'       => strtoupper(substr($a->first_name, 0, 1) . substr($a->last_name, 0, 1)),
-            'email'          => $a->email,
-            'contactNumber'  => $a->contact_number,
-            'age'            => $a->age,
-            'gender'         => $a->gender,
-            'service'        => ucwords(str_replace('-', ' ', $a->service)),
-            'date'           => $a->appointment_date->format('d M Y'),
-            'rawDate'        => $a->appointment_date->toDateString(),
-            'time'           => $a->appointment_time,
-            'patientStatus'  => $a->patient_status,
-            'coverage'       => $a->coverage,
-            'hmo'            => $a->hmo,
-            'status'         => $a->status,
+            'id' => $a->id,
+            'patientId' => 'A-'.str_pad($a->id, 4, '0', STR_PAD_LEFT),
+            'patient' => trim($a->first_name.' '.$a->last_name),
+            'initials' => strtoupper(substr($a->first_name, 0, 1).substr($a->last_name, 0, 1)),
+            'email' => $a->email,
+            'contactNumber' => $a->contact_number,
+            'age' => $a->age,
+            'gender' => $a->gender,
+            'service' => ucwords(str_replace('-', ' ', $a->service)),
+            'date' => $a->appointment_date->format('d M Y'),
+            'rawDate' => $a->appointment_date->toDateString(),
+            'time' => $a->appointment_time,
+            'patientStatus' => $a->patient_status,
+            'coverage' => $a->coverage,
+            'hmo' => $a->hmo,
+            'status' => $a->status,
             'additionalInfo' => $a->additional_info,
-            'isToday'        => $a->appointment_date->isToday(),
-            'isTomorrow'     => $a->appointment_date->isTomorrow(),
+            'isToday' => $a->appointment_date->isToday(),
+            'isTomorrow' => $a->appointment_date->isTomorrow(),
         ];
     }
 }

@@ -346,16 +346,16 @@ single figure states together.
 | **Manage patient** | ✅ `Admin\AdminPatientController` — demographics only; clinical data stays with the doctor — *Phase 4* |
 | **Monitor system / Activity Log** | ✅ `spatie/laravel-activitylog` + `Admin\AdminActivityLogController`, read-only — *Phase 4* |
 | **Archive** | ✅ `Admin\AdminArchiveController` over the existing `softDeletes()` — *Phase 4* |
-| **Generate reports** | ❌ — deferred to Phase 6; it is the same aggregation as Objective 1.5 |
+| **Generate reports** | ✅ `HR\AnalyticsController` + `AnalyticsService`, `/hr/analytics` with CSV export — *Phase 6, 2026-08-05* |
 | **Backup database** | ❌ — deferred to Phase 7; a `mysqldump` runbook step, not a web feature |
 | **Manage virtual consultation / generate meeting links** | ❌ — Phase 3, still unscoped (§5.2) |
 | Manage appointments (approve/cancel/reassign doctor) | ❌ (doctors self-confirm) |
 | Verify & upload lab results | ❌ (duplicates the nurse/doctor lab flow) |
 
-**As of Phase 4, 6 of the 12 admin/HR flows in Figure 4 are built** (dashboard,
-LOA, user management, manage user/roles, add new user, deactivate/reactivate),
-plus Figure 3's Archive, Activity Log, User Management and Manage Patient ovals.
-Before Phase 4 it was 1 of 12.
+**As of Phase 6, 7 of the 12 admin/HR flows in Figure 4 are built** (dashboard,
+LOA, user management, manage user/roles, add new user, deactivate/reactivate,
+and now **Generate Reports**), plus Figure 3's Archive, Activity Log, User
+Management and Manage Patient ovals. Before Phase 4 it was 1 of 12.
 
 `role:admin` now guards **14** routes across five controllers, and
 `DashboardController::routeForUser()` sends admins to `admin.dashboard`. They
@@ -450,6 +450,56 @@ Grepping the codebase for `meeting_link`, `telehealth`, `jitsi`, `zoom`,
 `google meet` returns **only shadcn UI primitives**. `consultation_sessions` is
 an *in-person* SOAP-note record: subjective/objective/assessment/plan, vitals,
 prescriptions, `draft|finalized`. There is no link, no platform, no join flow.
+
+> *(The paragraph above describes the schema as it stood on 2026-07-31 and is
+> kept as the record of what was found. Phase 3 has since added `room_id`,
+> `consultation_status`, `mode`, `started_at`/`ended_at` to that same table, so
+> the join flow now exists — see §8.)*
+
+### 5.2a Resolution — the scoping decision, 2026-08-04
+
+**The feature is built. The objectives still do not mention it.** That gap is now
+the entire risk: a panel grades against the five numbered objectives, and the
+single most expensive component of this build appears in none of them. Cutting it
+is no longer the cheaper option — the work is done, tested and documented — so
+the only remaining action is to **add it to Objective 1**.
+
+**This is Group 5's decision to make and mine to draft.** Proposed wording, built
+to sit alongside 1.1–1.6 in the same voice and to describe only what actually
+exists:
+
+> **1.7** To provide a virtual consultation facility that allows a patient and
+> their assigned doctor to hold a scheduled appointment as a live video
+> consultation within the system, and allows the doctor to record the
+> consultation's clinical notes against the same patient record used for
+> in-person visits.
+
+Three notes on that wording, each deliberate:
+
+- **"within the system"**, not "via a meeting link". Fig. 8's "generate meeting
+  links" and the ERD's `meeting link` / `platform` columns describe an
+  integration with an external provider (Zoom, Meet). What was built is native
+  WebRTC with no third party, which is *stronger* — no patient data crosses a
+  vendor — but the objective must not promise a link that does not exist. The
+  `meeting_link` and `platform` columns remain in the table, unused; §6 should
+  record that rather than leave them looking implemented.
+- **"a patient and their assigned doctor"** states the authorization boundary
+  that the implementation actually enforces: exactly two named accounts, never a
+  role. Worth stating in the objective because it is the property an examiner is
+  most likely to probe.
+- **"the same patient record used for in-person visits"** is the honest and
+  defensible claim — one `consultation_sessions` row, two independent state
+  machines (the note and the call). It also forecloses "so is this a separate
+  system?"
+
+**If Group 5 declines to add it**, the fallback is not "leave it as is": the
+figures and tables asserting virtual consultation in eleven places must then be
+reconciled with objectives that do not, and Tables 3/4/7/8 rewritten. That is
+strictly more work than adding one sub-objective, which is why the
+recommendation is to add it.
+
+**Unblocked by:** nothing. This needs no code and can be actioned in the document
+today.
 
 ---
 
@@ -578,24 +628,42 @@ currently gives away for free:
 | Patient portal (records/labs/LOA) | ✅ | ✅ | ~90% — *LOA status page shipped* |
 | **Nurse module** | ✅ | ✅ | ~85% — *Phase 5, 2026-08-01. All 5 Fig. 10 processes + dashboard + appointment monitor. Diagnoses deliberately read-only* |
 | **Admin module** | ✅ | ✅ | ~70% — *Phase 4, 2026-07-31. Reports + backup deliberately deferred* |
-| Analytics / reports (Obj. 1.5) | ✅ | ❌ | 0% |
+| **Analytics / reports (Obj. 1.5)** | ✅ | ✅ | ~90% — *Phase 6 + 6.1, 2026-08-05. Five reports + CSV export, admin and HR. **Descriptive and diagnostic tiers, plus rule-based prescriptive actions; predictive deliberately excluded on evidence (§11)**. No scheduled/emailed reports* |
 | **Activity log · Archive** | ✅ | ✅ | ~85% — *Phase 4. No retention sweep yet* |
 | Database backup | ✅ | ❌ | 0% — *reclassified: a Phase 7 runbook step, not a web feature* |
-| Virtual consultation | ⚠️ *(11 places, none of them an objective — §5.2)* | ❌ | 0% |
+| **Virtual consultation** | ⚠️ *(11 places, none of them an objective — §5.2, wording proposed in §5.2a)* | ✅ | ~95% — *Phase 3 built 2026-08-03; Phase 3.1 hardening 2026-08-04. Two-device call verified across separate networks. Real teardown, monotonic call state, role-aware leave, ICE-restart recovery from either side, peer mute/camera state, departure on every exit path, autosave, scheduled sweep of abandoned rooms. Presence verified on two devices; spike deleted; **§12 risk 7 closed on a 24m 12s cross-network call, pair `srflx ⇄ srflx (udp)`, no relay**. No engineering work remains — what is left is the §5.2a objective wording, which is a paragraph in the paper* |
 | **ISO 25010 evaluation (Obj. 4)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 | **Implementation & training plan (Obj. 5)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 
-**Updated 2026-08-01 (Phase 5).** Four of the concentrated gaps are now closed:
-the patient read-side portal (Phase 1), the LOA/HMO domain (Phase 2), the admin
-module (Phase 4) and the nurse module (Phase 5). **The largest remaining
-software gap is analytics (Obj. 1.5, still 0%)** — every other module is at 75%
-or above. After that the remaining work is Phase 3 (a scoping decision, §5.2)
-and Phase 7 (Objectives 4 and 5, neither of which is code).
+**Updated 2026-08-05 (Phase 6).** All six concentrated gaps are now closed: the
+patient read-side portal (Phase 1), the LOA/HMO domain (Phase 2), virtual
+consultation (Phase 3 + 3.1), the admin module (Phase 4), the nurse module
+(Phase 5) and analytics (Phase 6). **Every module in the scorecard is at 70% or
+above, and no software gap remains.**
 
-Virtual consultation stays at 0% and remains **a scoping question, not a build
-one** (§5.2). The spike has now been run and passed on a single machine, so
-feasibility is no longer the open item — Group 5's decision is. NAT traversal
-and therefore TURN are still unanswered (§12 risk 2).
+**Everything still open is a paper deliverable, not code:** Phase 7 (Objective 4's
+ISO 25010 evaluation and Objective 5's implementation plan — both graded, neither
+a build task), §5.2a's sub-objective 1.7 wording, and the parallel
+document-correction track. Note that Objective 4 has been waiting on the system
+being walkable end to end, and as of this phase it is — **§12 risk 5 says booking
+evaluator time late is how capstones miss submission, and that recruitment is now
+the critical path.**
+
+*Database backup remains at 0% by decision, not omission* — it is a Phase 7
+`mysqldump` runbook step, since a backup button behind an authenticated web
+request is a liability rather than a feature.
+
+Virtual consultation has moved from 0% to ~90% and is **no longer a build
+question**. Feasibility, NAT traversal and call durability are all answered:
+§12 risk 2 and risk 7 are both resolved, TURN stays insurance rather than a
+requirement, and a call now survives a drop instead of ending on one.
+
+**What remains is the scoping decision, and it is now the single highest-value
+unbuilt item in this file.** The feature is finished and appears in eleven
+documented places, none of which is an objective a panel grades. Draft wording
+for a sub-objective 1.7 is in **§5.2a**; it needs Group 5's acceptance and no
+code at all. Every hour of Phase 3 and 3.1 earns nothing until that paragraph
+exists.
 
 **Two of the paper's five numbered objectives are not software at all.**
 Objectives 4 (ISO 25010 evaluation) and 5 (implementation plan, user training,
@@ -686,7 +754,7 @@ Checkboxes are maintained in place per the §0 logging protocol.
       renders them. The roadmap was wrong; no code was needed. The new record
       detail page adds per-patient visit history on top.
 - [x] Extend `resources/js/pages/user/layout/patient-dashboard-data.ts` nav.
-- [~] **WebRTC spike** (one day): two browser tabs, prove a peer connection
+- [x] **WebRTC spike** (one day): two browser tabs, prove a peer connection
       establishes before Phase 3 UI work. **Harness built 2026-07-31 —
       `public/webrtc-spike.html`, dependency-free.** Deliberately uses **manual
       copy-paste signalling, not Reverb**: copy-paste exercises the things that
@@ -706,6 +774,38 @@ Checkboxes are maintained in place per the §0 logging protocol.
       this item needs a second run with the far tab on a **different device —
       ideally a phone on mobile data, not the same wifi** — and the Diagnostics
       *Candidate types* row recorded verbatim.
+
+      **Run-2 harness built 2026-08-03 — the run itself has NOT happened.**
+      Two things blocked a second-device run and both are now removed:
+      *(a)* `getUserMedia` is blocked outside a secure context, so a phone
+      opening `http://192.168.x.x:8000` gets no camera and no useful error —
+      solved by serving the page over an HTTPS **cloudflared quick tunnel**,
+      which also lets the phone sit on **mobile data** rather than the same
+      wifi, the only configuration that actually tests NAT traversal;
+      *(b)* manual copy-paste signalling is unusable between a phone and a
+      laptop at 3–6 KB per blob — solved by a room-code relay
+      (`Spike\WebRtcSignalController`, `local` env only), with manual mode
+      retained as the fallback. The page now also captures **remote** candidate
+      types and the selected pair from `getStats()`, and exports both sides'
+      readings as a pasteable block.
+
+      **Run-2 attempt 1 (2026-08-02) FAILED — on a defect in the harness, not
+      on WebRTC.** The relay capped blobs at 8192 characters; a real Chrome
+      offer is ~11.8 KB of base64, so every offer `POST` returned 422 and the
+      joining peer waited on an offer that was never stored. Fixed, along with
+      two secondary defects the attempt exposed.
+
+      **Run-2 attempt 2 (2026-08-02) PASSED — and this closes the item.**
+      Windows host ↔ macOS peer, two different networks. Both sides
+      independently reported `selected pair: srflx ⇄ srflx (udp)`, two-way
+      audio and video rendered, and **the joiner had TURN enabled yet ICE
+      still selected a direct path over the relay.** Candidate types are
+      recorded verbatim in the Change Log, which is what this item asked for.
+
+      **A new question replaces the old one: the call held 17 seconds.** Both
+      sides dropped at the same instant, `connected → disconnected → failed`.
+      That is the ICE consent-freshness window (RFC 7675). Feasibility is
+      settled; *durability* is not. Tracked as §12 risk 7, not here.
 
 ### Phase 2 — LOA as a first-class module ✅ *done 2026-07-31*
 
@@ -732,33 +832,79 @@ expiry sweep (expiry is derived via `LoaRequest::$is_expired`), no LOA-to-HMO
 email (Table 6 claims it; mail is still the `log` driver), and no LOA reuse
 across appointments.
 
-### Phase 3 — Virtual consultation, in-app WebRTC video
+### Phase 3 — Virtual consultation, in-app WebRTC video ✅ *COMPLETE 2026-08-04*
 
 Highest-risk item in the project. The Phase 1 spike de-risks it. If the spike
 fails, the link-based fallback below is already part of the schema and costs
 nothing extra.
+
+> **✅ COMPLETE — built 2026-08-03, hardened and verified 2026-08-04.**
+> **409 tests passing** (up from 277 before this phase). Everything below is
+> shipped, and the feature has been exercised end to end on two physical devices
+> across separate networks.
+>
+> **The verification that matters**, because none of it is reachable by the test
+> suite:
+>
+> | Check | Result |
+> |---|---|
+> | Two-way audio and video, two devices, separate networks | ✅ |
+> | Call held | **24m 12s**, no drop |
+> | Selected candidate pair | **`srflx ⇄ srflx (udp)`** — both behind NAT, connected directly |
+> | TURN relay used | **No** — stays insurance, not a requirement |
+> | Refresh / navigate away / force-quit browser | Peer released in <1s, both directions |
+> | Rejoin after leaving | ✅, including by reopening the page directly |
+> | Peer mute / camera-off badges | ✅ |
+> | Doctor End Call → finalize or keep draft | ✅ |
+>
+> **What the phase cost, and why it is worth recording:** seven defects were
+> found only by running the thing on real hardware, and every one of them was
+> **silent** — no exception, no log line, no console error, and a UI that
+> honestly reported a state that was wrong. A 370-test suite was green
+> throughout. See the Change Log for each; the pattern is that WebRTC, Inertia
+> and broadcast are all fire-and-forget layers where a dropped message produces
+> waiting rather than failure.
+>
+> **The spike has been deleted** (Step 9 below). Its gate — a real two-device
+> call, then a verified hardening pass — is met on both counts.
+>
+> **Nothing here is blocked on engineering any more.** The two open items are
+> paper items: §5.2a (the objective wording) and §6 (`meeting_link` / `platform`
+> are unused columns). Both have been handed to the client.
+
+> **All six items below are built and green — 367 tests passing, up from 277.**
+> Three things the checklist did not have, added because the code demanded them:
+> a **`ConsultationSessionService`** owning the state machine (`start()` created
+> no session row, and `appointment_id` is UNIQUE, so `room_id` had nowhere to be
+> minted — it also closed two unguarded defects, see the Change Log); a
+> symmetric **`hello` handshake** (a fire-and-forget broadcast has no offer
+> store, so an offer sent before the patient subscribed vanished silently); and
+> **ICE restart**, added after the 4m 5s drop.
+>
+> ~~**Still outstanding: the two-device walkthrough.**~~ Done 2026-08-03, and
+> re-verified after the 3.1 hardening pass on 2026-08-04. The spike is deleted.
 
 **Dependencies — require approval before installing:** `laravel/reverb`
 (first-party WebSocket server), `laravel-echo` + `pusher-js` on the frontend.
 Reverb needs its own process — add `php artisan reverb:start` to the
 `concurrently` list in `composer dev`.
 
-- [ ] Extend `consultation_sessions`: `mode` (`in_person|virtual`), `room_id`
+- [x] Extend `consultation_sessions`: `mode` (`in_person|virtual`), `room_id`
       (uuid), `consultation_status` (`waiting|active|ended`), `started_at`,
       `ended_at`, plus the ERD's `meeting_link` and `platform` as the fallback.
-- [ ] Add `appointments.consultation_type` — patient picks in-person vs. virtual
+- [x] Add `appointments.consultation_type` — patient picks in-person vs. virtual
       during booking. Needs a field in `step-appointment.tsx` and a rule in
       `BookAppointmentRequest`.
-- [ ] `WebRtcSignal` broadcast event on private channel `consultation.{roomId}`,
+- [x] `WebRtcSignal` broadcast event on private channel `consultation.{roomId}`,
       carrying `{type: offer|answer|ice-candidate, payload, fromUserId}`.
-- [ ] Channel authorization in `routes/channels.php` — **only** the session's
+- [x] Channel authorization in `routes/channels.php` — **only** the session's
       `doctor_id` and the appointment's guarantor account. This is the security
       boundary for the whole feature: an unauthorized join is a live audio and
       video leak of a medical consultation. It gets its own test.
-- [ ] `useWebRtc` hook + shared video-room component (local/remote streams, mute,
+- [x] `useWebRtc` hook + shared video-room component (local/remote streams, mute,
       camera toggle, end call), used by the doctor session editor and a new
       patient-side join page. Doctor creates the offer, patient answers.
-- [ ] Native `RTCPeerConnection` + `getUserMedia`; no third-party peer library.
+- [x] Native `RTCPeerConnection` + `getUserMedia`; no third-party peer library.
 
 **TURN relay is a deployment prerequisite, not a code task.** Google's public
 STUN servers handle most connections, but peers behind symmetric NAT (~10–20% of
@@ -818,14 +964,80 @@ retention sweep** (Spatie ships `activitylog:clean`, nothing schedules it yet).
       roles. See §11.
 - [x] Daily appointment monitor — `/nurse/appointments`, read-only, any date.
 
-### Phase 6 — Analytics
+### Phase 6 — Analytics ✅ *done 2026-08-05*
 
-*Objective 1.5 — currently 0%. Needs Phase 2 done first for the LOA metrics.*
+*Objective 1.5, and Figure 4's "Generate Reports" — the flow Phase 4 deferred
+here rather than building the same aggregation twice.*
 
-- [ ] Patient trends.
-- [ ] Appointment volume.
-- [ ] Clinic performance.
-- [ ] LOA turnaround.
+One report per clause of Objective 1.5's sentence, all four on `/hr/analytics`
+in the existing `role:hr|admin` group, with a `30d · 90d · 12m` period filter
+and a CSV export per report.
+
+- [x] Patient trends — new vs. returning bookings, registrations, gender, age
+      bands, coverage mix, top services.
+- [x] Appointment volume — per-period series, status, weekday, doctor, time
+      slot, in-person vs. virtual.
+- [x] Clinic performance — completion / cancellation / no-show rates, booking
+      lead time, per-doctor load against `max_patients_per_day`, and the
+      lab chain-of-custody turnaround.
+- [x] LOA turnaround — submissions vs. decisions, approval rate, average
+      decision time, pending-queue ageing, breakdown by HMO provider.
+- [x] **Not in the original plan:** CSV export (`/hr/analytics/export/{report}`),
+      because Fig. 4 says *Generate Reports*, not *display reports*. It projects
+      the same `AnalyticsService` output the screen renders — `AnalyticsExportTest`
+      asserts the two agree, so the export cannot grow its own query and drift.
+- [x] **Not in the original plan:** removed three dead `href="/reports"` links in
+      the doctor dashboard components. They pointed at a route that never
+      existed; doctors are not in Objective 1.5's audience, so the affordance is
+      gone rather than repointed at a page they would get 403 on.
+
+*Two data-quality guards, both added after real numbers came back wrong — see
+the Change Log:* lead time counts forward-booked appointments only, and LOA
+decision time counts only requests decided after they were submitted. Both
+report their sample size on screen and in the CSV rather than silently
+narrowing.
+
+### Phase 6.1 — Diagnostic and prescriptive analytics ✅ *done 2026-08-05*
+
+*Still Objective 1.5 — its wording is "tracking and **analyzing**", and Phase 6
+delivered only the tracking half. No paper change; see §11.*
+
+The four analytics tiers, and where this system stands on each:
+
+| Tier | State |
+|---|---|
+| **Descriptive** — what happened | ✅ Phase 6. Counts, series, distributions, rates, averages |
+| **Diagnostic** — why | ✅ Phase 6.1. Four attributions, below |
+| **Prescriptive** — what to do | ✅ Phase 6.1, rule-based. A ranked "Needs attention" list, each item carrying its evidence and threshold |
+| **Predictive** — what will happen | ❌ **Deliberately excluded on evidence.** 102 appointments over 12 distinct dates and **zero recorded no-shows**: a risk model has no positive class and a forecast has no series. See §11 |
+
+- [x] `App\Concerns\AggregatesClinicData` — period, bucketing and label helpers
+      extracted from `AnalyticsService` so the descriptive and diagnostic halves
+      cannot resolve the same window differently.
+- [x] **Why appointments fail** — cancellation/no-show concentration per segment
+      across lead time, coverage, weekday, time slot, service, consultation type
+      and doctor, each against the clinic-wide baseline.
+- [x] **Where LOA time goes** — share of accumulated wait per provider, decision
+      time by outcome, and the longest-waiting undecided requests.
+- [x] **Where the lab backs up** — which of nurse encoding or doctor review
+      dominates end-to-end time, plus the stalled backlog at each stage.
+- [x] **Where capacity strains** — daily-cap breaches by doctor and date, load
+      concentration, and unassigned upcoming bookings.
+- [x] Fifth tab and a fifth CSV export, both reached by adding one slug to
+      `AnalyticsService::REPORTS` — which extended the access and export tests
+      automatically, since both drive their datasets from that constant.
+
+**Three guards keep the diagnostics honest**, each with its own regression test,
+and all three are stated on screen rather than applied invisibly:
+
+1. **Baseline comparison, never a raw rate.** A segment is a driver by how far
+   it sits above the clinic-wide failure rate and by its share of all failures.
+2. **Minimum 5 appointments, minimum 2 failures, minimum 5pp of lift.** The
+   first two stop one stray cancellation becoming a finding; the third stops a
+   segment that is nearly the whole population topping the list on share alone.
+   Suppressed segments are counted and reported.
+3. **No causal language.** Copy says "concentrated in" and "accounts for", never
+   "caused by" — enforced by keeping the wording in one file.
 
 ### Phase 7 — Objectives 4 and 5
 
@@ -877,9 +1089,19 @@ already promise these in the past tense; they need to exist.
 - [ ] Resolve the "Manage Providers" text-vs-diagram mismatch (§2).
 - [ ] Fix "STAFF NURRSE" and settle Admin vs. Admin/HR vs. System Administrator
       across Fig. 3, its caption, and the Scope (§6.14).
-- [ ] **Decide virtual consultation's status** (§5.2): add it to Objective 1 and
-      build it, or cut it from Figures 3/4/7/8/11 and Tables 3/4/7/8. It cannot
-      stay documented in eleven places and absent from every objective.
+- [ ] **Decide virtual consultation's status** (§5.2) — **now the highest-value
+      unbuilt item in this file, and it is a paragraph, not code.** The "or cut
+      it" half of this choice has expired: the feature is built, tested and
+      hardened (Phase 3 + 3.1, ~90%), so cutting it would mean deleting working
+      software *and* rewriting Figures 3/4/7/8/11 and Tables 3/4/7/8 — strictly
+      more work than accepting one sub-objective. **Draft wording for 1.7 is
+      ready in §5.2a**; it needs Group 5's acceptance. Until it exists, the most
+      expensive component of this build is graded against nothing.
+- [ ] Record in §6 that `consultation_sessions.meeting_link` and `.platform`
+      are **unused columns**. The ERD and Fig. 8 describe generating links to an
+      external provider; what was built is native in-app WebRTC with no third
+      party. Better for privacy — no patient audio or video crosses a vendor —
+      but the paper currently implies an integration that does not exist.
 - [ ] Cite **Figures 12–17** in Ch. 3's testing section — they already show the
       built login, registration and 4-step booking wizard (§2a).
 
@@ -929,7 +1151,24 @@ New Pest features per phase:
   ✅ *Phase 5 — 47 tests.*
 - `ConsultationChannelAuthTest` — only the assigned doctor and the appointment's
   guarantor may subscribe to `consultation.{roomId}`. Everyone else is rejected.
-  ❌ *Phase 3, not started.*
+  ✅ *Phase 3.*
+- `AnalyticsAccessTest` / `AnalyticsMetricsTest` / `AnalyticsExportTest` — the
+  only surface in the system that aggregates *across* patients, so access is
+  asserted on the page **and separately on every export**, which hands over the
+  whole dataset in one request. The metrics file pins numbers against
+  hand-counted fixtures and guards the silent failures: division by zero on an
+  empty range, archived rows inflating totals, pending LOAs counted as instant
+  decisions, and decisions recorded before their own submission. The export file
+  asserts the CSV and the screen report the same figures.
+  ✅ *Phase 6 — 57 tests.*
+- `AnalyticsDiagnosticsTest` — the statistics behind the diagnostic tier, which
+  is where this kind of feature breaks: it reports a real number over the wrong
+  population and nothing on screen looks wrong. Pins the baseline comparison,
+  the three noise guards (minimum sample, minimum failures, minimum lift) with a
+  named regression test each, contribution-not-rate ranking, every prescriptive
+  threshold firing at its boundary and not below, a healthy clinic producing an
+  **empty** action list, and no patient name reaching the pending-queue payload.
+  ✅ *Phase 6.1 — 27 tests.*
 
 ---
 
@@ -948,6 +1187,13 @@ New Pest features per phase:
 | 2026-08-01 | Committing the working tree — **reverses the 2026-07-31 deferral** | **Commit and push.** The deferral was sound when one phase was at stake; by 2026-08-01 three were, and the branch it created had never been committed to. Four layered commits, then pushed to `origin`. See the Change Log for why the layering is narrative rather than bisectable. |
 | 2026-08-01 | Nurse write scope on patient records | **Nurse may write demographics, allergies and documents; diagnoses stay read-only.** Fig. 10's "Update Patient Records" is an encoding task — authoring a diagnosis is the attending doctor's clinical judgment, and the Scope assigns it to them. The nurse still *reads* diagnoses, because knowing what a patient is treated for is what makes their intake and lab work safe. Same reasoning as Phase 4 withholding `hmo_id`: a deliberate, logged narrowing beats an accidental over-grant. |
 | 2026-08-01 | Nurse record controller shape | **A separate `Nurse\PatientRecordController`, not `role:nurse|doctor` on the doctor's routes.** The plan called for the shared-guard approach; it cannot express the split above, since a route group grants all of a controller's methods. The read half is shared through `App\Concerns\ReadsPatientRecords` instead, so the legacy-record fallback exists in exactly one place. |
+| 2026-08-05 | Charting library | **Approved: `recharts` (^3.10).** The alternative was hand-rolling SVG chart primitives in `design-system/`, which keeps the dependency count at zero but costs about a day and reinvents axes, legends and tooltips. Vite code-splits it into its own 420 kB chunk (121 kB gzipped) loaded only by `/hr/analytics`, so no other page pays for it. |
+| 2026-08-05 | Analytics audience and placement | **`/hr/analytics` inside the existing `role:hr|admin` group, not a second admin-prefixed copy.** Fig. 4 treats Admin\HR as one entity for *Generate Reports*, admins are already members of that group, and the admin sidebar already links into it for HMO Approvals. Both sidebars carry the nav item; one route, one service, two roles. |
+| 2026-08-05 | Reports include an export | **Yes — CSV per report.** Fig. 4's flow is *Generate Reports*. On-screen-only would have left it half-answered, and a download is what a clinic actually files. The export projects the same `AnalyticsService` output as the screen, and a test asserts they agree. |
+| 2026-08-05 | **Which of the four analytics types this system implements** | **Descriptive and diagnostic, plus rule-based prescriptive actions. Predictive is excluded, on evidence.** The record holds 102 appointments across **12 distinct appointment dates** with **zero recorded no-shows** — a no-show risk model has no positive class to learn from, and a twelve-point series cannot carry a forecast. Building one anyway would be decoration that a panel could dismantle in a question. **This row is the answer if the four-types question is asked at defence:** the exclusion is a measured judgement, not an oversight, and it reverses the moment the clinic accumulates real history. |
+| 2026-08-05 | Diagnostic tier and the paper | **Build it; change nothing in the paper.** Objective 1.5 already reads "tracking and **analyzing**", and Phase 6 delivered only the tracking half — diagnostic work is what "analyzing" means, so it needs no new sub-objective. Group 5's call, taken this session: these tiers are fundamental to an analytics module rather than a new claim, so unlike virtual consultation (§5.2a) there is no wording gap to close. |
+| 2026-08-05 | Prescriptive without a model | **Threshold rules, not scoring.** Every recommendation states a number a human can re-check (7 days pending, 48 hours stalled, over the daily cap). Defensible, debuggable, and honest about what it is. A learned "priority score" over this dataset would be the predictive problem wearing a different hat. |
+| 2026-08-05 | Un-timeable records in averages | **Exclude and state the sample size; never clamp.** Two averages had rows that cannot be measured: appointments back-entered after the visit (no lead time) and LOA requests back-filled by the Phase 2 migration with a decision predating their own submission. Clamping to zero would have hidden them; excluding them and printing "over N …" keeps the figure honest and auditable. Neither is a live-code bug — `BookingService` and `LoaService` cannot produce either ordering. |
 
 ---
 
@@ -962,14 +1208,21 @@ New Pest features per phase:
    Phase 3 schema — if peer connections prove unreliable at the clinic, the
    feature degrades to an external link without a rewrite or a scope retraction
    in the paper.
-2. **TURN is a deployment prerequisite, not a code task — still open.** The
-   single-machine spike could not answer this: both peers shared one host, so
-   ICE never crossed a network boundary and no candidate types were recorded.
-   Budget for coturn or a hosted relay, **or** scope the demo to a single
-   network and say so in Ch. 3's limitations. Deciding that deliberately is
-   fine; discovering it live at defense is not. A second spike run with the far
-   tab on a different device (a phone on mobile data, not the same wifi) is the
-   cheapest way to settle it.
+2. ~~**TURN is a deployment prerequisite, not a code task.**~~ **Largely
+   answered 2026-08-02 — TURN is not required for the connection to form.**
+   The two-device run across two different networks selected
+   `srflx ⇄ srflx (udp)` on both sides: STUN traversed both NATs and media went
+   directly peer-to-peer. The joining peer had a TURN relay configured and ICE
+   *still* preferred the direct path, which is a stronger result than a
+   STUN-only run on both ends. A clinic-LAN defense demo will not need coturn
+   to establish a call.
+
+   **Not fully retired**, for two reasons, and neither is a reason to build
+   differently: (a) this is one network pair, and the ~10–20% of connections
+   behind symmetric NAT that need a relay are by definition not the pair that
+   was tested; (b) the call did not *hold* — see risk 7, where a relay is one
+   of the candidate fixes. Keep coturn in the deployment budget as insurance;
+   drop it from the critical path.
 3. ~~**Three new dependencies need explicit approval** before installation.~~
    **Resolved 2026-07-31** — all four approved. `spatie/laravel-activitylog`
    (^4.12) is **installed and in use** (Phase 4). `laravel/reverb`,
@@ -989,6 +1242,70 @@ New Pest features per phase:
    table one number high and invented a "Table 9". Corrected 2026-07-31. Any
    future claim about the paper quotes the document's own caption, verified
    against the extracted text — not a running count.
+7. **NEW 2026-08-02 — the call connects but does not stay connected.** The
+   two-device run established two-way video and then dropped after **17
+   seconds**, both peers simultaneously, `connected → disconnected → failed`.
+   That interval is the ICE consent-freshness window (RFC 7675: STUN binding
+   checks every 5s, connection failed after ~15s unanswered), so the hole punch
+   succeeded and the NAT mapping then stopped responding — a classic
+   address-dependent-NAT signature.
+
+   This replaces risk 2 as the live WebRTC risk, and it is the more dangerous
+   one, because a 17-second call *demos as working*. Table 3's "Start
+   consultation session — video session starts successfully" would pass on this
+   build and still be useless to a clinic.
+
+   Unresolved: whether it is the NAT, one peer's wifi/cellular handoff, or an
+   artefact of the asymmetric TURN configuration in that run. The spike now
+   records a **call-held duration** so the retest produces a number.
+   **A run holding ≥2 minutes is the bar before any Phase 3 UI work starts.**
+   If it cannot, TURN moves from insurance to requirement — a relay keeps a
+   binding alive that direct hole-punching does not.
+
+   > **RESOLVED 2026-08-04 — the bar was met, and the failure mode is now
+   > survivable rather than terminal.**
+   >
+   > | Run | Held | Pair | Outcome |
+   > |---|---|---|---|
+   > | 2026-08-02 | **17s** | asymmetric TURN | both peers `failed`, call over |
+   > | 2026-08-03 | **4m 05s** | `srflx ⇄ srflx` | dropped, call over |
+   > | 2026-08-04 | multiple runs, no drop observed | `host ⇄ host (udp)` | same LAN — proves nothing about NAT |
+   > | 2026-08-04 | **24m 12s** | **`srflx ⇄ srflx (udp)`** | **held, no drop** |
+   >
+   > 4m 05s clears the ≥2-minute bar, so **TURN stays insurance and does not
+   > become a requirement.** The 17-second run was not reproduced once the
+   > asymmetric TURN configuration was removed, which retires the
+   > consent-freshness reading as the *general* explanation — it was specific to
+   > that configuration.
+   >
+   > The more important change is that a drop no longer ends a consultation.
+   > Phase 3.1 added ICE restart on the initiator, a recovery request from the
+   > answerer, a 3-second grace period before either fires, and a re-arming timer
+   > — because ICE stops emitting state changes once it settles on
+   > `disconnected`, so the original one-shot timer gave each side exactly one
+   > chance and then went silent forever. `heldSeconds` now survives a reconnect
+   > rather than resetting, which is what makes the number above measurable at
+   > all.
+   >
+   > **CLOSED on evidence, 2026-08-04.** A 24m 12s call between two devices on
+   > separate WiFi networks, selected pair `srflx ⇄ srflx (udp)`. That is the
+   > number Table 3 needs, and it says three things at once:
+   >
+   > - **It held for the length of a real consultation.** The original 17-second
+   >   failure is not reproducible on this build.
+   > - **`srflx ⇄ srflx` means both peers were behind NAT and connected
+   >   *directly*.** The hole punch succeeded and stayed alive for 24 minutes,
+   >   so consent freshness is being maintained — the exact mechanism that failed
+   >   in the 2026-08-02 run.
+   > - **No `relay`, so TURN was never used.** It stays insurance, not a
+   >   requirement, and this is now measured rather than assumed.
+   >
+   > **The one case still unmeasured:** mobile data. Carrier-grade NAT is where
+   > STUN hole-punching most often fails, and patients will be on it. If a
+   > CGNAT run ever reports `relay`, the relay is doing real work and TURN
+   > capacity becomes a deployment cost; if it fails outright, TURN becomes a
+   > requirement. Neither changes the result above — a direct connection across
+   > two NATs is the harder thing to achieve and it works.
 
 ---
 
@@ -1616,3 +1933,1470 @@ write, not an error. Fixed in the rule and in `genderOptions`, and pinned by
 - **Manual browser walkthrough not performed.** Verification is automated only.
   §10's end-to-end walk remains outstanding across all five completed phases —
   this is now the oldest outstanding item in the plan.
+
+---
+
+### 2026-08-03 — WebRTC spike run 2: two-device harness
+
+**Phase:** 1 (closing out) · **Status:** partial — *harness done, the run itself
+has not been performed*
+
+**Changed:**
+- `public/webrtc-spike.html` — room-code signalling, remote-candidate capture,
+  results export, opt-in TURN toggle, insecure-origin banner
+- `app/Http/Controllers/Spike/WebRtcSignalController.php` (new)
+- `routes/web.php` — 3 routes inside an `app()->environment('local')` guard
+- `WELLCARE-BUILD-PLAN.md` — §9 Phase 1 spike item, §12 risk 2, this entry
+
+**Why:** §12 risk 2 (does this deployment need TURN?) is the last open question
+gating Phase 3, and it can only be answered by running the spike across two
+devices on *different networks*. The 2026-07-31 run could not: both peers shared
+one host. Two concrete things blocked the re-run, and neither was WebRTC.
+
+1. **Secure context.** `getUserMedia` is unavailable outside one. `127.0.0.1`
+   and `localhost` qualify; `http://192.168.18.3:8000` does not. A phone opening
+   the LAN address gets no camera and no meaningful error — the failure looks
+   like a WebRTC problem and is not one. Fixed by serving the page over an
+   HTTPS **cloudflared quick tunnel** (no account required, unlike the installed
+   `ngrok`, which has no authtoken configured). The tunnel is also what lets the
+   phone be on **mobile data instead of the same wifi** — the configuration that
+   actually crosses a NAT boundary. Media stays peer-to-peer; the tunnel carries
+   only the page and the signalling.
+2. **Signalling.** A non-trickle offer carrying a full candidate set is 3–6 KB
+   of base64. Hand-moving that off a phone is not a test anyone runs twice. A
+   room code now moves it through a throwaway cache-backed relay. Manual
+   copy-paste is retained beneath it — it is the mode already proven to work,
+   and it survives the relay being unreachable.
+
+The page also now reads **remote** candidate types and the selected pair out of
+`getStats()` (three fallbacks for identifying the pair, since Firefox does not
+always set `nominated`), and exports both sides' readings as one pasteable
+block. Run 1 recorded no candidate types at all; that is the specific omission
+that left risk 2 open, so capturing them is the point of this change.
+
+**Verified:**
+- `vendor/bin/pint --dirty --format agent` → `{"result":"pass"}`
+- `php artisan route:list --path=webrtc` → **3 routes**, `Spike\WebRtcSignalController`
+- `php artisan test --compact` → **277 passed (1179 assertions)** — unchanged
+- Relay against a live `php artisan serve`, verbatim: `POST` offer →
+  `{"stored":true}`; `GET` → `{"blob":"aGVsbG8td29ybGQ="}`; room lookup is
+  case-insensitive (stored `TEST01`, read `test01`); `GET` of an unset role →
+  `{"blob":null}`; **re-posting an offer wipes a stale answer** →
+  `{"blob":null}`; `POST /clear` → `{"cleared":true}` then `{"blob":null}`;
+  malformed room `no!` → **HTTP 422**; role `hack` → **HTTP 422**
+- End to end over the tunnel `https://taxes-carol-process-forecast.trycloudflare.com`:
+  `GET /webrtc-spike.html` → **HTTP 200, 30356 bytes, scheme=https**;
+  `POST` → `{"stored":true}`; `GET` → `{"blob":"dHVubmVsLXRlc3Q="}`
+
+**Blocked / left out:**
+- **The actual two-device run has not been done.** Everything above proves the
+  *harness* works — HTTPS reaches the page, the relay carries blobs. It proves
+  nothing about ICE across a NAT, which is the entire question. §9 Phase 1 stays
+  `[~]` and §12 risk 2 stays open until the run happens and its output is
+  recorded here verbatim.
+- **No Pest test for the relay, deliberately.** The routes are registered only
+  under `app()->environment('local')`, so they do not exist in the `testing`
+  environment and a feature test could not reach them without weakening the
+  guard that keeps an unauthenticated endpoint out of production. It was
+  verified against a live server instead, quoted above. This is throwaway
+  scaffolding deleted at the top of Phase 3, not a feature — §10 already says
+  Pest cannot drive WebRTC and to test what it can.
+- **The relay is not the Phase 3 design and must not be mistaken for it.**
+  Phase 3 replaces it with a `WebRtcSignal` broadcast on the private
+  `consultation.{roomId}` channel, authorized to exactly the session's doctor
+  and the appointment's guarantor. That authorization is the security boundary
+  of the whole feature; this spike relay has none, which is why it is
+  `local`-only and why it dies with the spike.
+- **The public TURN relay in the toggle (`openrelay.metered.ca`) is a test
+  service, not a deployment answer.** It exists to prove *whether a relay fixes
+  a failed run*. If it does, the deliverable is still coturn or a paid hosted
+  relay, budgeted per §12 risk 2.
+- **`cloudflared` lives at `C:/Users/admin/tools/cloudflared.exe`, outside the
+  repo, and is not wired into `composer dev`.** The path is machine-local and
+  the group shares this repo; a hardcoded absolute path in `composer.json`
+  would break for everyone else.
+
+---
+
+### 2026-08-02 — WebRTC spike run 2, attempt 1: failed on a harness defect
+
+**Phase:** 1 · **Status:** blocked → fixed; the run still has not connected
+
+**Changed:**
+- `app/Http/Controllers/Spike/WebRtcSignalController.php` — blob cap 8192 → 65536
+- `public/webrtc-spike.html` — surface validation detail on a rejected publish;
+  log blob size; `resetRunState()` per attempt; relabel the link-speed line
+- `WELLCARE-BUILD-PLAN.md` — §9 Phase 1 spike item, this entry
+
+**Why:** The first genuine two-device attempt was run — a Windows host and a
+macOS peer, on different networks, both reaching the page over the cloudflared
+HTTPS tunnel. It never connected. **The cause was mine, in the relay, and had
+nothing to do with WebRTC.**
+
+`max:8192` on the blob was an underestimate, written from a guess rather than a
+measurement. A Chrome unified-plan offer is ~7 KB of SDP *before any candidate*
+— three video codecs with their rtx pairs, extmaps, ssrc groups — and base64
+inflates it by a third. Measured: **11,820 characters.** Every offer `POST`
+returned 422, so the offer was never stored, so the joining peer polled for two
+minutes and timed out. The joiner's log read `No offer arrived within 2 minutes.
+Check both devices are on the same room code` — which pointed at the two people
+running the test rather than at the server that had rejected the offer.
+
+Two secondary defects surfaced in the same session and are fixed with it:
+
+1. **Stale readings across attempts.** `localCandidateTypes` and `stats` live in
+   module scope and were only cleared on *Hang up*. The TURN-enabled attempt
+   therefore reported `local cand types: host, srflx` that had actually been
+   gathered by the earlier STUN-only attempt. A blended reading is worse than an
+   empty one, because it looks like a result — and this harness exists purely to
+   produce a trustworthy reading. `resetRunState()` now runs per attempt.
+2. **A misleading label in the results block.** `navigator.connection.`
+   `effectiveType` is a *speed* bucket, not a transport: broadband reports `4g`
+   exactly as cellular does. Both devices reported `connection type: 4g`, which
+   invites the wrong inference that both were on mobile data. Relabelled to
+   `link speed bucket` with the caveat inline. Whether wifi was off is a fact
+   only the tester holds.
+
+A rejected publish also said only `Relay rejected the offer (HTTP 422)`. Laravel
+puts the failing rule in the response body; the client now reads it out. An
+opaque status code is undiagnosable from a phone, and that is what cost this
+session.
+
+**Verified:**
+- `vendor/bin/pint --dirty --format agent` → `{"result":"pass"}`
+- Relay with a blob at realistic size, verbatim: **11,820 chars** → `{"stored":true}`,
+  read back at **11,820 chars** — byte-identical round trip. Under the old rule
+  this exact payload was the 422.
+- 422 body now carries the reason:
+  `{"message":"The blob field is required.","errors":{"blob":["The blob field is required."]}}`
+- Updated page live over the tunnel → **HTTP 200, 31958 bytes**, and greps
+  positive for the three new markers.
+- Tunnel headers show `CF-Cache-Status: DYNAMIC` — Cloudflare is not caching the
+  page, so a browser hard-refresh is enough to pick up the fix.
+
+**What the failed attempt did establish** — worth recording, because it is
+evidence and it was paid for:
+- **The HTTPS half of the harness works.** Both peers reported
+  `secure context: true` and both were granted camera and microphone. The
+  problem §9 identified — a phone on a LAN address getting no camera and no
+  error — is genuinely solved.
+- **The host peer gathered `host, srflx`.** STUN traversed *that* peer's NAT and
+  returned a server-reflexive candidate. That is one half of the traversal
+  question answered: the Windows side is not behind something that blocks STUN
+  outright.
+
+**Blocked / left out:**
+- **§12 risk 2 is still open.** A gathered `srflx` candidate on one peer is not
+  a connected pair. Nothing here says whether these two NATs traverse *to each
+  other*, which is the actual question. No `selected pair` was ever produced,
+  because ICE never ran.
+- **ICE gathering timed out at 8s on every host attempt**, never reaching
+  `complete`. Candidates were gathered regardless and the partial set is emitted
+  by design, so this did not contribute to the failure — but it is unexplained
+  and should be watched on the retry rather than assumed benign.
+- **The relay's size rule was never tested against a real SDP before shipping
+  it.** The previous entry's verification used a 16-character stand-in blob and
+  reported the relay as working. It was working, for payloads nothing like the
+  real one. The lesson is specific: a fixture that does not match production
+  shape verifies nothing about the rule it is exercising.
+
+---
+
+### 2026-08-02 — WebRTC spike run 2: PASSED across two networks
+
+**Phase:** 1 · **Status:** done — §9 Phase 1 spike item now `[x]`
+
+**Changed:**
+- `public/webrtc-spike.html` — call-held duration clock; sample `getStats()`
+  before teardown rather than after; stop blanking `remoteTypes` on a degraded
+  report; hold the peer connection in a local so Hang up cannot null it mid-flow
+- `WELLCARE-BUILD-PLAN.md` — §9 Phase 1 (`[~]` → `[x]`), §12 risk 2 (largely
+  retired), §12 risk 7 (new), this entry
+
+**Why:** §12 risk 2 — *does this deployment need TURN?* — has gated the Phase 3
+decision since 2026-07-31. It is now answered with measurements rather than
+inference.
+
+**Verified — the run, verbatim from both devices:**
+
+Host, Windows 10, Chrome 150, TURN **off**:
+
+```
+signalling state:  stable
+ICE gathering:     complete
+local cand types:  host, srflx
+selected pair:     srflx ⇄ srflx (udp)
+remote video:      attached
+```
+
+Joiner, macOS, Chrome 150, TURN **on**, different network:
+
+```
+signalling state:  stable
+ICE gathering:     complete
+local cand types:  host, srflx
+selected pair:     srflx ⇄ srflx (udp)
+remote video:      attached
+```
+
+Both peers negotiated **`srflx ⇄ srflx` over UDP** — server-reflexive on both
+ends, media flowing **directly peer-to-peer with no relay**. Two-way audio and
+video rendered on both screens. Blob sizes through the relay: offer 9,800 chars,
+answer 8,480 chars, both stored and retrieved intact.
+
+The single most useful detail: **the joiner had a TURN relay configured and ICE
+still chose the direct path.** A STUN-only run on both ends would only have
+shown that a direct path *was found*; this shows it was found and **preferred
+while a relay was available**. That is the strong form of the result.
+
+**What this settles:** virtual consultation is technically feasible in this
+environment. Media permission, offer/answer negotiation, cross-network NAT
+traversal, cross-OS interop and signalling at real SDP sizes all work. Every
+technical unknown §5.2 and §12 risk 1 carried is now retired except durability.
+
+**Blocked / left out:**
+- **The call held 17 seconds, then both sides dropped simultaneously**
+  (`connected → disconnected → failed`). Feasibility was the question this
+  spike existed to answer and it is answered; durability is a *new* question
+  it uncovered. Logged as **§12 risk 7**, with a ≥2-minute hold as the bar
+  before Phase 3 UI work. Recording this as a pass without that caveat would be
+  the exact overstatement §0 forbids — a 17-second call demos as working.
+- **One network pair proves one network pair.** The ~10–20% of real connections
+  behind symmetric NAT are by definition not the pair tested. coturn stays in
+  the deployment budget as insurance; it leaves the critical path.
+- **`remote cand types: none` on both sides is a reporting artefact, now
+  fixed.** `getStats()` after teardown returns a reduced report, and the old
+  code overwrote the captured value with an empty set. The selected pair
+  survived only because it had a guard `remoteTypes` lacked. The candidate
+  types above come from the selected pair, which is the authoritative field.
+- **ICE gathering timed out at 8s on every attempt, now explained and benign.**
+  Candidates appear in the log *immediately* (12:36:43) and gathering simply
+  never flips to `complete` before the 8s cutoff — Chrome holding the gathering
+  pool open, not a stall. Both needed candidate types were present within a
+  second, and the partial set connected. No change made.
+- **`Cannot read properties of null (reading 'localDescription')`** appeared once
+  when Hang up was pressed during the 8s gather. Fixed by holding the connection
+  in a local and checking it is still current after the await.
+- **§5.2 remains an open scoping decision and this run does not touch it.**
+  Virtual consultation is still absent from all five numbered objectives and
+  from the Scope. The spike answers *can we build it*, never *should it be in
+  the objectives* — that is Group 5's call.
+
+---
+
+### 2026-08-03 — Phase 3: virtual consultation (WebRTC video)
+
+**Phase:** 3 · **Status:** partial — *all code shipped and green; the two-device
+call has not been walked yet, so the spike is deliberately still in the repo*
+
+**Changed:**
+- `app/Services/ConsultationSessionService.php` (new) + `app/Exceptions/InvalidConsultationTransitionException.php` (new)
+- `app/Events/WebRtcSignal.php` (new — first file in `app/Events/`)
+- `app/Http/Controllers/ConsultationRoomController.php` (new)
+- `app/Http/Controllers/Patient/PatientConsultationController.php` (new)
+- `app/Http/Controllers/Doctor/DoctorConsultationController.php` — `patientHistory()` scoped, `saveSession()` delegated to the service, `startVirtual()` + `room()` added
+- `routes/channels.php` (new), `bootstrap/app.php` — `channels:` arg
+- `config/webrtc.php` (new), `config/reverb.php` + `config/broadcasting.php` (published)
+- 3 migrations: virtual columns on `consultation_sessions`, `appointments.consultation_type`, notification-type enum
+- `app/Models/{ConsultationSession,Appointment}.php`, `database/factories/{ConsultationSession,Appointment}Factory.php`
+- Booking chain: `BookAppointmentRequest`, `AppointmentController::store()`, `BookingService::bookSlot()`, `bookingdata.ts`, `step-appointment.tsx`, `step-review.tsx`, `booking-icons.tsx`, `use-step-validators.ts`
+- `resources/js/lib/echo.ts`, `resources/js/hooks/use-web-rtc.ts`, `resources/js/components/consultation-room/`, `pages/doctor/consultations/room/`, `pages/user/consultations/`
+- `resources/views/app.blade.php` — CSRF meta tag
+- `.env`, `.env.example`, `composer.json` (`dev` → 4 processes), `package.json`
+- 4 new test files under `tests/Feature/Consultation/` and `tests/Feature/Booking/`
+
+**Why:** §9 Phase 3, unblocked by the 2026-08-03 hold test. Virtual consultation
+is asserted in eleven places in the paper and **Table 3 already claims the video
+session passes**, against code that did not exist.
+
+**Verified:**
+- `php artisan test --compact` → **367 passed (1396 assertions)**, up from the
+  277 baseline. Per-file: `PatientHistoryScopeTest` 9, `BookingConsultationTypeTest`
+  19, `ConsultationSessionLifecycleTest` 25, `ConsultationChannelAuthTest` 17,
+  `ConsultationRoomAccessTest` 20.
+- **Both new tests were proved to fail without their fix**, not just to pass with
+  it. Removing the `doctor_id` scope → **2 failed**, including the raw-body
+  sentinel check. Removing the `consultation_type` line from
+  `AppointmentController::store()` → **1 failed**, which is exactly the silent
+  drop that line exists to prevent.
+- Migrations: `migrate` → `rollback --step=2` → `migrate`, clean both ways.
+  Rollback left `consultation_sessions` on exactly its original three indexes
+  and `appointments_active_slot_unique` intact. 100 appointments and 60 sessions
+  backfilled to `in_person` by the column defaults; no data migration needed.
+- `npx tsc --noEmit` → exit 0. `npm run build` → built. **`npm run build:ssr`
+  → built** — run deliberately, since `composer dev` never exercises it and a
+  module-level Echo would only surface at deploy.
+- `vendor/bin/pint --dirty` → pass. `eslint --fix` on the new frontend → 0
+  remaining (15 stylistic auto-fixes; the 5 errors left in that directory are
+  pre-existing in files this phase did not touch).
+- `php artisan channel:list` → `consultation.{roomId}` registered.
+  `php artisan reverb:start` → *"Starting server on 0.0.0.0:8080"*, responds.
+
+**Not in the original checklist, and why:**
+- **`ConsultationSessionService`.** The checklist said "extend
+  `consultation_sessions`" but `start()` creates no session row and
+  `appointment_id` is UNIQUE, so `room_id` had nowhere to be minted. Adding the
+  service also closed two live defects nothing covered: `saveSession()` set
+  `appointments.status='completed'` from **any** state (a cancelled visit could
+  be marked complete), and a later draft save silently un-finalized a signed
+  note. Both now have guards and regression tests.
+- **`patientHistory()` had no `doctor_id` scope** — any doctor could read any
+  patient's last 20 SOAP notes, vitals and prescriptions by supplying an email.
+  A security fix, not a Phase 3 feature; shipped first and alone.
+- **Symmetric `hello` handshake.** The checklist's "doctor creates the offer"
+  has no offer store behind a fire-and-forget broadcast: an offer sent before
+  the patient subscribed would vanish and the call would never connect, silently.
+- **ICE restart** — added after the 4m 5s drop. See §12 risk 7.
+- **CSRF meta tag** in `app.blade.php`. The room signals over `fetch()`, which
+  does not read the XSRF cookie the way axios does; without it every signal
+  would 419.
+
+**Blocked / left out:**
+- **The two-device call has not been walked, so the spike is NOT deleted.**
+  §9 Step 9 is explicit that `public/webrtc-spike.html`,
+  `app/Http/Controllers/Spike/` and their routes come out only *after* a real
+  call succeeds — if the new room misbehaves, the spike is the only known-good
+  reference implementation in the repo. Automated tests cover channel
+  authorization, the state machine and the booking rule; **Pest cannot drive
+  WebRTC**, exactly as §10 says.
+- **ICE restart is untested by any automated test** — it is browser behaviour.
+  Verify manually by killing wifi for ~5s mid-call and confirming the call
+  recovers without a rejoin.
+- **`@laravel/echo-react` was installed by `install:broadcasting` and removed
+  again.** §11 approved three dependencies (reverb, laravel-echo, pusher-js);
+  that was a fourth. Its `useEcho` hook would also own the channel subscription
+  separately from the peer-connection teardown, and the StrictMode cleanup this
+  hook needs has to be unified in one place. `laravel-echo` and `pusher-js` were
+  moved from `devDependencies` to `dependencies` to match repo convention.
+- **`SESSION_SECURE_COOKIE` was `true`** — an ngrok leftover. Against
+  `http://127.0.0.1:8000` the session cookie is never returned, so
+  `/broadcasting/auth` would have 403'd with a message saying nothing about
+  cookies. Set to `false` for local; must be `true` again wherever the app is
+  actually served over https.
+- **`install:broadcasting` timed out** at Laravel's internal 60s process limit
+  during its `npm install && npm run build` step, and left a duplicate
+  `BROADCAST_CONNECTION` in `.env` (`log` at line 40, `reverb` appended at the
+  end). Both cleaned up by hand; the PHP-side scaffolding had already completed.
+- **No `RecordsActivity` on `ConsultationSession`, deliberately.**
+  `activityLogAttributes()` would name the SOAP columns, copying clinical
+  narrative into `activity_log` — a table the admin UI renders in full. That is
+  the mistake the Phase 4 concern's docblock warns against.
+- **`meeting_link` / `platform` shipped as schema only**, per the plan. Columns
+  exist, nothing reads them; they are the documented fallback.
+- **§5.2 is untouched by any of this.** Virtual consultation is still in **none
+  of the five numbered objectives** and not in the Scope. It needs adding to
+  Objective 1 on the document track, or the whole phase earns no marks.
+
+---
+
+### 2026-08-03 — Vite asset preloading disabled outside production
+
+**Phase:** 3 (follow-up) · **Status:** done
+
+**Changed:** `app/Providers/AppServiceProvider.php`
+
+**Why:** Opening the tunnelled app produced
+`Uncaught (in promise) Error: Unable to preload CSS for /build/assets/app-DiX9nb9K.css`.
+
+The asset was not missing. Verified directly: the file is on disk (101 KB), the
+manifest points at it correctly, there is no stale `public/hot`, and it serves
+**HTTP 200 with `text/css`** both locally (3 ms) and through the tunnel — 40
+concurrent requests all returned 200.
+
+The cause is contention, not a bad build. `php artisan serve` is the PHP
+built-in server and handles **one request at a time**; `PHP_CLI_SERVER_WORKERS`
+would raise that but is fork-based and does nothing on Windows. Laravel's
+`@vite` emitted a `<link rel="preload">` *and* a `<link rel="stylesheet">` for
+the same 101 KB file, so the page requested it **4 times** before it could
+paint. Behind a tunnel — mandatory for the consultation room, since
+`getUserMedia` needs a secure context — that doubling lands on the
+single-threaded server together with the Inertia request, the page chunks and a
+WebSocket upgrade. Under that load asset latency measured **0.15 s → ~1 s**, and
+Vite's `__vitePreload` helper has no retry: when it gives up it rejects, and a
+rejected preload rejects the dynamic page import behind it.
+
+`Vite::usePreloadTagAttributes(false)` when `! app()->isProduction()`. Preload
+tags are a production optimisation against a real web server and a liability
+against a one-request-at-a-time dev server, so production keeps them.
+
+**Verified:** CSS references per page **4 → 2**; preload tags gone, the blocking
+stylesheet and module scripts remain. `php artisan test --compact
+--filter="ConsultationRoomAccessTest|PatientPortalAccessTest|DashboardTest"` →
+**45 passed (288 assertions)**. `vendor/bin/pint --dirty` → pass.
+
+**Blocked / left out:** whether this fully clears the console error is unconfirmed
+— it needs a browser, and the remaining candidates (tunnel cold-start; the
+~2 s first-request latency measured on a cold tunnel) are environmental rather
+than code. If it recurs, the next step is serving the built assets from
+something other than the PHP dev server rather than tuning further.
+
+> **Correction, same day.** The entry above identified contention as the cause
+> and disabled the preload *tags*. **The error persisted**, because that is a
+> different mechanism from the one at fault.
+>
+> The network log the user captured showed the stylesheet fetched **twice** —
+> once with `sec-fetch-mode: no-cors` (the HTML `<link rel="stylesheet">`) and
+> once with `sec-fetch-mode: cors`. The second is Vite's *runtime* helper, which
+> dedupes against the document using a literal attribute selector, visible in
+> the built bundle:
+>
+>     if (document.querySelector(`link[href="${h}"][rel="stylesheet"]`)) return;
+>
+> `h` is the build-time path `/build/assets/app-*.css`. Laravel's `asset()`
+> rendered `href="https://<tunnel-host>/build/assets/app-*.css"`. An attribute
+> selector compares the literal attribute value, so an absolute href can never
+> match a relative `h` — the guard missed on **every** load, and Vite appended a
+> second `<link rel="stylesheet" crossOrigin="">` for a stylesheet the page
+> already had. That duplicate, requested last behind ~25 other assets on a
+> single-threaded server through a tunnel, is what failed and rejected.
+>
+> Fixed with `Vite::createAssetPathsUsing()` emitting root-relative paths, so
+> the dedupe matches and the duplicate is never requested at all. Local only:
+> overriding this in production would break a CDN deployment via `ASSET_URL`.
+>
+> **Verified:** emitted href is now `/build/assets/app-DiX9nb9K.css`, byte-identical
+> to the selector's target. Suite subset covering page renders and auth →
+> **51 passed (301 assertions)**. Pint pass.
+>
+> Contention was still real — it is why the duplicate *failed* rather than
+> merely being wasteful — so the preload-tag removal is kept. The lesson worth
+> recording: an asset error that reproduces on every load is not a load problem,
+> and the first fix treated a symptom the evidence had not yet isolated.
+
+---
+
+### 2026-08-03 — Signalling fix: the CSRF token could never be read from the DOM
+
+**Symptom.** First real two-device attempt. Both peers reached the room, both
+saw their own camera, neither saw the other — each stuck on "Waiting for the
+other person". Console: twelve `POST /consultations/rooms/{id}/signal` →
+**419**, and nothing whatsoever in `laravel.log`.
+
+**Cause.** `use-web-rtc.ts` and laravel-echo both read the CSRF token from
+`meta[name="csrf-token"]`. `resources/views/app.blade.php` renders that tag once
+per **full document load**; Inertia swaps the page component and never
+re-renders `<head>`. Logging in regenerates the session token. So from the first
+client-side navigation onward the tag holds a token the session rejects.
+
+The room is always reached that way — `router.post(.../start-virtual)` followed
+by a redirect — so it was stale on every visit. Both signalling paths failed
+together: the HTTP relay dropped the offer and every ICE candidate, and
+`/broadcasting/auth` refused the private-channel subscribe. Neither peer ever
+received anything, which is exactly the "renders fine, never connects" failure
+mode §12 risk 6 warned about, arriving from an unexpected direction.
+
+Every other POST in the app is immune because Inertia posts through axios, which
+uses the `XSRF-TOKEN` **cookie** — refreshed by Laravel on every response. The
+consultation hook is the only raw `fetch()` in the codebase.
+
+**Reproduced before fixing**, against the running dev server with a real login
+session:
+
+```
+2. POST /login  -> 200
+3. GET /doctor/consultations -> 200
+   login regenerated the token? YES
+4. POST /signal, exactly as the hook sends it:
+   freshly-rendered meta token -> 403  (CSRF passed; mayJoinRoom refusing an ended room)
+   deliberately wrong token    -> 419  (CSRF rejected)
+```
+
+**Fix.** `csrfToken` is now an Inertia **page prop** on both room pages — props
+are re-rendered on every visit, so they cannot go stale. It is threaded into the
+relay `fetch` calls and passed to Echo as `options.csrfToken`, which
+laravel-echo checks *ahead of* the meta tag. `getEcho()` now requires it rather
+than defaulting, so the stale path is not reachable by omission.
+
+**Why no test proves the 419.** Laravel skips `ValidateCsrfToken` entirely when
+`runningUnitTests()`, and a 419 is never logged — the defect was invisible to
+the suite by construction, which is why 367 green tests sat on top of a
+signalling layer that could not authenticate a single message. The regression
+guard instead asserts both room pages ship `csrfToken` matching
+`session()->token()`; dropping the prop puts the client straight back on the
+stale meta tag. **Confirmed to fail** for the right reason by removing the
+patient prop (`Property [csrfToken] does not exist`), then restored.
+
+**Verified:** `php artisan test --compact` → **369 passed (1420 assertions)**,
+up from 367. `types:check` pass, `npm run build` and `build:ssr` both clean,
+Pint pass.
+
+**Blocked / left out:** the two-device call itself is still unrun, so **Step 9
+(delete the spike) stays blocked** — the spike remains the only known-good
+reference implementation in the repo. The manual ICE-restart check (kill wifi
+~5 s mid-call) is also still outstanding; no Pest test can reach it.
+
+**Note on the existing room row.** Appointment #106's session is
+`consultation_status: ended` from the failed attempt. That is correct behaviour,
+not residue — `openVirtualRoom()` mints a fresh `room_id` for an ended session,
+so "Start Video" is the intended recovery. `canStartVideo` is true for
+`in_progress`, so the button is present.
+
+---
+
+### 2026-08-03 — Signalling fix 2: the `hello` handshake raced its own subscription
+
+**Symptom.** Second two-device attempt, CSRF fix in place. Signalling now
+worked — the doctor's network log shows `hello`, a full 9.8 KB `offer` and ten
+trickled ICE candidates all POSTing cleanly, no 419s. The doctor sat on
+**"Connecting"** and never advanced; `consultation_sessions.consultation_status`
+stayed `waiting`, so `markActive()` never ran and ICE never connected on either
+side. The offer left and no answer came back.
+
+**Cause.** `.listen()` only registers a callback — the actual subscribe is an
+async `/broadcasting/auth` round trip plus a socket frame. The hook announced
+itself with `hello` on the line *after* `.listen()`, i.e. before it had joined
+anything. The doctor's own log shows the ordering plainly: the `hello` POST is
+issued **before** `/broadcasting/auth`.
+
+On the doctor's side that is survivable — the initiator only needs to *receive* a
+hello. The patient runs identical code, so its hello left early too, the doctor
+replied with an offer ~100 ms later, and the patient's subscription — an auth
+round trip through a single-threaded dev server and a tunnel — had not landed.
+The offer was broadcast to a channel with one subscriber and, broadcast being
+fire-and-forget, was lost permanently.
+
+This is §9 correction 4 arriving through the back door. The hello handshake was
+added precisely to stop an offer being emitted before the patient could hear it;
+because the hello itself raced, the mitigation never engaged.
+
+**Fix**, all in `use-web-rtc.ts`:
+
+1. **`hello` now goes out from `.subscribed()`**, so a peer only announces
+   itself once it can actually receive the reply. This is the fix.
+2. **The non-initiator answers a hello with a hello.** Needed for the mirror
+   case — if the *patient* subscribes first their announcing hello is lost, and
+   the doctor's hello is then the only evidence anyone is waiting. Cannot
+   ping-pong: only the non-initiator replies to a hello, and the initiator
+   replies with an offer.
+3. **Duplicate-offer guard.** Both peers announce, so the initiator can receive
+   two hellos; a second offer would replace the local description while the
+   first answer was still in flight. Suppressed unless the connection is
+   `stable` or the last offer is older than 3 s — the staleness window is what
+   lets a reloading patient still obtain a fresh offer from a doctor stuck in
+   `have-local-offer`.
+4. **Answers are ignored outside `have-local-offer`**, since (3) makes a
+   duplicate answer reachable and `setRemoteDescription` in `stable` throws
+   `InvalidStateError` — inside an async handler, where it surfaces nowhere.
+
+**Two silent-failure holes closed at the same time**, both of which cost real
+debugging time this session:
+
+- `post()` ignored the HTTP status entirely. That is why twelve consecutive 419s
+  produced a UI that said "Connecting" and a `laravel.log` with nothing in it. A
+  non-2xx now fails the call loudly with the status code.
+- A refused channel subscribe was equally invisible. `.error()` now reports it,
+  which is the failure `mayJoinRoom()` produces against a closed room.
+
+**Verified:** `php artisan test --compact` → **369 passed (1420 assertions)**.
+`types:check` pass, `npm run build` + `build:ssr` clean, eslint and prettier
+clean on the changed files (the repo-wide lint baseline is untouched).
+
+**Blocked / left out:** unchanged — the two-device call has still not completed,
+so **Step 9 stays blocked** and the manual ICE-restart check is still outstanding.
+No Pest test covers any of this: it is browser and socket timing, reachable only
+by two real devices.
+
+**Note on evidence.** Both fixes this session came from the browser's network
+log, not the test suite or the server log, and neither defect was observable
+from PHP at all. Worth stating in the paper's limitations: the WebRTC layer's
+correctness rests on manual two-device verification, and the automated suite
+covers its authorization and state machine only.
+
+---
+
+### 2026-08-03 — Signalling fix 3: `TrimStrings` was deleting the SDP's last line
+
+**Symptom.** Third two-device attempt. Doctor "Connecting", patient "Waiting for
+the other person". Doctor's network log clean — `hello`, two `offer`s and ten
+ICE candidates all 200. Nothing in `laravel.log`.
+
+**How it was found.** Not from the phone. The app already ships browser console
+output to the server via Laravel Boost's `/_boost/browser-logs`, so the patient
+device's errors were readable server-side the whole time:
+
+```
+Unhandled Promise Rejection OperationError
+Failed to execute 'setRemoteDescription' on 'RTCPeerConnection':
+Failed to parse SessionDescription.
+a=ssrc:382895626 msid:4cc0d323-… ccf11fcc-…  Invalid SDP line.
+   url: /user/consultations/106
+```
+
+The offer *was* arriving. The line named is the **last line of the SDP**.
+
+**Cause.** Laravel's global `TrimStrings` middleware runs `Str::trim()` over
+every string in the request, nested array values included. SDP is a
+CRLF-delimited format in which every line — including the last — must be
+terminated, so trimming deletes the final `\r\n` and the receiving browser
+rejects the entire session description over one absent line ending.
+
+Three things made this expensive to find:
+
+1. **The damage is invisible to the side that causes it.** The POST returns 200,
+   the event broadcasts, the server logs nothing. Only the *other* device throws.
+2. **It is selective in a misleading way.** `hello` carries an empty payload and
+   ICE candidate strings have no trailing whitespace, so those relay perfectly.
+   Signalling looked half-working, which pointed at the socket rather than at
+   the request pipeline.
+3. **The rejection was unhandled.** `handleSignal` is invoked from an Echo event
+   listener as `void handleSignal(...)`, so the rejection had no caller to land
+   in and never reached the UI.
+
+**Fix.** `TrimStrings::skipWhen()` and `ConvertEmptyStringsToNull::skipWhen()`
+scoped to `consultations/rooms/*/signal` in `AppServiceProvider`. Scoped to the
+one route deliberately: that endpoint alone is a pass-through for opaque peer
+data — the controller docblock already promises it "forwards an opaque payload"
+— and trimming is exactly the inspection it promises not to do. Every other
+route still wants trimming.
+
+**This one is properly testable**, unlike the previous two: `TrimStrings` runs in
+feature tests. `it('relays an SDP without altering a single byte')` posts an SDP
+with a trailing CRLF and asserts the broadcast payload is byte-identical.
+**Confirmed to fail for the right reason** by disabling the skip
+(`The expected [App\Events\WebRtcSignal] event was not dispatched` — the trimmed
+SDP no longer matched), then restored.
+
+#### Two further defects fixed in the same pass
+
+**Reverb's payload cap — a real latent fault, not the cause of this run.**
+`REVERB_MAX_REQUEST_SIZE` defaults to 10,000 bytes and covers the whole publish
+request; Pusher re-escapes the SDP into a JSON string on the way in, so every
+`\r\n` costs four bytes. Measured against this server through the real endpoint:
+
+```
+sdp 7500  -> 200
+sdp 8000  -> 500   Pusher error: Payload too large.
+```
+
+Chrome 150 offers sit on that boundary and grow with every extra codec, ICE
+candidate or track, so the default makes video consultation fail intermittently
+and for no visible reason. Raised to 131,072 in `.env` and `.env.example`;
+re-probed after restart, 61,740 bytes now relays where 9,240 previously failed.
+**Stated plainly: this was not what broke the 11:0x run** — no
+`Payload too large` was logged at that time, so those offers published fine. It
+is fixed because it is real, not because it was today's cause.
+
+**A silent-failure bug in the previous fix.** `send('offer')` set
+`phase = 'failed'` on a non-2xx, and the very next line set
+`phase = 'connecting'`, overwriting it. A rejected offer therefore still rendered
+as a call that was still trying — the exact silence the previous entry claimed to
+have closed. `post()` now returns whether the message landed, and both the offer
+and answer paths bail instead of reporting progress they did not make. The Echo
+listener also catches rejections from `handleSignal` and surfaces them, which is
+what would have put the `setRemoteDescription` error on screen immediately.
+
+**Verified:** `php artisan test --compact` → **370 passed (1422 assertions)**.
+`types:check` pass, `npm run build` + `build:ssr` clean, Pint and Prettier clean.
+
+**Blocked / left out:** Step 9 stays blocked — the two-device call has still not
+completed end to end, and the ICE-restart check remains unrun.
+
+**Method note worth carrying into the paper.** Three consecutive defects here
+were invisible to a 370-test suite, and each was found from a different source:
+the browser network log (CSRF), request ordering in that log (the subscribe
+race), and server-side browser-log capture (the SDP trim). The common property
+is that all three produced a **200 with no server-side trace**. The lesson for
+§12 is that a signalling path needs its failures made loud by construction,
+because the default behaviour of every layer involved is to succeed quietly.
+
+---
+
+### 2026-08-03 — Phase 3.1: consultation room hardening (stages 1–5, 10–11)
+
+**The two-device call works.** Doctor and patient, separate networks, two-way
+audio and video. That was the gate the whole phase hung on and it is passed.
+What follows is the difference between a call that *connects* and a call you
+would put in front of a patient — four defects reported from live use, plus ~22
+found by auditing the hook, the server lifecycle and the room UI.
+
+#### The four reported problems, and what they actually were
+
+**1. "A ringing sound like a siren."** Not a code defect. The local `<video>`
+carries `muted` correctly (checked, including whether SSR was dropping the
+attribute — React 19 emits it). It is cross-device acoustic feedback: device A's
+speaker into device B's microphone, back to A, round again until it howls. Echo
+cancellation is structurally unable to fix this — AEC cancels a device's *own*
+output from its *own* microphone and cannot touch a second device in the room.
+
+Mitigated as far as code can: `echoCancellation` / `noiseSuppression` /
+`autoGainControl` are now requested explicitly rather than left to the platform
+(Safari, iOS and several Windows drivers do not enable them reliably, and a
+driver-controlled AGC is the amplifier in the loop — it hears the howl and turns
+the gain *up*). Added a mute-speaker control, which stops it instantly, and a
+headphone advisory in the room copy. **Stated plainly: headphones or physical
+separation are the fix. Nothing in the code can cancel sound travelling through
+the air between two devices.**
+
+**2. "End call doesn't end or exit."** Far worse than it looked. `hangUp()` fired
+a POST and set a label. It never stopped the local tracks, never closed the peer
+connection, never cleared the video elements. **Both parties went on streaming
+audio and video to each other underneath a "Call ended" overlay**, camera light
+still on — and the button then disabled itself, so there was no second attempt.
+In a consultation that is a privacy failure, not a cosmetic one.
+
+The real teardown existed only in the effect cleanup, which needs an unmount that
+never came. It is now a `teardown()` published on the ref bag and shared by
+`hangUp`, the `bye` handler and the cleanup, so the three cannot drift.
+
+**3. "It still says connecting after the video appears."** A lost race, not a
+stuck state. `setPhase('connecting')` ran *after* `await send(...)`, while
+`oniceconnectionstatechange` set `connected` during that await. On a reconnect
+ICE completes in milliseconds and the POST does not, so `connecting` landed last
+— and the answering peer is the ICE-controlled agent, which never transitions
+again, so nothing ever corrected it. A redundant duplicate `hello` could knock a
+live call back the same way.
+
+Fixed at the root with a monotonic `advancePhase()` that refuses to regress,
+`connecting` moved before the round trip, `onconnectionstatechange` added as the
+primary signal, and `ontrack` now advancing the phase — remote media arriving is
+the most trustworthy evidence a call is up. The overlay is also gated on actual
+video frames rather than on negotiation state, and no longer swallows clicks.
+
+**4. "Vitals is hidden at the bottom."** The grid had no height bound and
+`alignItems: 'start'`; the right rail ran SOAP (~550px) → Vitals → buttons, so
+Vitals sat ~750px down — below the fold on any 768px screen — while the video
+column ended at ~440px and sat on 400px of dead space. The console now fills the
+viewport, **only SOAP scrolls**, and Vitals plus Save/Finalize are pinned strips
+that cannot leave the screen. The two-column grid became `auto-fit`, so it also
+collapses to one column without a media query.
+
+#### Also fixed in the same pass
+
+- **Role-aware leave.** Only the doctor's End Call or Finalize closes a
+  consultation now. A patient hanging up or dropping returns the room to
+  `waiting` with the same `room_id`, the doctor is told "patient left", and the
+  patient rejoins from their list. A patient on a phone drops constantly; that
+  was never a decision to end a medical consultation.
+- **`bye` moved from the controller into `endCall()`.** `finalize()` ends the
+  call through a different door and previously announced nothing — the doctor
+  signed off and the patient sat watching a frozen frame with a running clock.
+  Every close path now notifies by construction.
+- **`complete()` closes a live room**, instead of leaving one that renders and
+  offers a Join Call button but can never connect.
+- **Row locking.** `openVirtualRoom()` now re-reads under `lockForUpdate()` — a
+  double-click minted two `room_id`s, the exact failure its own docblock says
+  idempotency prevents. `markActive()` became a conditional update so a late
+  `/join` cannot resurrect an ended call.
+- **Signalling resilience.** Only `hello`/`offer`/`answer` are fatal — one failed
+  ICE-candidate POST used to kill a healthy call. `fetch` is wrapped, candidates
+  drain individually (stale ones from a peer's pre-refresh session are
+  *guaranteed*, not exceptional), incoming offers roll back on glare, and `/join`
+  fires once rather than on every ICE settle.
+- **The non-initiator can recover.** Previously only the doctor restarted ICE and
+  the patient's side did nothing at all — frozen frame, green dot, ticking clock,
+  indefinitely. It now reports `reconnecting`, asks the initiator to re-offer
+  (with `iceRestart` when the connection is unhealthy), and fails with a real
+  message after a ceiling.
+- **Audio-only fallback.** A camera held by Zoom or Teams used to fail the whole
+  consultation while the microphone was available the entire time.
+- **Media errors say what to do.** Raw `NotAllowedError: Permission denied` over
+  body copy advising you to check your internet connection — wrong for every
+  media failure there is.
+- **Autoplay recovery.** The remote element is unmuted, and unmuted autoplay
+  needs a gesture; after a refresh there is none, so it never started — silently.
+- **Autosave.** SOAP and vitals were held in React state and written only on a
+  button press. A crash or a stray navigation lost the whole clinical note.
+- **The patient room works on a phone.** The sidebar was `width: 260,
+  flexShrink: 0` with no media query anywhere, leaving ~66px of content on a
+  390px handset — for the party who is always on a phone.
+
+**Verified:** `php artisan test --compact` → **381 passed (1442 assertions)**, up
+from 370. `types:check`, `npm run build`, `build:ssr`, Pint, Prettier and ESLint
+all clean. Every new server-side test was confirmed to fail for the right reason
+before being accepted — removing the `bye` broadcast reds all three close paths,
+including `finalize`.
+
+**Blocked / left out:** the remaining stages are deliberately not in this entry —
+peer mute/camera state and the `pagehide` beacon, ended rooms no longer 404ing,
+the stale-session sweep, and the presence channel. **Presence is last on
+purpose:** `routes/channels.php`, `WebRtcSignal::broadcastOn()` and the hook's
+`echo.private()` must change together, Laravel resolves both `private-` and
+`presence-` prefixes to the same registered callback so the channel-auth test
+passes either way, and a half-conversion delivers nothing and logs nothing —
+symptomatically identical to the CSRF failure this feature already spent a cycle
+on. It gets its own two-device verification.
+
+Nothing in stages 1, 2, 4, 5 or 11 is reachable by Pest — it is browser and
+WebRTC behaviour. The two-device script in the plan file is the verification.
+
+---
+
+### 2026-08-03 — A dead Reverb looked exactly like "nobody has joined yet"
+
+**Symptom.** Both peers stuck on "Waiting for the other person" with working
+local video, no console errors, nothing in `laravel.log`.
+
+**Cause.** Reverb was not running — nothing listening on 8080. With no WebSocket
+server the private channel never subscribes, so `.subscribed()` never fires, so
+the announcing `hello` is never sent, so neither peer ever learns the other is
+there. Every layer reports success and the UI truthfully says it is waiting.
+
+Not a code defect, but it exposed one: **the failure was unreportable.** The
+channel's `.error()` handler only receives `pusher:subscription_error`, which
+requires a live connection to be delivered over — a server that is simply absent
+produces no channel error at all. Now bound to the connection's `state_change`,
+so `unavailable`/`failed` says the server is unreachable and names `composer dev`
+as the thing to start. `composer dev` already runs `reverb:start` as its fourth
+process; `php artisan serve` on its own does not, and that gap is easy to hit.
+
+**Audio diagnostics, from the same run.** The new `consultation audio` log line
+settles what was previously guesswork about the screech:
+
+```
+doctor (Windows PC): device "Microphone (High Definition Audio Device)"
+                     echoCancellation true · noiseSuppression true
+                     autoGainControl  false · 48000Hz
+patient (Android):   device "Default"  — same processing flags
+```
+
+So echo cancellation **is** applied on the PC, and the AGC reversal took effect.
+The remaining variable is the render side: capture is on the analogue jack, and
+AEC subtracts what it believes is being played — if Windows is rendering to a
+different device (this machine also exposes `N200HDV8` monitor audio over HDMI
+and a separate USB Audio device) that belief is wrong and the earcup-to-boom-mic
+leak survives untouched. Hence the in-call Speaker picker.
+
+**Correction worth recording:** the previous entry attributed the screech to two
+devices sharing a room. The user disproved that — they were in different
+locations, and the fault followed the PC rather than the role. The same-room
+mechanism is real but was not this. Diagnosing hardware from a description was
+the mistake; the fix was to make the client report what it actually negotiated.
+
+**Verified:** Reverb listening on 8080 again; `php artisan test --compact` →
+**381 passed (1442 assertions)**; build, types, Pint, Prettier, ESLint clean.
+
+---
+
+### 2026-08-04 — The screech, settled; and Phase 3.1 stages 7–9
+
+**The screech is a two-device acoustic loop, and the user found it.** Their
+description is exact: the phone sits within earshot of the PC's microphone, the
+PC's speaker plays the phone's audio, the phone's microphone picks that up, sends
+it back, and each lap adds a little gain until it howls.
+
+This closes a diagnosis that took three wrong turns, and the wrong turns are
+worth recording because each was a plausible theory that the evidence killed:
+
+| Theory | Killed by |
+|---|---|
+| Local `<video>` feeding back into its own mic | `muted` was already set — the code was correct |
+| Constraints being ignored by the driver | `getSettings()` proved AEC on, AGC off, and the loop persisted |
+| Capture and render on different Windows devices | Fault reproduced with the phone next to the PC regardless of which output was selected |
+
+The mechanism is physics, not software: acoustic echo cancellation subtracts a
+device's **own** output from its **own** microphone. The offending sound here
+arrives through the air from a *second* device it has no reference signal for.
+No constraint, no library, and no amount of DSP can cancel it. Distance,
+headphones, or Mute speaker break the loop; nothing in the code can.
+
+**Consequence — the device pickers are gone.** They were added on the
+now-disproved theory and were never in this phase's locked scope. They also read
+as clutter under the call controls, which is what the user said. The `getSettings()`
+diagnostic logging stays: it is what ruled the browser out, and it costs one
+console line. The advisory copy now describes the loop and offers the three
+things that actually stop it.
+
+**Stage 7 — the other side stops being a guess.**
+- `state` messages carry mic/camera on-off, so a muted peer shows a badge rather
+  than being mistaken for a broken call. Published on every connect *and*
+  reconnect, because signalling is fire-and-forget with no store: a toggle
+  broadcast before the other peer subscribed is simply gone.
+- `pagehide` + `navigator.sendBeacon`. React does not run effect cleanups on
+  unload, so a refresh or a closed tab left the other party watching a frozen
+  frame for the ~30s it takes ICE consent to expire — long enough that they
+  refresh too, and then neither is where the other expects. The beacon carries
+  `_token` in a JSON body because a beacon cannot set headers, and Laravel's CSRF
+  middleware reads `$request->input('_token')`, which for a JSON content type
+  reads the decoded body.
+- Guarded on `event.persisted`. A bfcache restore brings the page back *with its
+  peer connection intact*; announcing a departure we then undo would leave the
+  other side having rebuilt while this one kept the old — a deadlock in which
+  each waits for a handshake the other already had.
+
+**Stage 8 — closed rooms stop being a trap.**
+- Both room pages stop 404ing. The 404 was reached by the most ordinary sequence
+  there is: the call ends, the patient presses back, and the visit has
+  simultaneously vanished from a list that only shows live rooms. A patient whose
+  connection dropped mid-consultation had no route back in and nothing on screen
+  to separate "the visit is over" from "my phone is broken". They now get a named
+  reason — `not_open` / `ended` / `finalized` — and a way onward. A separate page
+  component, not a branch inside `room.tsx`: that file calls `useWebRtc` at the
+  top of its body and hooks cannot be skipped, so a branch would still turn the
+  camera on in order to say the call was over.
+- The doctor is redirected to their consultations list with a reason instead,
+  since reopening the room is one click from there.
+- `consultation_started` had **no case** in `urlForNotification()` and fell
+  through to `/user/dashboard`, which has no join button. The single most
+  time-critical notification in the app pointed at the wrong page while a doctor
+  sat waiting. Now `/user/consultations`.
+- That list polls every 15s (`usePoll`, `only: ['consultations']`). Nothing
+  pushed room-open to an idle page: the notification lands in the database but
+  the bell is shared on the *next* Inertia request, so the page stayed empty
+  while the doctor waited on the other side of it.
+
+**Stage 9 — `consultations:close-stale`, hourly.** A privacy sweep, not
+housekeeping. Nothing in the app ends an abandoned call: every close path is a
+deliberate human act — End Call, Finalize, Complete — and none of them runs when
+the laptop shuts or the browser crashes. The row stayed `waiting`/`active` with
+`ended_at` NULL forever, and gate 2 of `mayJoinRoom()` kept returning **true**,
+so the room remained a live, subscribable, private A/V channel. A months-old
+consultation should not be one bookmark away. Ends through `endCall()` rather
+than a bulk UPDATE so the `bye` broadcast fires here as it does everywhere else,
+and filters on `started_at` rather than `updated_at` — the latter moves on every
+SOAP draft save, which would keep resetting the clock on exactly the rooms most
+likely to be abandoned mid-visit.
+
+**Verified:** `php artisan test --compact` → **395 passed (1519 assertions)**,
+up from 381. The notification-routing test was proven red by deleting its one
+line; the closed-room test failed on a missing Vite entry before the page
+existed. `npm run types:check` clean, Pint clean, no new ESLint findings.
+
+**Still open:** Stage 6 (presence channel) is deliberately last — it is the one
+change that can take the feature down silently, and it needs its own two-device
+run. The spike (`Spike/WebRtcSignalController`, `public/webrtc-spike.html`) stays
+until this pass is verified on hardware; it remains the only known-good reference
+implementation in the repo.
+
+---
+
+### 2026-08-04 (second entry) — What two-device verification found, and §5.2 resolved
+
+Four reports came back from the hardware round. **Three were real defects and
+two of those were mine, introduced by the previous entry's own fixes.** Recording
+them in full, because the pattern is more useful than the individual bugs: every
+one was a case of a change being correct in isolation and wrong in combination
+with something else on the page.
+
+**1. The departure beacon covered the rare exit and missed the common one.**
+`pagehide` fires on a refresh or a closed tab. It does *not* fire on an Inertia
+client-side navigation — the document is never unloaded — so tapping a link in
+the sidebar tore the page down and told the other peer nothing at all. That is
+the ordinary way a person wanders out of a call, and it left the other party on
+a frozen frame for the ~30s ICE consent takes to expire. Departure is now
+announced from the effect cleanup as well, guarded by a `departureAnnounced`
+flag so the three exit paths (End Call → `/leave`, `pagehide` → beacon, unmount
+→ keepalive fetch) cannot double-announce and make the peer rebuild twice.
+
+**2. Adding polling broke the notification bell.** The bell carried
+`useEffect(() => setOpen(false), [props])` — and `usePage()` returns a fresh
+`props` identity on *every* render, so the dropdown closed on any prop change
+whatsoever. Harmless for as long as those pages were static. The previous entry
+added a 15-second poll to the consultations list; from then on the panel closed
+itself between `mousedown` and `click`, the notification vanished from under the
+user's finger, and it read as a dead link. Now bound to
+`router.on('navigate')`, which also clears a pre-existing ESLint error on that
+file.
+
+A second, independent bug in the same handler: `markRead` was fired *before*
+`router.visit`, and mark-read answers `back()` — a redirect to the page you are
+already on. Two Inertia visits raced and the cheap one routinely landed last,
+cancelling the navigation. Invisible while every notification pointed at the
+page its reader was already likely to be on; `consultation_started` was the
+first with a genuinely different destination.
+
+**3. The closed-room page was a dead end.** The list polls; the page a dropped
+patient actually lands on did not. So they sat on "This call has ended" while
+the doctor reopened the room, and only a manual refresh revealed it. It polls
+every 8s now, and since the controller renders either component for the same
+URL, a reopened room turns that page back into the live room by itself.
+
+**4. `consultations:close-stale` was correct and looked broken.** It reported
+`Closed 0` across a dozen invocations. Cause: the rooms were `ended` at the
+time, so the backdating step matched zero rows and there was nothing to sweep.
+The command was right; its output could not distinguish "nothing matched the
+cutoff" from "nothing was open at all", so the operator had no way to tell a
+working run from a broken one. Now reports `Closed N of M open virtual room(s)`
+and says so explicitly when M is zero. Two tests pin the wording — output that
+a human relies on to make a judgement is behaviour, not decoration.
+
+**Also added, at the user's request:** a confirmation before either side ends a
+call, with the doctor's offering **Finalize & end visit** as the primary action
+alongside "End call, keep draft". Ending with unsaved notes flushes them first —
+autosave runs on a 4s idle timer and the room closes immediately after, which
+would make that loss permanent. Navigating away mid-call now prompts too, with
+non-GET visits exempted so autosave does not interrogate the doctor every four
+seconds while they type.
+
+**`TWO-DEVICE-TESTING.md`** (repo root) documents the whole local setup:
+startup order, the `public/hot` trap that makes Vite unusable through a tunnel,
+two curl commands that catch most misconfigurations before a device is touched,
+and failure symptoms indexed by what is actually on screen.
+
+**§12 risk 7 — RESOLVED.** 17s (2026-08-02, asymmetric TURN) → 4m 05s
+(2026-08-03, `srflx ⇄ srflx`) → no drop observed (2026-08-04). The ≥2-minute bar
+is met, so TURN stays insurance. Stated rather than glossed: the 2026-08-04 runs
+were `host ⇄ host` on one network, and no run on the current build has been held
+for a full consultation's length. That cross-network long-hold number is the
+remaining evidence Table 3 would need.
+
+**§5.2 — RESOLVED as far as code can resolve it, which is not at all.** Virtual
+consultation is now ~90% built and still appears in **no graded objective**. The
+"or cut it" option has expired — cutting would mean deleting working software
+*and* rewriting five figures and four tables. Draft wording for a sub-objective
+1.7 is in **§5.2a**, written to describe only what exists: in-system video (not
+an external meeting link), authorized to two named accounts (not a role), against
+the same patient record as in-person visits. **It needs Group 5's acceptance and
+no engineering whatsoever, and until it exists the most expensive component of
+this build is graded against nothing.**
+
+**Verified:** `php artisan test --compact` → **397 passed (1523 assertions)**.
+Types, Pint and the touched files' ESLint clean.
+
+---
+
+### 2026-08-04 (third entry) — Stage 6: presence, and the last silent failure
+
+**The report that forced this.** The patient force-quit their phone browser. The
+doctor's screen showed *"Reconnecting — the connection dropped and is being
+restored. Please stay on this page."* over a frozen frame, for a person who was
+never coming back. Both halves of that were wrong, and neither could be fixed
+where the previous stages were working.
+
+**Why no client-side fix could reach it.** A force-quit browser runs no
+JavaScript. The `pagehide` beacon added in Stage 7 is genuinely correct — its
+body shape was verified against the live CSRF middleware, `_token` in a JSON
+body, HTTP 200 — but there is no execution context left in which to fire it. Any
+approach that depends on the departing client cooperating has this hole by
+construction. The remaining peer was left to time out ICE consent, ~30 seconds,
+and was told a reassuring lie throughout.
+
+**Presence is the only mechanism that does not need that cooperation.** Reverb
+sees the socket close and fires `leaving` in well under a second.
+`consultation.{roomId}` is now a presence channel:
+
+- `routes/channels.php` returns `['id', 'name']` for an authorized member and
+  `false` otherwise. **The array is the authorization** — returning `true` is the
+  subtle wrong answer, because Laravel accepts any truthy value and the
+  subscribe then succeeds with an empty member payload, leaving
+  `here`/`joining`/`leaving` carrying nothing the client can identify a peer by.
+- `WebRtcSignal::broadcastOn()` returns a `PresenceChannel`.
+- `useWebRtc` subscribes with `echo.join()`, and `.here()` replaces
+  `.subscribed()` — it fires at the same moment *and* carries the roster, so
+  "waiting for the other person" became a fact instead of an assumption.
+
+The authorization rule itself is untouched: still `mayJoinRoom()`, still exactly
+one implementation, still identity-based rather than role-based.
+
+**The hazard this file warned about, and how it is now caught.** Laravel
+registers `consultation.{roomId}` once and resolves both
+`private-consultation.X` and `presence-consultation.X` to the same callback, so
+the existing registry assertion passes either way and a half-converted state
+authorizes correctly and then **delivers nothing, logging nothing**. Three new
+tests close it, and each was proven to fail against its specific half-conversion:
+reverting only the event to `PrivateChannel` fails the channel-name assertion;
+returning `true` instead of the member array fails both roster assertions.
+
+**Two further fixes from the same screenshot.**
+
+- **`peerPresent` short-circuits recovery.** Presence is authoritative about
+  whether there is anyone to reconnect *to*, so a departed peer now goes straight
+  to `waiting` instead of burning three ICE restarts against nobody.
+  `handlePeerGone()` is shared by the `peer-left` relay and presence `leaving`,
+  and it advances to `waiting` — never `reconnecting`. Telling a doctor a
+  connection is "being restored" about a patient who closed their browser is
+  worse than silence: it invites them to sit and wait.
+- **The status overlay got a scrim.** Gating it on stalled state (previous entry)
+  made it appear over a held video frame for the first time, and white text on a
+  brightly-lit face was close to unreadable — at exactly the moment the message
+  matters most.
+
+**Verified:** `php artisan test --compact` → **409 passed (1564 assertions)**.
+Types, Pint, ESLint clean on touched files. Reverb WebSocket handshake confirmed
+end-to-end through the tunnel (`101 Switching Protocols`).
+
+**Not yet verified, and it is the point of the stage:** presence has had no
+two-device run. It is the one change in this phase that can break the call
+silently, which is why it was sequenced last and shipped alone.
+
+---
+
+### 2026-08-04 (fourth entry) — Presence verified; the spike is gone; Phase 3.1 closed
+
+**Verified on two devices.** Exiting the browser, closing the tab and navigating
+to another page all now release the other peer immediately, in both directions,
+and either party can rejoin — including by simply reopening the page, without
+going back through the list. That was the last unverified behaviour in this
+phase and the one the presence conversion existed for.
+
+**Step 9 discharged — the spike is deleted.** `app/Http/Controllers/Spike/`,
+`public/webrtc-spike.html`, and the `local`-only route block plus its two
+imports. It was three **unauthenticated** routes backing a static page —
+deliberately outside `auth`, because the page carried no session and could not
+present a CSRF token — and that is not a shape to leave in a repository one day
+longer than it earns. Its gate ("only once a real two-device call succeeds, and
+only once the hardening pass is verified") is now met on both counts, and
+everything it proved lives in `ConsultationRoomController` under test.
+
+Deleting it exposed two stale artefacts worth noting, because both were silent:
+Wayfinder's generated barrel still imported `./Spike` (a `tsc` error, since these
+files are generated and gitignored, and regenerate on any Vite run), and
+`php artisan wayfinder:generate` regenerates **without** the `formVariants: true`
+that `vite.config.ts` passes — so running it by hand silently drops every
+`.form` helper and breaks five unrelated pages. `npm run build` is the correct
+regeneration path; the artisan command is not a substitute.
+
+**Gate results.**
+
+| Gate | Result |
+|---|---|
+| `php artisan test` | **409 passed (1564 assertions)** |
+| `npm run types:check` | clean |
+| `npm run format:check` | clean |
+| `vendor/bin/pint --dirty --test` | clean |
+| `composer ci:check` | **fails** — see below |
+
+`ci:check` fails at `lint:check`, and honesty matters more than a green tick
+here: it fails on **202 pre-existing ESLint errors across the repository**
+(unused imports, unnecessary escapes, `setState` in effects), none of them in any
+file this phase touched. The count went *down* by one — the notification bell's
+`setState`-in-an-effect was fixed as part of the dropdown repair. This is
+long-standing lint debt in the booking wizard, the patient dashboard and the
+sidebar, and clearing it is its own task with its own regression risk; it should
+not be smuggled into a consultation phase.
+
+**Phase 3.1 is closed.** What remains for virtual consultation is not code:
+
+1. **§5.2a — accept sub-objective 1.7.** Draft wording is ready. Until it exists
+   the most expensive component of this build is graded against nothing.
+2. **§12 risk 7 — one cross-network long-hold run.** Every measurement so far is
+   either same-network (`host ⇄ host`) or shorter than a real consultation.
+3. **§6 — record that `meeting_link` and `platform` are unused columns.** The
+   ERD and Fig. 8 describe generating links to an external provider; what was
+   built is native in-app WebRTC with no third party.
+
+---
+
+### 2026-08-04 (fifth entry) — Risk 7 closed on measurement; paper items handed off
+
+**`24m 12s`, pair `srflx ⇄ srflx (udp)`, two separate WiFi networks.** This is
+the number §12 risk 7 has been waiting for since 2026-08-02, and it settles the
+last engineering question in the phase:
+
+| | |
+|---|---|
+| **Duration** | 24m 12s — the length of a real consultation, against an original failure at 17s |
+| **Pair** | `srflx ⇄ srflx` — both peers behind NAT, connected **directly** |
+| **Relay** | none — TURN was never used |
+
+The pair type is the part that matters and is easy to misread. `host ⇄ host`
+means the two devices were on the same LAN and no NAT was traversed at all, so a
+hold test on it proves nothing; every 2026-08-04 run before this one was
+`host ⇄ host`. `srflx` on both sides means the STUN hole punch succeeded through
+two separate NATs *and* stayed alive for 24 minutes, which is precisely the
+consent-freshness mechanism that failed in the 17-second run. Recorded in
+`TWO-DEVICE-TESTING.md` §5.5a so the next person reads the pill rather than
+trusting which network they think they are on.
+
+TURN therefore stays insurance. The one case still unmeasured is mobile data —
+carrier-grade NAT is where STUN most often fails — but that is a deployment
+question about a harder network, not a doubt about the build.
+
+**The two remaining items are paper items and have been handed to the client.**
+Neither requires a line of code, and both are now out of this file's hands:
+
+1. **§5.2a — sub-objective 1.7.** Drafted here; accepting or rewording it is
+   Group 5's call.
+2. **§6 — `meeting_link` and `platform` are unused columns.** The ERD (Fig. 7)
+   and Fig. 8 describe generating links to an external provider; what was built
+   is native in-app WebRTC with no third party. Better for privacy — no patient
+   audio or video crosses a vendor — but the document implies an integration
+   that does not exist.
+
+**Phase 3 and 3.1 are complete.** Nothing in the virtual-consultation feature is
+now blocked on engineering.
+
+---
+
+### 2026-08-04 (sixth entry) — Phase 3 closed and committed
+
+**Committed** to `feat/patient-portal-records`:
+
+| Commit | Contents |
+|---|---|
+| `style: format resources/ with prettier` | 84 files, mechanical only |
+| `feat(consultation): in-app WebRTC video consultation` | 62 files — the feature, its tests, and the spike removal |
+| `docs: …` | this file, `TWO-DEVICE-TESTING.md`, `PHASE-3-PLAN.md` |
+
+The formatting split was verified rather than assumed: each file's HEAD version
+was extracted, run through prettier, and compared byte-for-byte against the
+working tree. 84 matched — pure churn from `npm run format`, which rewrites files
+that predate the script. The 12 that did not match carry real changes and went in
+the feature commit. Without that split the feature diff would have been 10,000
+lines of which two thirds were whitespace.
+
+---
+
+## What this phase actually taught — seven silent defects
+
+Worth its own section because it is the transferable part, and because it is the
+strongest evidence in this repository for a specific claim: **for this feature,
+a green test suite meant almost nothing.** 370 tests passed throughout the period
+in which every one of these was live.
+
+| # | Symptom on screen | Actual cause | How it was found |
+|---|---|---|---|
+| 1 | "Waiting for the other person", both sides | Stale CSRF token — Inertia never re-renders `<head>`, so `meta[name=csrf-token]` goes stale on the first client-side navigation. Every signal POST 419'd | Browser network log |
+| 2 | Same | `hello` sent before the channel subscription completed; the offer was broadcast to a channel with one subscriber and lost | Request *ordering* in that same log |
+| 3 | Patient stuck, doctor "Connecting" | `TrimStrings` stripped the SDP's trailing CRLF → `setRemoteDescription` failed with "Invalid SDP line" on the far peer only | Boost `browser-logs` — the phone's console, read server-side |
+| 4 | Same | Reverb was not running. Nothing listens, nothing subscribes, nothing errors | `netstat` |
+| 5 | Video visible, overlay still says "Connecting" | Phase written by two sources; the signalling path wrote *after* an awaited round trip and overwrote the ICE handler's `connected` | Reading the two writers |
+| 6 | Notification click does nothing | `PatientDashboardController` builds its own notifications payload, overriding the shared prop, with `action_url` hardcoded `null` | Logging in over HTTP and reading the actual props |
+| 7 | Peer frozen after a browser is force-quit | No JavaScript runs on force-quit, so no goodbye is possible; and the status overlay was suppressed because the dead peer's `<video>` never fires `emptied` | A user screenshot |
+
+**The common shape.** WebRTC signalling, Laravel broadcasting and Inertia are all
+fire-and-forget. A dropped message does not raise — it produces *waiting*. Every
+layer reports success, every log is empty, and the UI truthfully describes a
+state that is wrong. Four of the seven were found by reading a log rather than by
+reasoning, and two of them (1 and 3) had already survived a correct-looking fix
+aimed at the wrong cause.
+
+**What was changed as a result**, so the next failure is not silent:
+- The client reports a dead realtime server explicitly instead of waiting
+  forever (`SIGNALLING_UNREACHABLE`).
+- Signalling failures are scoped: losing an ICE candidate is survivable, losing
+  an offer is not, and the fatal ones say so on screen.
+- `consultation audio` logs what the browser *actually applied*, which is what
+  ruled the browser out as the source of the reported screech.
+- `consultations:close-stale` reports `Closed N of M open rooms` — the earlier
+  bare `Closed 0` could not distinguish "nothing matched" from "nothing was
+  open", and cost a full round of testing on a command that was working.
+- `TWO-DEVICE-TESTING.md` indexes failures by *what you see*, not by cause.
+
+**Two corrections recorded against my own earlier claims**, because both were
+stated confidently and were wrong:
+1. The screech was attributed to a device/render mismatch and to same-room
+   acoustics before the user's own evidence settled it as a two-device loop.
+   Diagnosing hardware from a description was the error; making the client
+   report its negotiated settings was the fix.
+2. A test asserting the notification URL passed while the bug was live, because
+   it exercised the page I had just fixed rather than the page the user was on.
+   The replacement asserts every page that ships notifications, and was proven
+   red first.
+
+---
+
+### 2026-08-04 (seventh entry) — `composer ci:check` passes for the first time
+
+Pushed to `origin/feat/patient-portal-records`.
+
+**The 202 ESLint errors were 48.** `lint:check` runs `eslint .`, and
+`.claude/worktrees/` holds three full duplicate checkouts of this repository.
+They are gitignored, but ESLint's flat config does not read `.gitignore`, so
+every finding in real source was counted once per worktree plus once for the
+original. Adding `.claude/**` to the ignore list removed three quarters of the
+number without touching a line of source — worth recording, because the inflated
+count is exactly what made this backlog look too big to approach.
+
+**Three of the remaining 48 were real defects, each masked by the noise:**
+
+| File | Defect |
+|---|---|
+| `pages/doctor/components/stat-cards.tsx` | A hook called inside `.map()`. Survives only because the list is a fixed-length constant; hook order breaks the moment it is filtered or fetched |
+| `session-editor/session-editor.tsx` | The prepopulate effect depended on `[consultation]` — a fresh object every parent render — so an unrelated re-render of the list **overwrote clinical notes the doctor was typing** with the last saved values |
+| `consultations/components/consultation-detail-modal.tsx` | Patient-history fetch had no cancellation, so switching patients quickly could land the first response after the second and show **one patient's history under another's name** |
+
+The second and third are the kind this project cannot afford: silent, plausible,
+and about clinical data. Neither had a test, and neither would have been found by
+reading the feature — they were found by taking a lint rule seriously instead of
+suppressing it.
+
+The rest were the same shape as each other: state mirroring props is now derived,
+and state that must be *adjusted* when props change uses a comparison during
+render (React's documented pattern) rather than an effect that renders once with
+stale values and again with correct ones.
+
+**Formatting was committed separately from behaviour, both times.** Prettier (84
+files) and Pint (40 files) each got their own commit, verified mechanical rather
+than assumed — for Prettier by reconstructing each file from HEAD and comparing
+byte-for-byte. Neither had ever been run over these files, which is why
+`ci:check` failed regardless of what a given change touched.
+
+**Six `exhaustive-deps` warnings remain, deliberately.** They are warnings, and
+each needs a judgement about whether adding the dependency changes behaviour.
+Bulk-applying them is how a lint pass turns into a regression.
+
+**Gate results — all green:**
+
+| Gate | Result |
+|---|---|
+| `npm run lint:check` | 0 errors, 6 warnings |
+| `npm run format:check` | clean |
+| `npm run types:check` | clean |
+| `vendor/bin/pint --test` | pass |
+| `php artisan test` | **409 passed (1564 assertions)** |
+| **`composer ci:check`** | **passes end to end — first time** |
+
+---
+
+### 2026-08-05 — Phase 6: analytics and report generation
+
+**Phase:** 6 · **Status:** done
+
+**Changed:**
+- `app/Services/AnalyticsService.php` (new — the four reports + the CSV projection)
+- `app/Http/Controllers/HR/AnalyticsController.php` (new)
+- `routes/web.php` — 2 routes in the existing `role:hr|admin` group
+- `resources/js/pages/hr/analytics/` (new — page, data, 4 sections, 4 components)
+- `resources/js/pages/hr/layout/hr-dashboard-data.ts`,
+  `.../admin/layout/admin-dashboard-data.ts` — nav
+- `resources/js/pages/doctor/components/{clinic-activity,clinic-workflow,patient-activity}.tsx`
+  — removed three links to a `/reports` route that never existed
+- `package.json` — `recharts` ^3.10 (approved, §11)
+- `tests/Feature/Analytics/{AnalyticsAccessTest,AnalyticsMetricsTest,AnalyticsExportTest}.php`
+  (new — 57 tests)
+
+**Why:** Objective 1.5 asks, verbatim, for *"analytics tools for tracking and
+analyzing patient trends, appointment data, clinic performance and LOA
+requests"*, and the scorecard had it at **0%** while every other module sat at
+70% or above. It was the last remaining software gap; Phase 7 is not code.
+It also closes Figure 4's **Generate Reports**, which Phase 4 deferred here
+rather than building the same aggregation twice — a decision recorded in
+`AdminDashboardController`'s own docblock.
+
+No migration was needed. Every figure comes from tables that already existed.
+
+**Verified:**
+- `npm run build` **before** the suite, per §10 — new page enters the manifest.
+  recharts code-splits to `chart-card-*.js`, **420 kB (121 kB gzipped)**, loaded
+  only by `/hr/analytics`
+- `php artisan test --compact --filter=Analytics` → **57 passed (179 assertions)**
+- `php artisan test --compact` → **466 passed (1743 assertions)**, up from 409;
+  nothing regressed
+- `composer ci:check` → **passes end to end** (lint, format, types, 466 tests)
+- Authenticated walkthrough against the seeded `wellcare_db` as
+  `hr.garcia@wellcare.com`: page 200, component `hr/analytics/analytics`,
+  82 appointments across 14 weekly buckets, 35 doctor-load rows. Guest → 302.
+- CSV downloaded and read end to end: provenance header, period, and
+  `Turnaround | Average hours to decision | 0 | over 25 timed decisions`
+
+**Two wrong numbers that no test would have caught**, both found by running the
+service against the real database rather than fixtures. Both are the same shape
+— a record created *after* the event it claims to measure — and both rendered
+without any error:
+
+| Reported | Cause |
+|---|---|
+| Lead time **−32.5 days** | Back-entered appointments whose `appointment_date` precedes their own `created_at`. `BookingService` enforces a two-hour minimum lead, so a *booked* appointment cannot invert; these are records typed in after the visit — exactly what Objective 5's manual-to-digital transition will produce more of |
+| LOA turnaround **−284.9 hours** | 10 of 35 decided rows came from Phase 2's backfill migration, which created LOA records for HMO appointments already approved before `loa_requests` existed. `LoaService` stamps `requested_at` then `approved_at` and cannot produce this |
+
+Neither is a bug in the live workflow, and neither was clamped. Both averages now
+exclude the un-timeable rows and **print the sample size** on screen and in the
+CSV, so the figure is auditable rather than quietly narrowed. Each has a
+regression test naming the original wrong value.
+
+The pattern is the one Phase 3 recorded: the failure was silent, plausible, and
+the suite was green throughout — the fixtures had sensible timestamps and the
+seeded data did not.
+
+**Blocked / left out:**
+- **No scheduled or emailed reports.** Fig. 4 asks only that reports be
+  generated; delivery is not documented anywhere. Related: Table 6's "Send LOA
+  request to HMO via email" is still unbuilt, and mail is still the `log` driver.
+- **Reports are retrospective.** Every range ends today, so future bookings
+  appear in none of them. That reads Objective 1.5's "tracking and analyzing"
+  as backward-looking, which is defensible, but an upcoming-volume view would be
+  a separate ask. Asserted by a test so the property is explicit, not accidental.
+- **No caching.** Read-only aggregates over a single-branch dataset; adding a
+  TTL now would only make the numbers stale. Revisit if `EXPLAIN` shows a scan.
+- **The chart palette is hex literals, not `var(--wc-*)`.** recharts emits
+  colours as SVG *presentation attributes*, where custom-property resolution is
+  unreliable across browsers and fails silently — a black or unrendered mark,
+  no error. Each literal carries its token name in a comment, and the existing
+  hand-rolled chart in `doctor/components/patient-activity` uses hex for the
+  same reason. Keeping the two in step is manual.
+- **Not visually verified in a browser.** The page was fetched authenticated and
+  its Inertia props inspected, and the CSV was read end to end, but nobody has
+  looked at the rendered charts. That is the one remaining check, and it is the
+  check the palette note above most concerns.
+
+---
+
+### 2026-08-05 (second entry) — Phase 6.1: diagnostic and prescriptive analytics
+
+**Phase:** 6.1 · **Status:** done
+
+**Changed:**
+- `app/Concerns/AggregatesClinicData.php` (new — extracted from `AnalyticsService`)
+- `app/Services/ClinicDiagnosticsService.php` (new)
+- `app/Services/AnalyticsService.php` — uses the trait; `diagnostics` added to `REPORTS`
+- `app/Http/Controllers/HR/AnalyticsController.php` — second service injected, export branch
+- `resources/js/pages/hr/analytics/analytics-data.ts` — diagnostics types, tab, copy
+- `resources/js/pages/hr/analytics/sections/diagnostics-report.tsx` (new)
+- `resources/js/pages/hr/analytics/components/{attention-list,driver-bars}.tsx` (new)
+- `tests/Feature/Analytics/AnalyticsDiagnosticsTest.php` (new — 27 tests)
+
+**Why:** asked directly which of the four analytics types the system implements.
+The honest audit: Phase 6 was **descriptive**, with diagnostic value only by
+accident (the lab stage split, the cap comparison). Nothing said *why*, and
+nothing said *what to do*. Objective 1.5's own wording is "tracking and
+**analyzing**" — Phase 6 had delivered the tracking half only.
+
+**No routes, no migration, no paper change.** One slug added to
+`AnalyticsService::REPORTS` produced both the fifth tab and the fifth export,
+and extended `AnalyticsAccessTest` and `AnalyticsExportTest` automatically —
+those iterate that constant, so the new export was access-tested against all
+five roles without a line of new test code. Worth noting as a payoff from how
+Phase 6 was structured rather than as luck.
+
+**Verified:**
+- `npm run build` before the suite, per §10
+- `php artisan test --compact --filter=AnalyticsDiagnostics` → **27 passed (89 assertions)**, first run
+- `php artisan test --compact --filter=Analytics` → **90 passed (278 assertions)**
+  — 57 from Phase 6, 27 new, and **6 added automatically** by the new export slug
+- `php artisan test --compact` → **499 passed (1842 assertions)**, up from 466
+- `composer ci:check` → **green end to end**
+- Authenticated walkthrough as `admin@wellcare.com` at `?range=12m`: 4 attention
+  items ranked high → medium, `criteria` shipped to the client, lab dominant
+  stage `Doctor review (60%)`, LOA `pending=5 chase=5`, capacity `breaches=0`
+- **Cross-checked by hand against the database**, not just through the service:
+
+  ```sql
+  SELECT service, COUNT(*), SUM(status IN ('cancelled','no_show')) ...
+  ```
+
+  returned `Diabetes Management 10/10 = 100%`, every other service `0`, and
+  `general` at 2 appointments — which the report correctly suppressed as below
+  the 5-appointment floor. 10 failures over 92 appointments is the 10.9%
+  baseline the page shows. Independent query, same numbers.
+
+**The trait extraction was the risky part, and was treated as such.**
+`resolveRange()`, `bucket()`, `appointmentsInRange()`, `rate()` and `humanise()`
+moved out of `AnalyticsService` into a shared concern, following the precedent
+`ReadsPatientRecords` set in Phase 5. Two services resolving `90d` differently
+would put two plausible, disagreeing numbers on one screen, and each half would
+be internally consistent enough that no test would catch it. The 57 Phase 6
+tests were run immediately after the move and before anything was built on top —
+all green, so the extraction changed no behaviour.
+
+**Two defects found by running it, not by reading it:**
+
+| Symptom | Cause |
+|---|---|
+| The time-slot dimension returned **eight "findings"**, each +0.2 to +5.8pp above baseline | Every slot held exactly one cancellation. One event is an anecdote; the dimension was reporting a single cancellation eight times |
+| **"In-person" ranked top** on 100% contribution at +0.3pp lift | It held 89 of 92 appointments, so it carries ~all failures by construction. A segment that is essentially the whole population explains nothing |
+
+Fixed with `MIN_FAILURES = 2` and `MIN_LIFT = 5.0` alongside the existing
+`MIN_SAMPLE = 5`. Both have named regression tests. Without them the tab would
+have shipped looking analytical while saying nothing — the failure mode this
+phase exists to avoid.
+
+Also fixed: `humanise()` double-spaced any already-spaced Title Case input
+(`Diabetes  Management`), because the camelCase splitter inserts a space before
+every capital. Pre-existing — **it was visible on Phase 6's service chart too.**
+
+**Blocked / left out:**
+- **Predictive analytics, deliberately** — see the §11 row. 12 distinct
+  appointment dates and 0 no-shows cannot support a forecast or a risk model.
+  The page states this in plain language rather than staying silent about it.
+- **LOA wait attribution is near-empty on seeded data**, and legitimately so:
+  the seeder approves requests in the same second they are created, so there is
+  no accumulated wait to attribute. The card renders its empty state explaining
+  that. The *pending* half has real signal — 5 requests over 7 days old.
+- **Capacity shows no breaches** on seeded data: load runs ~1.5 against a cap of
+  5. Also a correct empty result, and asserted by a test rather than assumed.
+- **Still not visually verified in a browser.** Props and CSV were inspected and
+  cross-checked, but nobody has looked at the rendered tab. The `driver-bars`
+  baseline marker is hand-drawn CSS rather than recharts, so it does not carry
+  Phase 6's SVG custom-property risk — but it has not been seen.
+- The attention list is only on the analytics page. Surfacing the same items on
+  the HR and admin dashboards would be useful and was not in scope.

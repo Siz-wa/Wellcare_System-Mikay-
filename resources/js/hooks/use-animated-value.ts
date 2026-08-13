@@ -38,13 +38,13 @@ export function useAnimatedValue(
 
     useEffect(() => {
         if (!active) {
-return;
-}
+            return;
+        }
 
         const animate = (timestamp: number) => {
             if (startTimeRef.current === null) {
-startTimeRef.current = timestamp;
-}
+                startTimeRef.current = timestamp;
+            }
 
             const elapsed = timestamp - startTimeRef.current;
             const progress = Math.min(elapsed / duration, 1);
@@ -63,8 +63,8 @@ startTimeRef.current = timestamp;
 
         return () => {
             if (rafRef.current !== null) {
-cancelAnimationFrame(rafRef.current);
-}
+                cancelAnimationFrame(rafRef.current);
+            }
         };
     }, [active, target, duration]);
 

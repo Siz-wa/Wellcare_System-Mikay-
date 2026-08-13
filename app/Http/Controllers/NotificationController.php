@@ -49,6 +49,7 @@ class NotificationController extends Controller
     public function destroyAll(): RedirectResponse
     {
         AppointmentNotification::where('user_id', Auth::id())->delete();
+
         return back();
     }
 }
