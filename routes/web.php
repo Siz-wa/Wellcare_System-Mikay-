@@ -15,6 +15,7 @@ use App\Http\Controllers\Doctor\DoctorSettingsController;
 use App\Http\Controllers\Doctor\LabReviewController;
 use App\Http\Controllers\Doctor\PatientRecordController;
 use App\Http\Controllers\GenController;
+use App\Http\Controllers\HR\AnalyticsController;
 use App\Http\Controllers\HR\HmoApprovalController;
 use App\Http\Controllers\HR\HRDashboardController;
 use App\Http\Controllers\NotificationController;
@@ -144,6 +145,13 @@ Route::middleware(['auth', 'verified', 'role:hr|admin'])->group(function () {
         Route::get('/hr/hmo-approvals', 'index')->name('hr.hmo-approvals');
         Route::post('/hr/hmo-approvals/{loaRequest}/approve', 'approve')->name('hr.hmo-approvals.approve');
         Route::post('/hr/hmo-approvals/{loaRequest}/reject', 'reject')->name('hr.hmo-approvals.reject');
+    });
+
+    // Objective 1.5 analytics + Fig. 4's "Generate Reports". Literal `export`
+    // ahead of the {report} wildcard, per the ordering convention.
+    Route::controller(AnalyticsController::class)->group(function () {
+        Route::get('/hr/analytics', 'index')->name('hr.analytics');
+        Route::get('/hr/analytics/export/{report}', 'export')->name('hr.analytics.export');
     });
 });
 

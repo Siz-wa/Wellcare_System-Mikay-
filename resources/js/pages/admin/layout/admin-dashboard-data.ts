@@ -83,6 +83,12 @@ export const navGroups: NavGroup[] = [
                 href: '/hr/hmo-approvals',
                 iconKey: 'schedule',
             },
+            {
+                id: 'analytics',
+                label: 'Analytics & Reports',
+                href: '/hr/analytics',
+                iconKey: 'labreviews',
+            },
         ],
     },
     {

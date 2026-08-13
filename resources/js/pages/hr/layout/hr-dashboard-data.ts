@@ -46,6 +46,17 @@ export const navGroups: NavGroup[] = [
         ],
     },
     {
+        groupLabel: 'REPORTING',
+        items: [
+            {
+                id: 'analytics',
+                label: 'Analytics & Reports',
+                href: '/hr/analytics',
+                iconKey: 'labreviews',
+            },
+        ],
+    },
+    {
         groupLabel: 'Generals',
         items: [
             { id: 'home', label: 'Home Page', href: '/', iconKey: 'records' },

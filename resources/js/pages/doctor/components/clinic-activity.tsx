@@ -5,7 +5,6 @@
 import type { ReactElement } from 'react';
 import { activityItems, dashboardMeta } from '../dashboard-data';
 import type { ActivityItem } from '../dashboard-data';
-import { IconArrowRight } from '../icons';
 
 // ── Single row ────────────────────────────────────────────────────────────────
 
@@ -82,20 +81,12 @@ export function ClinicActivity(): ReactElement {
                 >
                     {meta.activityTitle}
                 </h2>
-                <a
-                    href="/reports"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-1)',
-                        fontSize: 'var(--text-sm)',
-                        fontWeight: 600,
-                        color: 'var(--wc-sky-500)',
-                        textDecoration: 'none',
-                    }}
-                >
-                    {meta.viewAll} <IconArrowRight />
-                </a>
+                {/*
+                  The "view all" link pointed at /reports, a route that has
+                  never existed. Analytics shipped in Phase 6 behind
+                  `role:hr|admin`, so there is no doctor-facing page to point it
+                  at — the affordance is removed rather than left 404-ing.
+                */}
             </div>
 
             {/* Rows */}

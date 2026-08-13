@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useInView } from '@/hooks/useInView';
 import { patientActivityData, dashboardMeta } from '../dashboard-data';
-import { IconArrowRight } from '../icons';
 
 function ActivityChart({ animate }: { animate: boolean }): ReactElement {
     const data = patientActivityData;
@@ -191,22 +190,7 @@ export function PatientActivity(): ReactElement {
                 >
                     {meta.patientActivityTitle}
                 </h2>
-                <a
-                    href="/reports"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        color: '#1a73e8',
-                        textDecoration: 'none',
-                    }}
-                >
-                    {meta.viewAll} <IconArrowRight />
-                </a>
+                {/* See clinic-activity.tsx — /reports never existed. */}
             </div>
 
             <div style={{ height: 220, width: '100%' }}>
