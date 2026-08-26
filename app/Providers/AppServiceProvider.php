@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Http\Request;
@@ -30,6 +31,52 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureAssetPreloading();
         $this->configureSignallingRelay();
+        $this->allowWindowsCasedServeVariables();
+    }
+
+    /**
+     * Restore the Windows-cased environment names that `artisan serve` strips.
+     *
+     * To watch `.env` for changes, ServeCommand hands the `php -S` child a
+     * filtered copy of the environment, keeping only the names listed in
+     * `ServeCommand::$passthroughVariables`. Every name in that list is
+     * UPPERCASE and the match is a case-sensitive `in_array` — but Windows'
+     * canonical names are `Path` and `SystemRoot`. Verified on this machine:
+     *
+     *     cmd /c set        -> Path, SystemRoot
+     *     array_keys($_ENV) -> Path, SystemRoot
+     *
+     * So on native cmd.exe NOTHING matches. The subprocess is spawned with no
+     * PATH and no SystemRoot, Winsock cannot initialise, and every port from
+     * 8000 upward reports:
+     *
+     *     Failed to listen on 127.0.0.1:8000 (reason: ?)
+     *
+     * IT LOOKS LIKE A PORT CONFLICT AND IS NOT. The ports are free — the same
+     * binary binds 8000 happily via a bare `php -S`. The literal `?` is PHP
+     * having no error string for the WSA code it got back.
+     *
+     * `$passthroughVariables` is public static precisely so this can be
+     * corrected without patching vendor code and without giving up the .env
+     * watcher. (`--no-reload` also cures it, by skipping the filtering branch
+     * entirely — at the cost of that watcher, and of diverging from the stock
+     * starter-kit `composer.json`.)
+     *
+     * ⚠️ Invisible from Git Bash / WSL, where MSYS normalises the names to
+     * `PATH` and `SYSTEMROOT` so they match the list. Reproduce from cmd.exe
+     * or it looks like a phantom that comes and goes.
+     */
+    protected function allowWindowsCasedServeVariables(): void
+    {
+        if (! windows_os() || ! $this->app->runningInConsole()) {
+            return;
+        }
+
+        foreach (['Path', 'SystemRoot'] as $name) {
+            if (! in_array($name, ServeCommand::$passthroughVariables, true)) {
+                ServeCommand::$passthroughVariables[] = $name;
+            }
+        }
     }
 
     /**
