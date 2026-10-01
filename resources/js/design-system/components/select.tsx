@@ -19,7 +19,26 @@
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import type { CSSProperties, ReactElement, SelectHTMLAttributes } from 'react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
+
+/*
+  Stands in for "" on the row that clears the choice. Radix cannot hold "" as a
+  row value, and it never reaches a caller or a form: `choose` maps it back.
+*/
+const CLEAR_VALUE = '__wc_select_clear__';
+
+/** Present for the form and the browser's validation, invisible to everyone. */
+const NATIVE_MIRROR_STYLE: CSSProperties = {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+};
 
 export interface SelectOption {
     value: string;
@@ -116,23 +135,56 @@ export function Select({
 
     /*
       Radix reserves "" for "nothing selected", so an option with an empty value
-      cannot be a row. That is what such an option always meant anyway — "All
-      providers", "Any status" — so it becomes the placeholder instead of being
-      silently dropped.
+      cannot be a row as it stands. That is what such an option always meant —
+      "All providers", "Anyone", "Prefer not to say" — so it is the placeholder
+      while nothing is chosen. Once something is, it comes back as the first
+      row, so the choice can be undone: without it a filter could never return
+      to "All" and a restriction could never be lifted.
     */
     const blank = flatten(options).find((option) => option.value === '');
     const resolvedPlaceholder = blank?.label ?? placeholder;
 
-    const groups: SelectOptionGroup[] = isGrouped(options)
-        ? options.map((group) => ({
-              ...group,
-              options: group.options.filter((o) => o.value !== ''),
-          }))
-        : [{ label: '', options: options.filter((o) => o.value !== '') }];
-
+    /*
+      Uncontrolled use keeps its own copy, so the value Radix posts through
+      `name` is always the real one — "" after clearing, never CLEAR_VALUE.
+    */
     const controlled = value !== undefined;
+    const [ownValue, setOwnValue] = useState(defaultValue ?? '');
+    const current = controlled ? value : ownValue;
+
+    const choose = (next: string): void => {
+        const resolved = next === CLEAR_VALUE ? '' : next;
+
+        if (!controlled) {
+            setOwnValue(resolved);
+        }
+
+        onChange?.(resolved);
+    };
+
+    const clearRow: SelectOption[] =
+        blank && current !== '' ? [{ ...blank, value: CLEAR_VALUE }] : [];
+
+    const groups: SelectOptionGroup[] = isGrouped(options)
+        ? options.map((group, index) => ({
+              ...group,
+              options: [
+                  ...(index === 0 ? clearRow : []),
+                  ...group.options.filter((o) => o.value !== ''),
+              ],
+          }))
+        : [
+              {
+                  label: '',
+                  options: [
+                      ...clearRow,
+                      ...options.filter((o) => o.value !== ''),
+                  ],
+              },
+          ];
+
     const selected = flatten(options).find(
-        (option) => option.value === (controlled ? value : defaultValue),
+        (option) => option.value === current,
     );
 
     const triggerClasses = [
@@ -147,15 +199,9 @@ export function Select({
 
     return (
         <SelectPrimitive.Root
-            {...(controlled
-                ? { value: value || undefined, onValueChange: onChange }
-                : {
-                      defaultValue: defaultValue || undefined,
-                      onValueChange: onChange,
-                  })}
+            value={current}
+            onValueChange={choose}
             disabled={disabled}
-            name={name}
-            required={required}
         >
             <SelectPrimitive.Trigger
                 id={triggerId}
@@ -212,6 +258,35 @@ export function Select({
                     </SelectPrimitive.Viewport>
                 </SelectPrimitive.Content>
             </SelectPrimitive.Portal>
+
+            {/*
+              What a plain HTML form posts and validates. Radix has its own
+              hidden select for this, but it only carries an empty option while
+              its value is undefined — at "" the browser falls back to the
+              first real option, so clearing "Male" back to "Prefer not to say"
+              would still post "M", and a required field would pass empty.
+            */}
+            {(name || required) && (
+                <select
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    name={name}
+                    required={required}
+                    disabled={disabled}
+                    value={current}
+                    onChange={() => undefined}
+                    style={NATIVE_MIRROR_STYLE}
+                >
+                    <option value="" />
+                    {flatten(options)
+                        .filter((option) => option.value !== '')
+                        .map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                </select>
+            )}
         </SelectPrimitive.Root>
     );
 }

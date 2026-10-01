@@ -27,6 +27,9 @@ export function QueueRow({
         <div
             style={{
                 display: 'flex',
+                // On a phone the status and the action drop to a second line
+                // instead of pushing the page sideways.
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 gap: 'var(--space-4)',
                 padding: 'var(--space-4) 0',
@@ -51,7 +54,7 @@ export function QueueRow({
             </div>
 
             {/* Identity */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <p
                     style={{
                         margin: 0,

@@ -112,6 +112,24 @@ test('a birthdate in the future is rejected', function () {
         ->assertSessionHasErrors('birthdate');
 });
 
+/**
+ * Registration offers separated and annulled. If the settings form could not
+ * hand them back, the next profile save would post '' and wipe the answer.
+ */
+test('separated and annulled civil statuses save and are handed back to the form', function (string $status) {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), fullProfilePayload(['civil_status' => $status]))
+        ->assertSessionHasNoErrors();
+
+    expect($user->refresh()->profile->civil_status)->toBe($status);
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertInertia(fn ($page) => $page->where('profile.civil_status', $status));
+})->with(['separated', 'annulled']);
+
 test('the profile page exposes the read-only client number', function () {
     $user = User::factory()->create();
     $user->profile()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
