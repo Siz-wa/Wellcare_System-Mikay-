@@ -139,6 +139,8 @@ export const civilStatusOptions = [
     { value: 'single', label: 'Single' },
     { value: 'married', label: 'Married' },
     { value: 'widowed', label: 'Widowed' },
+    { value: 'separated', label: 'Separated' },
+    { value: 'annulled', label: 'Annulled' },
 ];
 
 // ── Security page ────────────────────────────────────────────────────────────

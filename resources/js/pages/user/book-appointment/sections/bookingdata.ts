@@ -106,6 +106,8 @@ export const civilStatusOptions: SelectOption[] = [
     { value: 'single', label: 'Single' },
     { value: 'married', label: 'Married' },
     { value: 'widowed', label: 'Widowed' },
+    { value: 'separated', label: 'Separated' },
+    { value: 'annulled', label: 'Annulled' },
 ];
 
 // New vs returning is no longer asked. It is a fact about the patient's record,

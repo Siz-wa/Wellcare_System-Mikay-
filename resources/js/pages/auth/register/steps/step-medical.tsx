@@ -128,6 +128,12 @@ export default function StepMedical({
                         onChange={setRadio('blood_type')}
                         options={bloodTypeOptions}
                     />
+                    {/* The Select carries no name, so this is what submits. */}
+                    <input
+                        type="hidden"
+                        name="blood_type"
+                        value={fields.blood_type}
+                    />
                 </Field>
                 <div className="col-span-2">
                     <Field
