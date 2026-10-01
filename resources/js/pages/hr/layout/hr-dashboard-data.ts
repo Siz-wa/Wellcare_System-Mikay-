@@ -13,7 +13,10 @@ export interface NavItem {
         | 'consultations'
         | 'labreviews'
         | 'records'
-        | 'settings';
+        | 'settings'
+        // Every key here needs a matching entry in ICON_MAP inside
+        // components/HRAppSidebar.tsx or the sidebar fails to type.
+        | 'payments';
 }
 
 export interface NavGroup {
@@ -34,13 +37,22 @@ export const navGroups: NavGroup[] = [
         ],
     },
     {
-        groupLabel: 'HMO MANAGEMENT',
+        // Renamed from 'HMO MANAGEMENT'. Both entries below are the same job —
+        // deciding whether a booking is paid for — and the group had to stop
+        // naming only one of the two ways that happens.
+        groupLabel: 'COVERAGE & PAYMENTS',
         items: [
             {
                 id: 'hmo-approvals',
                 label: 'HMO Approvals',
                 href: '/hr/hmo-approvals',
                 iconKey: 'consultations',
+            },
+            {
+                id: 'payment-verifications',
+                label: 'Payment Verification',
+                href: '/hr/payment-verifications',
+                iconKey: 'payments',
             },
             // { id: "appointments",  label: "All Appointments",href: "/hr/appointments",   iconKey: "schedule"      },
         ],
@@ -57,7 +69,23 @@ export const navGroups: NavGroup[] = [
         ],
     },
     {
-        groupLabel: 'Generals',
+        // Settings is reachable from the account menu in the topbar too, but a
+        // sidebar entry is what people actually look for — and until this
+        // existed, no role's sidebar linked to it at all.
+        groupLabel: 'ACCOUNT',
+        items: [
+            {
+                id: 'settings',
+                label: 'Settings',
+                href: '/settings/profile',
+                iconKey: 'settings',
+            },
+        ],
+    },
+    {
+        // The public marketing pages, kept last and under their own
+        // heading so they do not compete with the role's actual tasks.
+        groupLabel: 'WELLCARE SITE',
         items: [
             { id: 'home', label: 'Home Page', href: '/', iconKey: 'records' },
             {
@@ -80,12 +108,6 @@ export const navGroups: NavGroup[] = [
             },
         ],
     },
-    // {
-    //   groupLabel: "SYSTEM",
-    //   items: [
-    //     { id: "settings",     label: "Settings",         href: "/settings",          iconKey: "settings"      },
-    //   ],
-    // },
 ];
 
 export const hrDashboardMeta = {

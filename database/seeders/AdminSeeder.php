@@ -39,6 +39,18 @@ class AdminSeeder extends Seeder
                 [
                     'password' => Hash::make($data['password']),
                     'is_active' => true,
+                    // GV-9. The finding was not "this seeder uses a weak
+                    // password" — a demo seeder should — it was that **nothing
+                    // distinguished the demo path from a production one**. This
+                    // is that distinction, in one expression.
+                    //
+                    // Local and testing keep a directly usable login, because a
+                    // capstone demo that forces a password change on every
+                    // `migrate:fresh --seed` is a demo nobody runs. Anywhere
+                    // else, an account seeded with a password that is written
+                    // down in a public repository is held at the password
+                    // screen until somebody replaces it.
+                    'must_change_password' => ! app()->environment(['local', 'testing']),
                 ]
             );
 

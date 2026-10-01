@@ -53,22 +53,38 @@ export const colors = {
     },
 } as const;
 
+/**
+ * Mirrors the CSS custom properties defined in resources/css/app.css (@theme)
+ * and resources/css/tokens.css. Prefer `var(--text-*)` in styles; this object
+ * exists for the few places that need the value in JS.
+ *
+ * The scale is floored at 14px — nothing in the product renders smaller — and
+ * is expressed in rem so it scales with both the browser's font-size setting
+ * and the in-app Text size control.
+ */
 export const typography = {
-    fontDisplay: '"Bricolage Grotesque", sans-serif',
-    fontBody: '"DM Sans", sans-serif',
+    fontSans:
+        '"Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif',
+    fontDisplay:
+        '"Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif',
+    fontMono: '"Atkinson Hyperlegible Mono", ui-monospace, Consolas, monospace',
+
+    /** @deprecated use `fontSans` */
+    fontBody:
+        '"Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif',
 
     size: {
-        xs: '0.75rem',
-        sm: '0.875rem',
-        base: '1rem',
-        lg: '1.125rem',
-        xl: '1.25rem',
-        '2xl': '1.5rem',
-        '3xl': '1.875rem',
-        '4xl': '2.25rem',
-        '5xl': '3rem',
-        '6xl': '3.75rem',
-        '7xl': '4.5rem',
+        xs: '0.875rem', // 14px — floor
+        sm: '0.9375rem', // 15px
+        base: '1.0625rem', // 17px
+        lg: '1.1875rem', // 19px
+        xl: '1.375rem', // 22px
+        '2xl': '1.625rem', // 26px
+        '3xl': '2rem', // 32px
+        '4xl': '2.5rem', // 40px
+        '5xl': '3.0625rem', // 49px
+        '6xl': '3.8125rem', // 61px
+        '7xl': '4.75rem', // 76px
     },
 
     weight: {
@@ -81,11 +97,49 @@ export const typography = {
     },
 
     leading: {
-        tight: 1.1,
-        snug: 1.3,
+        none: 1,
+        tight: 1.2,
+        snug: 1.35,
         normal: 1.5,
-        relaxed: 1.7,
+        relaxed: 1.65,
+        loose: 1.8,
     },
+
+    tracking: {
+        tightest: '-0.022em',
+        tighter: '-0.016em',
+        tight: '-0.008em',
+        normal: '0',
+        wide: '0.02em',
+        wider: '0.06em',
+        widest: '0.1em',
+    },
+
+    /** Reading measure caps for long-form clinical prose. */
+    measure: {
+        narrow: '45ch',
+        base: '68ch',
+        wide: '80ch',
+    },
+} as const;
+
+/**
+ * Semantic text colors. Every value is >= 7:1 on white (WCAG AAA for normal
+ * text). Do not colour text from `colors.gray` — gray-400 is 2.56:1 and
+ * gray-500 is 4.36:1 on the app background, both of which fail.
+ */
+export const textColors = {
+    primary: '#0f172a', // 17.85:1
+    secondary: '#334155', // 10.35:1
+    muted: '#475569', //  7.58:1
+    inverse: '#ffffff',
+    mutedInverse: '#cbd5e1', // 12.02:1 on gray-900
+    link: '#0056b3', //  7.04:1
+    linkHover: '#003370', // 12.30:1
+    success: '#166534', //  7.13:1
+    warning: '#713f12', //  8.67:1
+    error: '#991b1b', //  8.31:1
+    info: '#1e40af', //  8.72:1
 } as const;
 
 export const spacing = {

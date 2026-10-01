@@ -1,6 +1,10 @@
 // resources/js/pages/user/contact/sections/ContactFormSection.tsx
+import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { Select } from '@/design-system';
 import { useInView } from '@/hooks/useInView';
+import { normalizePhMobile } from '@/lib/input-masks';
+import { store as storeContactMessage } from '@/routes/contact';
 import { contactFormData, hoursData } from './contact-data';
 
 // ─── Form state type ──────────────────────────────────────────────────────────
@@ -10,6 +14,8 @@ interface FormState {
     phone: string;
     subject: string;
     message: string;
+    /** Honeypot. Hidden from people; bots fill it and the server refuses. */
+    website: string;
 }
 
 const INITIAL: FormState = {
@@ -18,15 +24,30 @@ const INITIAL: FormState = {
     phone: '',
     subject: '',
     message: '',
+    website: '',
 };
+
+function FieldError({ message }: { message?: string }) {
+    return message ? (
+        <p className="mt-1 text-sm" style={{ color: 'var(--wc-error)' }}>
+            {message}
+        </p>
+    ) : null;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ContactFormSection() {
     const { ref, inView } = useInView();
     const { pill, heading, desc, subjects, submitLabel } = contactFormData;
-    const [form, setForm] = useState<FormState>(INITIAL);
+    const {
+        data: form,
+        setData,
+        post,
+        processing: loading,
+        errors,
+        reset,
+    } = useForm<FormState>(INITIAL);
     const [submitted, setSubmitted] = useState(false);
-    const [loading, setLoading] = useState(false);
 
     const handleChange =
         (field: keyof FormState) =>
@@ -35,18 +56,18 @@ export default function ContactFormSection() {
                 HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
             >,
         ) => {
-            setForm((prev) => ({ ...prev, [field]: e.target.value }));
+            setData(field, e.target.value);
         };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        // TODO: wire up to Inertia post("/contact") or your API endpoint
-        setTimeout(() => {
-            setLoading(false);
-            setSubmitted(true);
-            setForm(INITIAL);
-        }, 1000);
+        post(storeContactMessage.url(), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSubmitted(true);
+                reset();
+            },
+        });
     };
 
     return (
@@ -76,7 +97,7 @@ export default function ContactFormSection() {
                         </h2>
                         <p
                             className="mb-8 text-base leading-relaxed"
-                            style={{ color: 'var(--wc-gray-500)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             {desc}
                         </p>
@@ -96,10 +117,7 @@ export default function ContactFormSection() {
                                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                                     <polyline points="22 4 12 14.01 9 11.01" />
                                 </svg>
-                                <span>
-                                    Thank you! We'll get back to you within 24
-                                    hours.
-                                </span>
+                                <span>{contactFormData.successMessage}</span>
                             </div>
                         ) : (
                             <form
@@ -121,18 +139,33 @@ export default function ContactFormSection() {
                                             onChange={handleChange('name')}
                                             required
                                         />
+                                        <FieldError message={errors.name} />
                                     </div>
                                     <div className="wc-field">
-                                        <label className="wc-label-text">
+                                        <label
+                                            className="wc-label-text"
+                                            htmlFor="contact-phone"
+                                        >
                                             Phone Number
                                         </label>
                                         <input
+                                            id="contact-phone"
                                             type="tel"
+                                            inputMode="numeric"
+                                            autoComplete="tel"
                                             className="wc-input"
-                                            placeholder="09XX XXX XXXX"
+                                            placeholder="09171234567"
                                             value={form.phone}
-                                            onChange={handleChange('phone')}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'phone',
+                                                    normalizePhMobile(
+                                                        e.target.value,
+                                                    ),
+                                                )
+                                            }
                                         />
+                                        <FieldError message={errors.phone} />
                                     </div>
                                 </div>
 
@@ -149,6 +182,7 @@ export default function ContactFormSection() {
                                         onChange={handleChange('email')}
                                         required
                                     />
+                                    <FieldError message={errors.email} />
                                 </div>
 
                                 {/* Subject */}
@@ -156,21 +190,20 @@ export default function ContactFormSection() {
                                     <label className="wc-label-text">
                                         Subject
                                     </label>
-                                    <select
-                                        className="wc-input wc-select"
+                                    <Select
+                                        aria-label="Subject"
                                         value={form.subject}
-                                        onChange={handleChange('subject')}
+                                        onChange={(value) =>
+                                            setData('subject', value)
+                                        }
                                         required
-                                    >
-                                        <option value="" disabled>
-                                            Select a subject…
-                                        </option>
-                                        {subjects.map((s) => (
-                                            <option key={s} value={s}>
-                                                {s}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        placeholder="Select a subject…"
+                                        options={subjects.map((s) => ({
+                                            value: s,
+                                            label: s,
+                                        }))}
+                                    />
+                                    <FieldError message={errors.subject} />
                                 </div>
 
                                 {/* Message */}
@@ -186,13 +219,32 @@ export default function ContactFormSection() {
                                         required
                                         rows={5}
                                     />
+                                    <FieldError message={errors.message} />
                                 </div>
+
+                                <input
+                                    type="text"
+                                    name="website"
+                                    tabIndex={-1}
+                                    autoComplete="off"
+                                    aria-hidden="true"
+                                    value={form.website}
+                                    onChange={handleChange('website')}
+                                    style={{
+                                        position: 'absolute',
+                                        left: '-10000px',
+                                        width: 1,
+                                        height: 1,
+                                        opacity: 0,
+                                    }}
+                                />
 
                                 {/* Submit */}
                                 <button
                                     type="submit"
                                     className="wc-btn wc-btn-primary wc-btn-lg wc-btn-pill self-start"
                                     aria-busy={loading}
+                                    disabled={loading}
                                 >
                                     {loading ? 'Sending…' : submitLabel}
                                 </button>
@@ -230,7 +282,7 @@ export default function ContactFormSection() {
                                         </svg>
                                     </div>
                                     <div>
-                                        <span className="wc-pill wc-pill-primary text-[10px]">
+                                        <span className="wc-pill wc-pill-primary text-xs">
                                             {hoursData.pill}
                                         </span>
                                         <h3 className="mt-1 text-base">
@@ -268,7 +320,7 @@ export default function ContactFormSection() {
                                                     {s.day}
                                                     {isToday && (
                                                         <span
-                                                            className="ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-[var(--tracking-widest)] uppercase"
+                                                            className="ml-2 rounded-full px-2 py-0.5 text-xs font-bold tracking-[var(--tracking-widest)] uppercase"
                                                             style={{
                                                                 background:
                                                                     'var(--wc-blue-50)',
@@ -282,7 +334,7 @@ export default function ContactFormSection() {
                                                 <span
                                                     className="text-sm"
                                                     style={{
-                                                        color: 'var(--wc-gray-500)',
+                                                        color: 'var(--wc-text-muted)',
                                                     }}
                                                 >
                                                     {s.hours}
@@ -296,7 +348,7 @@ export default function ContactFormSection() {
                                     className="mt-5 rounded-[var(--radius-xl)] px-4 py-3 text-xs leading-relaxed"
                                     style={{
                                         background: 'var(--wc-warning-light)',
-                                        color: 'var(--wc-warning-dark)',
+                                        color: 'var(--wc-text-warning)',
                                         border: '1px solid #fde047',
                                     }}
                                 >

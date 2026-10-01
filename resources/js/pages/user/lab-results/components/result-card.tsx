@@ -43,9 +43,9 @@ export function ResultCard({
                     <h2
                         style={{
                             margin: 0,
-                            fontSize: 16,
+                            fontSize: 'var(--text-base)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-900)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {result.testName}
@@ -53,8 +53,8 @@ export function ResultCard({
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: 13,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {[
@@ -71,7 +71,7 @@ export function ResultCard({
 
                 <span
                     style={{
-                        fontSize: 11,
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         letterSpacing: '.05em',
@@ -102,11 +102,11 @@ export function ResultCard({
                     <p
                         style={{
                             margin: 0,
-                            fontSize: 11,
+                            fontSize: 'var(--text-xs)',
                             fontWeight: 700,
                             textTransform: 'uppercase',
                             letterSpacing: '.05em',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {labels.interpretation}
@@ -114,8 +114,8 @@ export function ResultCard({
                     <p
                         style={{
                             margin: '6px 0 0',
-                            fontSize: 14,
-                            color: 'var(--wc-gray-800)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-primary)',
                             whiteSpace: 'pre-wrap',
                         }}
                     >

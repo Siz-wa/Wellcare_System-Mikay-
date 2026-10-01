@@ -35,7 +35,7 @@ function SectionHeading({
                     margin: '0 0 2px',
                     fontSize: 'var(--text-base)',
                     fontWeight: 700,
-                    color: 'var(--wc-dark)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {title}
@@ -43,8 +43,8 @@ function SectionHeading({
             <p
                 style={{
                     margin: 0,
-                    fontSize: 11,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {intro}
@@ -96,7 +96,7 @@ export function DiagnosticsReport({
                             margin: '0 0 var(--space-3)',
                             fontSize: 'var(--text-sm)',
                             fontWeight: 700,
-                            color: 'var(--wc-gray-800)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         Share of total waiting time
@@ -106,8 +106,8 @@ export function DiagnosticsReport({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: 12,
-                                color: 'var(--wc-gray-400)',
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {diagnosticsCopy.loaWaitEmpty}
@@ -149,7 +149,7 @@ export function DiagnosticsReport({
                             margin: '0 0 var(--space-3)',
                             fontSize: 'var(--text-sm)',
                             fontWeight: 700,
-                            color: 'var(--wc-gray-800)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {diagnosticsCopy.pendingTitle}
@@ -198,7 +198,7 @@ export function DiagnosticsReport({
                         style={{
                             margin: '0 0 var(--space-3)',
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {labBottleneck.dominantStage ? (
@@ -251,8 +251,8 @@ export function DiagnosticsReport({
                     <p
                         style={{
                             margin: 'var(--space-3) 0 0',
-                            fontSize: 11,
-                            color: 'var(--wc-gray-400)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         &ldquo;Stalled&rdquo; counts tests parked at that stage
@@ -267,7 +267,7 @@ export function DiagnosticsReport({
                             margin: '0 0 var(--space-1)',
                             fontSize: 'var(--text-sm)',
                             fontWeight: 700,
-                            color: 'var(--wc-gray-800)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {diagnosticsCopy.capacityTitle}
@@ -275,8 +275,8 @@ export function DiagnosticsReport({
                     <p
                         style={{
                             margin: '0 0 var(--space-3)',
-                            fontSize: 11,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {diagnosticsCopy.capacityIntro} The three busiest
@@ -316,8 +316,8 @@ export function DiagnosticsReport({
             <p
                 style={{
                     margin: 0,
-                    fontSize: 11,
-                    color: 'var(--wc-gray-400)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--wc-text-muted)',
                     maxWidth: '70ch',
                 }}
             >

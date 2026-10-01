@@ -5,7 +5,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import '../css/app.css';
-import { initializeTheme } from '@/hooks/use-appearance';
+import { initializeTypographyPreferences } from '@/hooks/use-typography-preferences';
 
 // Must run before any request goes out. Import order is hoisted in ESM, so
 // these statements execute after every import regardless of placement.
@@ -37,4 +37,7 @@ createInertiaApp({
     },
 });
 
-initializeTheme();
+// Text size and contrast are already stamped on <html> server-side from the
+// cookie; this re-syncs from localStorage for the case where the cookie was
+// dropped but the device preference survived.
+initializeTypographyPreferences();

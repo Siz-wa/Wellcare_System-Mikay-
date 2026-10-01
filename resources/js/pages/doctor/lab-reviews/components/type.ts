@@ -18,5 +18,8 @@ export interface LabResultDetail {
     status: LabResultStatus;
     patientId: string;
     testParameters: Parameter[];
+    /** The doctor's own reading. Empty until they write one. */
     interpretation: string;
+    /** The nurse's remarks from the lab bench. Read-only here. */
+    nurseNotes: string | null;
 }

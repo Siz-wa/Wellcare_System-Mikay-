@@ -2,8 +2,30 @@
 import { WellcareLogo } from '@/design-system/components/navbar';
 import { loginBrandData, trustItems } from './login-data';
 
-export default function LoginBrandPanel() {
-    const { pill, heading, desc, copyright } = loginBrandData;
+/**
+ * The brand column shared by every full-page auth screen.
+ *
+ * Defaults to the sign-in copy, which is what it was written for. The
+ * two-factor challenge and the password-confirmation step pass their own
+ * wording: those screens interrupt somebody mid-task, and telling them "Your
+ * Health, In Your Hands" while they are being asked for a security code reads
+ * as a page that has not noticed what it is doing.
+ */
+interface LoginBrandPanelProps {
+    pill?: string;
+    heading?: { line1: string; line2: string };
+    desc?: string;
+}
+
+export default function LoginBrandPanel({
+    pill: pillOverride,
+    heading: headingOverride,
+    desc: descOverride,
+}: LoginBrandPanelProps = {}) {
+    const { copyright } = loginBrandData;
+    const pill = pillOverride ?? loginBrandData.pill;
+    const heading = headingOverride ?? loginBrandData.heading;
+    const desc = descOverride ?? loginBrandData.desc;
 
     return (
         <div

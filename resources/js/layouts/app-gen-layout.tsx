@@ -23,7 +23,9 @@ export default function WellcareLayout({
                 <Navbar active={activeNav} />
 
                 {/* .wc-page__content → flex: 1 so footer always sticks to bottom */}
-                <main className="wc-page__content">{children}</main>
+                <main id="main-content" className="wc-page__content">
+                    {children}
+                </main>
 
                 <Footer />
             </div>

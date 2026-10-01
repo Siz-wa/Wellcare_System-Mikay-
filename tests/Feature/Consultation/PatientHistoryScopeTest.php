@@ -7,7 +7,7 @@ use App\Models\Patient;
 /**
  * The security boundary around `/doctor/consultations/patient-history`.
  *
- * This endpoint takes an email address and returns a patient's last 20
+ * This endpoint takes a patient record id and returns a patient's last 20
  * completed consultations *in full* — SOAP narrative, vitals and
  * prescriptions. Until this test existed its only guard was `role:doctor`,
  * which answers "is this user a doctor?" and never "is this user *this
@@ -60,7 +60,7 @@ beforeEach(function () {
 
 it('returns a doctor their own completed consultation history', function () {
     $this->actingAs($this->doctor)
-        ->getJson('/doctor/consultations/patient-history?email=alice.reyes@example.com')
+        ->getJson('/doctor/consultations/patient-history?patient_id='.$this->record->id)
         ->assertOk()
         ->assertJsonCount(1, 'history')
         ->assertJsonPath('history.0.id', $this->appointment->id)
@@ -79,17 +79,36 @@ it('still honours exclude_id for the owning doctor', function () {
         ]);
 
     $this->actingAs($this->doctor)
-        ->getJson("/doctor/consultations/patient-history?email=alice.reyes@example.com&exclude_id={$second->id}")
+        ->getJson("/doctor/consultations/patient-history?patient_id={$this->record->id}&exclude_id={$second->id}")
         ->assertOk()
         ->assertJsonCount(1, 'history')
         ->assertJsonPath('history.0.id', $this->appointment->id);
+});
+
+it('keeps a child\'s history apart from a parent who books under the same email', function () {
+    // Guarantors book dependents under their own address. Matching on email
+    // merged both people's SOAP notes and prescriptions into one history.
+    $child = Patient::factory()->forGuarantor($this->guarantor)->create(['first_name' => 'Ben']);
+    $childVisit = Appointment::factory()->forPatient($child)->forDoctor($this->doctor)->create([
+        'email' => 'alice.reyes@example.com',
+        'status' => 'completed',
+        'appointment_date' => now()->subDays(3)->toDateString(),
+    ]);
+
+    $response = $this->actingAs($this->doctor)
+        ->getJson("/doctor/consultations/patient-history?patient_id={$child->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'history')
+        ->assertJsonPath('history.0.id', $childVisit->id);
+
+    expect($response->getContent())->not->toContain('PATIENT-NARRATIVE-SENTINEL');
 });
 
 // ── The boundary ──────────────────────────────────────────────────────────────
 
 it('returns nothing to a doctor who did not attend the consultation', function () {
     $response = $this->actingAs($this->otherDoctor)
-        ->getJson('/doctor/consultations/patient-history?email=alice.reyes@example.com')
+        ->getJson('/doctor/consultations/patient-history?patient_id='.$this->record->id)
         ->assertOk()
         ->assertJsonCount(0, 'history');
 
@@ -114,7 +133,7 @@ it('does not leak history through a second doctors own appointment for the same 
         ]);
 
     $response = $this->actingAs($this->otherDoctor)
-        ->getJson('/doctor/consultations/patient-history?email=alice.reyes@example.com')
+        ->getJson('/doctor/consultations/patient-history?patient_id='.$this->record->id)
         ->assertOk()
         ->assertJsonCount(1, 'history')
         ->assertJsonPath('history.0.id', $theirs->id);
@@ -126,11 +145,11 @@ it('does not leak history through a second doctors own appointment for the same 
 
 it('refuses the history endpoint to every non-doctor role', function (string $role) {
     $this->actingAs(userWithRole($role))
-        ->getJson('/doctor/consultations/patient-history?email=alice.reyes@example.com')
+        ->getJson('/doctor/consultations/patient-history?patient_id='.$this->record->id)
         ->assertForbidden();
 })->with(['user', 'nurse', 'hr', 'admin']);
 
 it('sends a guest to login rather than the history endpoint', function () {
-    $this->get('/doctor/consultations/patient-history?email=alice.reyes@example.com')
+    $this->get('/doctor/consultations/patient-history?patient_id='.$this->record->id)
         ->assertRedirect('/login');
 });

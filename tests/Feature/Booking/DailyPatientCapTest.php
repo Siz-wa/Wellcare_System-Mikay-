@@ -150,3 +150,13 @@ it('caps each doctor separately', function () {
         ->and($this->booking->getAvailableSlots($otherDoctor->id, $this->date->toDateString()))
         ->not->toBeEmpty();
 });
+
+it('reports the doctor\'s own remaining places, separately from the patient\'s allowance', function () {
+    // "3 of 5 left" used to be min(doctor places, patient allowance), so a
+    // doctor with nothing booked at all read as partly full.
+    $this->actingAs(userWithRole('user'))
+        ->getJson('/appointments/doctor-availability?date='.$this->date->toDateString())
+        ->assertOk()
+        ->assertJsonPath("availability.{$this->doctor->id}.slots_remaining", 5)
+        ->assertJsonPath("availability.{$this->doctor->id}.daily_cap", 5);
+});

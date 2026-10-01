@@ -45,9 +45,8 @@ export function RecordSection({
                             margin: 0,
                             fontSize: 'var(--text-base)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
-                            fontFamily:
-                                "var(--font-display,'Bricolage Grotesque')",
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {title}
@@ -57,7 +56,7 @@ export function RecordSection({
                             style={{
                                 margin: '4px 0 0',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {note}
@@ -80,7 +79,7 @@ export function EmptyNote({ children }: { children: ReactNode }): ReactElement {
                 padding: 'var(--space-4) 0',
                 textAlign: 'center',
                 fontSize: 'var(--text-sm)',
-                color: 'var(--wc-gray-500)',
+                color: 'var(--wc-text-muted)',
             }}
         >
             {children}
@@ -103,7 +102,7 @@ export function ActionButton({
         primary: { bg: 'var(--wc-blue-600)', color: '#fff', border: 'none' },
         ghost: {
             bg: 'var(--wc-gray-50)',
-            color: 'var(--wc-gray-600)',
+            color: 'var(--wc-text-secondary)',
             border: '1px solid var(--wc-gray-200)',
         },
         danger: { bg: '#fef2f2', color: '#dc2626', border: 'none' },

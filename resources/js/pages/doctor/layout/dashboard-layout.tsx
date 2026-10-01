@@ -1,6 +1,7 @@
-// resources/js/layouts/app/DashboardLayout.tsx
+// resources/js/pages/doctor/layout/dashboard-layout.tsx
 
 import type { ReactElement, ReactNode } from 'react';
+import { MobileNavDrawer } from '@/design-system/components/mobile-nav-drawer';
 import { AppSidebar } from './AppSidebar';
 import { AppTopbar } from './AppTopbar';
 
@@ -9,56 +10,46 @@ interface DashboardLayoutProps {
     children: ReactNode;
 }
 
+/**
+ * Sidebar at >= 768px, off-canvas drawer below it.
+ *
+ * See HRDashboardLayout for the shared reasoning. The doctor shell additionally
+ * kept its own translucent wrapper around the topbar, which is preserved — the
+ * other three roles let AppTopbar carry its own backdrop.
+ */
 export function DashboardLayout({
     activeId,
     children,
 }: DashboardLayoutProps): ReactElement {
     return (
-        <div
-            style={{
-                display: 'flex',
-                minHeight: '100vh',
-                background: 'var(--wc-gray-50)',
-                fontFamily: "var(--font-sans, 'DM Sans')",
-            }}
-        >
-            {/* ── Sidebar (Fixed) ────────────────────────────────────────────── */}
-            <AppSidebar activeId={activeId} />
+        <div className="flex min-h-[100dvh] bg-wc-gray-50 font-sans">
+            <div className="hidden shrink-0 md:block">
+                <AppSidebar activeId={activeId} />
+            </div>
 
-            {/* ── Scrollable Right Column ────────────────────────────────────── */}
-            <div
-                style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minWidth: 0,
-                    height: '100vh',
-                    overflowY: 'auto', // Right column handles the scroll now
-                    position: 'relative',
-                }}
-            >
-                {/* Sticky Topbar Wrapper */}
+            <div className="relative flex min-w-0 flex-1 flex-col">
                 <div
+                    className="sticky top-0 border-b border-b-black/5"
                     style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 100,
-                        background: 'rgba(249, 250, 251, 0.8)', // Semi-transparent version of var(--wc-gray-50)
+                        zIndex: 'var(--z-overlay)',
+                        // A semi-transparent --wc-gray-50.
+                        background: 'rgba(249, 250, 251, 0.8)',
                         backdropFilter: 'blur(12px)',
                         WebkitBackdropFilter: 'blur(12px)',
-                        borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
                     }}
                 >
-                    <AppTopbar />
+                    <AppTopbar
+                        navSlot={
+                            <MobileNavDrawer label="Doctor navigation">
+                                <AppSidebar activeId={activeId} />
+                            </MobileNavDrawer>
+                        }
+                    />
                 </div>
 
-                {/* Main Content Area */}
                 <main
-                    style={{
-                        flex: 1,
-                        padding: 'var(--space-8)',
-                        paddingTop: 'var(--space-4)', // Reduced slightly since Topbar provides some spacing
-                    }}
+                    id="main-content"
+                    className="flex-1 px-4 pt-4 pb-8 md:px-8"
                 >
                     {children}
                 </main>

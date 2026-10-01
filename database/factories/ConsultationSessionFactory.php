@@ -36,6 +36,11 @@ class ConsultationSessionFactory extends Factory
             'oxygen_saturation' => '98',
             'weight' => '70',
             'height' => '175',
+            // Paired with `mode` above, and every virtual state below overrides
+            // it. A virtual session carrying `clinic_measured` would be a row
+            // that cannot exist -- nobody holds a cuff on a video call -- and a
+            // factory that can build one lets a test pass on it.
+            'vitals_source' => 'clinic_measured',
         ];
     }
 
@@ -57,7 +62,10 @@ class ConsultationSessionFactory extends Factory
     /** A virtual session with a room minted but no call opened yet. */
     public function virtual(): static
     {
-        return $this->state(fn () => ['mode' => 'virtual']);
+        return $this->state(fn () => [
+            'mode' => 'virtual',
+            'vitals_source' => 'patient_reported',
+        ]);
     }
 
     /** Room open, patient has not connected. This is what `openVirtualRoom` produces. */
@@ -65,6 +73,7 @@ class ConsultationSessionFactory extends Factory
     {
         return $this->state(fn () => [
             'mode' => 'virtual',
+            'vitals_source' => 'patient_reported',
             'room_id' => (string) Str::uuid(),
             'consultation_status' => 'waiting',
             'started_at' => now(),
@@ -77,6 +86,7 @@ class ConsultationSessionFactory extends Factory
     {
         return $this->state(fn () => [
             'mode' => 'virtual',
+            'vitals_source' => 'patient_reported',
             'room_id' => (string) Str::uuid(),
             'consultation_status' => 'active',
             'started_at' => now()->subMinutes(5),
@@ -93,6 +103,7 @@ class ConsultationSessionFactory extends Factory
     {
         return $this->state(fn () => [
             'mode' => 'virtual',
+            'vitals_source' => 'patient_reported',
             'room_id' => (string) Str::uuid(),
             'consultation_status' => 'ended',
             'started_at' => now()->subMinutes(20),

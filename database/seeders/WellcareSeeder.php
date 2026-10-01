@@ -10,6 +10,7 @@ use App\Models\DoctorProfile;
 use App\Models\Patient;
 use App\Models\PatientAllergy;
 use App\Models\PatientDiagnosis;
+use App\Models\Service;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -60,10 +61,19 @@ class WellcareSeeder extends Seeder
 
     private const BRANCH = 'Wellcare Dasmarinas';
 
-    private const SERVICES = [
-        'general', 'cardiology', 'dermatology', 'pediatrics',
-        'ob-gyne', 'laboratory', 'imaging', 'physical-therapy',
-    ];
+    /**
+     * Every bookable service, read from the catalogue rather than re-listed.
+     *
+     * The hand-written copy this replaces was missing internal medicine,
+     * orthopedics and preventive care, so no seeded appointment ever exercised
+     * them and the gap in the booking dropdown had nothing to reveal it.
+     *
+     * @return array<int, string>
+     */
+    private static function services(): array
+    {
+        return Service::bookableSlugs();
+    }
 
     private const COVERAGES = ['cash', 'cash', 'cash', 'philhealth', 'hmo'];
 
@@ -467,7 +477,8 @@ class WellcareSeeder extends Seeder
                 $time = self::TIME_SLOTS[array_rand(self::TIME_SLOTS)];
 
                 $coverage = self::COVERAGES[array_rand(self::COVERAGES)];
-                $service = self::SERVICES[array_rand(self::SERVICES)];
+                $services = self::services();
+                $service = $services[array_rand($services)];
 
                 $appointment = Appointment::create([
                     'user_id' => $user->id,

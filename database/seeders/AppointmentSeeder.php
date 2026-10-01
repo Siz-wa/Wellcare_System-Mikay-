@@ -8,24 +8,31 @@ use App\Models\Patient;
 use App\Models\PatientAllergy;
 use App\Models\PatientDiagnosis;
 use App\Models\PatientDocument;
+use App\Models\Service;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
 class AppointmentSeeder extends Seeder
 {
-    private const SERVICES = [
-        'General Consultation',
-        'Follow-up Consultation',
-        'Blood Pressure Monitoring',
-        'Diabetes Management',
-        'Pediatric Check-up',
-        'Wound Care',
-        'ECG',
-        'Physical Examination',
-        'Vaccination',
-        'Prescription Renewal',
-    ];
+    /**
+     * Seeded appointments use the bookable vocabulary, not a prose one.
+     *
+     * This list used to hold display strings — "Wound Care", "ECG",
+     * "Prescription Renewal" — none of which a patient can select, so the demo
+     * data described a clinic that did not match the booking form. Every row
+     * written here is now a service somebody could actually have booked.
+     *
+     * Read from the catalogue rather than re-listed, so a clinic that has
+     * edited its services gets demo data matching the services it offers.
+     * ServiceSeeder runs first; see DatabaseSeeder.
+     *
+     * @return array<int, string>
+     */
+    private static function services(): array
+    {
+        return Service::bookableSlugs();
+    }
 
     private const TIMES = [
         '8:00 AM',  '8:30 AM',  '9:00 AM',  '9:30 AM',
@@ -95,7 +102,8 @@ class AppointmentSeeder extends Seeder
             // gave every patient the same doctor at the same time on the same
             // date, which double-books the slot — the unique index rejects it.
             $doctor = $doctorList[($patientIndex * count(self::SLOT_OFFSETS) + $i) % $doctorCount];
-            $service = self::SERVICES[$i % count(self::SERVICES)];
+            $services = self::services();
+            $service = $services[$i % count($services)];
             $time = self::TIMES[($patientIndex + $i) % $timeCount];
             $date = Carbon::today()->addDays($slot['days']);
             $status = $slot['status'];
@@ -150,6 +158,20 @@ class AppointmentSeeder extends Seeder
                 'cancellation_reason' => $status === 'cancelled' ? 'Doctor unavailable on this date.' : null,
             ]);
 
+            // The HMO queue reads `loa_requests`, not `appointments.status`.
+            //
+            // It used to read the status column, and when the LOA workflow
+            // moved to its own table this seeder was left behind: it kept
+            // producing `pending_hmo_approval` appointments with no matching
+            // request row, so HMO Approvals rendered "No pending LOA requests"
+            // on a freshly seeded database while five appointments sat waiting,
+            // and the admin dashboard tile — which counts the table — read 0
+            // against them. OB-04 of the 2026-09-11 governance walkthrough, and
+            // exactly the empty queue the comment above already argues against.
+            if ($coverage === 'hmo') {
+                $this->seedLoaRequest($appointment, $status);
+            }
+
             if ($status === 'completed') {
                 $this->seedConsultationSession($appointment, $doctor, $patient);
             }
@@ -160,6 +182,48 @@ class AppointmentSeeder extends Seeder
         }
     }
 
+    // ---- LOA request ---------------------------------------------------------
+
+    /**
+     * The LOA record behind an HMO appointment.
+     *
+     * Mirrors what LoaService::submit() writes during a real booking, then
+     * settles it to match the appointment it belongs to — an appointment still
+     * at `pending_hmo_approval` keeps a `submitted` LOA so it appears in the HR
+     * queue; one that has moved past that stage carries the approval that let
+     * it through. A seeded appointment whose LOA disagreed with its own status
+     * would be worse than no LOA at all.
+     */
+    private function seedLoaRequest(Appointment $appointment, string $status): void
+    {
+        if ($appointment->loaRequest()->exists()) {
+            return;
+        }
+
+        $awaitingHr = $status === 'pending_hmo_approval';
+        $requestedAt = Carbon::parse($appointment->appointment_date)
+            ->subDays(3)
+            ->setTime(9, 15);
+
+        $approver = $awaitingHr
+            ? null
+            : User::role('hr')->where('is_active', true)->first();
+
+        $appointment->loaRequest()->create([
+            'patient_id' => $appointment->patient_id,
+            'user_id' => $appointment->user_id,
+            'hmo_provider' => $appointment->hmo,
+            'hmo_id' => $appointment->hmo_id,
+            'status' => $awaitingHr ? 'submitted' : 'approved',
+            'requested_at' => $requestedAt,
+            'approved_by' => $approver?->id,
+            'approved_at' => $awaitingHr ? null : $requestedAt->copy()->addHours(6),
+            'valid_until' => $awaitingHr
+                ? null
+                : Carbon::parse($appointment->appointment_date)->addDays(30),
+        ]);
+    }
+
     // ---- Consultation session ------------------------------------------------
 
     private function seedConsultationSession(Appointment $appointment, User $doctor, Patient $patient): void
@@ -168,8 +232,16 @@ class AppointmentSeeder extends Seeder
             return;
         }
 
+        // The session's mode has to follow the appointment's. Seeding every
+        // completed visit as in_person left virtual bookings with a clinic-mode
+        // session, and after provenance landed that row would have claimed a
+        // nurse measured vitals for a consultation held over video.
+        $isVirtual = $appointment->consultation_type === 'virtual';
+
         $session = $appointment->consultationSession()->create([
             'doctor_id' => $doctor->id,
+            'mode' => $isVirtual ? 'virtual' : 'in_person',
+            'vitals_source' => $isVirtual ? 'patient_reported' : 'clinic_measured',
             'subjective' => 'Patient reports '.$this->randomSymptom().'. Onset approximately 3 days ago.',
             'objective' => 'Patient appears well. Alert and oriented. No acute distress noted.',
             'assessment' => $this->randomAssessment(),

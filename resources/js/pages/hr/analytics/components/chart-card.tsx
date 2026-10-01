@@ -34,7 +34,7 @@ const CHART_HEIGHT = 260;
 
 const axisProps = {
     stroke: chartPalette.axis,
-    tick: { fontSize: 11, fill: chartPalette.axis },
+    tick: { fontSize: 'var(--text-xs)', fill: chartPalette.axis },
     tickLine: false,
 } as const;
 
@@ -42,8 +42,8 @@ const tooltipProps = {
     contentStyle: {
         borderRadius: 10,
         border: '1px solid var(--wc-gray-200)',
-        fontSize: 12,
-        fontFamily: "var(--font-body,'DM Sans')",
+        fontSize: 'var(--text-xs)',
+        fontFamily: 'var(--font-sans)',
     },
 } as const;
 
@@ -69,7 +69,7 @@ export function ChartCard({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-800)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {title}
@@ -78,8 +78,8 @@ export function ChartCard({
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: 11,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {hint}
@@ -96,7 +96,7 @@ export function ChartCard({
                         display: 'grid',
                         placeItems: 'center',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {analyticsCopy.emptyChart}
@@ -153,7 +153,7 @@ export function DualTrendLine({
                 <XAxis dataKey="label" {...axisProps} />
                 <YAxis allowDecimals={false} width={32} {...axisProps} />
                 <Tooltip {...tooltipProps} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 'var(--text-xs)' }} />
                 <Line
                     type="monotone"
                     dataKey={keys[0]}
@@ -251,7 +251,7 @@ export function SplitDonut({ data }: { data: Slice[] }): ReactElement {
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
             <PieChart>
                 <Tooltip {...tooltipProps} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 'var(--text-xs)' }} />
                 <Pie
                     data={data}
                     dataKey="value"

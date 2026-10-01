@@ -12,14 +12,15 @@
 // appointmentTime is NOT in Step 1 — it is chosen in Step 2 after selecting
 // a doctor, and is validated there instead.
 
+import { isUnnamedHmoProvider } from '@/lib/hmo-providers';
 import type {
     BookingFormData,
     BookingWindow,
     PatientFormData,
+    ServiceDefinition,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import {
     ageFromBirthdate,
-    MINOR_MAX_AGE,
     supportsVirtual,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 
@@ -42,6 +43,7 @@ export interface PatientDetailsErrors {
 export interface Step1Errors {
     service?: string;
     consultationType?: string;
+    consentTelemedicine?: string;
     appointmentDate?: string;
     // appointmentTime intentionally absent — validated in Step 2
 }
@@ -125,21 +127,16 @@ export function validatePatientDetails(
         e.relationshipNote = 'Please say what the relationship is.';
     }
 
-    // A minor is billed to their guarantor, so the sheet hides the coverage
-    // chooser for them. If one is somehow set anyway, say why it cannot stand.
-    const isMinor = age !== null && age <= MINOR_MAX_AGE;
-
-    if (isMinor && data.defaultCoverage && data.defaultCoverage !== 'cash') {
-        e.defaultCoverage = `A patient aged ${MINOR_MAX_AGE} or under is billed to their guarantor.`;
-
-        return e;
-    }
+    // Minors may carry dependent HMO or PhilHealth coverage; the HMO rules
+    // below apply to them exactly as to adults.
 
     // Coverage is optional here, but naming HMO without the member number would
     // save a prefill that cannot actually be used at the counter.
     if (data.defaultCoverage === 'hmo') {
         if (!data.hmoProvider) {
             e.hmoProvider = 'Please select the HMO provider.';
+        } else if (isUnnamedHmoProvider(data.hmoProvider)) {
+            e.hmoProvider = 'Please type the name of the HMO provider.';
         }
 
         if (!data.hmoId) {
@@ -161,6 +158,7 @@ export function isPatientDetailsValid(data: PatientFormData): boolean {
 function validateStep1(
     data: BookingFormData,
     window: BookingWindow,
+    services: ServiceDefinition[],
 ): Step1Errors {
     const e: Step1Errors = {};
 
@@ -174,10 +172,20 @@ function validateStep1(
         e.consultationType = 'Please choose how you want to be seen.';
     } else if (
         data.consultationType === 'virtual' &&
-        !supportsVirtual(data.service)
+        !supportsVirtual(services, data.service)
     ) {
         e.consultationType =
             'This service requires an in-person visit and cannot be booked as a video consultation.';
+    }
+
+    // SC-4 / C-5. Mirrors BookAppointmentRequest::after(), which is the
+    // enforcement. Checked here so the wizard stops at the step that asks the
+    // question rather than at Submit — the server used to reject this at the
+    // last step, with an error the review screen did not render, and the
+    // patient just watched the button do nothing.
+    if (data.consultationType === 'virtual' && !data.consentTelemedicine) {
+        e.consentTelemedicine =
+            'Please confirm you understand how a video consultation works before booking one.';
     }
 
     // Both bounds come from the server and are already ISO `YYYY-MM-DD`, so a
@@ -207,6 +215,8 @@ function validateStep2(data: BookingFormData): Step2Errors {
     if (data.coverage === 'hmo') {
         if (!data.hmo) {
             e.hmo = 'Please select your HMO provider.';
+        } else if (isUnnamedHmoProvider(data.hmo)) {
+            e.hmo = 'Please type the name of your HMO provider.';
         }
 
         if (!data.hmoId) {
@@ -235,8 +245,10 @@ export interface StepValidators {
 export function useStepValidators(
     data: BookingFormData,
     window: BookingWindow,
+    /** The bookable catalogue, served from the `services` table. */
+    services: ServiceDefinition[],
 ): StepValidators {
-    const errors1 = validateStep1(data, window);
+    const errors1 = validateStep1(data, window, services);
     const errors2 = validateStep2(data);
 
     return {

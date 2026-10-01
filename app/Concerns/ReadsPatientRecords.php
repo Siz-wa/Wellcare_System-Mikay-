@@ -34,7 +34,7 @@ trait ReadsPatientRecords
     protected function patientRecordQuery(Request $request): Builder
     {
         $query = Patient::with(['allergies', 'diagnoses' => fn ($q) => $q->where('status', 'active')])
-            ->withCount(['appointments', 'documents'])
+            ->withCount(Patient::recordCounts())
             ->orderByDesc('created_at');
 
         if ($search = $request->string('search')->toString()) {
@@ -172,7 +172,16 @@ trait ReadsPatientRecords
     }
 
     /**
-     * @return array<string, string>
+     * Vitals plus their provenance.
+     *
+     * `sourceLabel` travels with the numbers on purpose. A blood pressure the
+     * patient read off their own cuff during a video call and one a nurse took
+     * with a clinic cuff are different clinical evidence, and every reader of
+     * this array -- the nurse's record view, the doctor's, the patient's own --
+     * is entitled to know which it is looking at. It is null only for rows
+     * written before the column existed, whose source is genuinely unknown.
+     *
+     * @return array<string, string|null>
      */
     protected function mapVitals(ConsultationSession $session): array
     {
@@ -183,6 +192,8 @@ trait ReadsPatientRecords
             'oxygenSaturation' => $session->oxygen_saturation ?? '',
             'weight' => $session->weight ?? '',
             'height' => $session->height ?? '',
+            'source' => $session->vitals_source,
+            'sourceLabel' => $session->vitalsSourceLabel(),
         ];
     }
 
@@ -199,6 +210,7 @@ trait ReadsPatientRecords
             'address' => $patient->address,
             'contactNumber' => $patient->contact_number,
             'civilStatus' => $patient->civil_status,
+            'bloodType' => $patient->blood_type,
             'clientNumber' => $patient->clinic_id,
             'email' => $patient->email,
         ];
@@ -225,9 +237,12 @@ trait ReadsPatientRecords
             'name' => $p->full_name,
             'initials' => $p->initials,
             'email' => $p->email,
-            'lastUpdate' => $lastAppt
-                ? $lastAppt->appointment_date->format('d M Y')
-                : $p->created_at->format('d M Y'),
+            // Null when there has been no completed visit, NOT the record's
+            // creation date. Both the doctor's and the nurse's record lists
+            // label this column "Last visit", so falling back to `created_at`
+            // told staff that a patient with 0 visits had been seen on the day
+            // their record was made. The UI renders an em dash for null.
+            'lastUpdate' => $lastAppt?->appointment_date?->format('d M Y'),
             'docCount' => $p->documents_count ?? 0,
             'appointmentCount' => $p->appointments_count ?? 0,
             'hasAllergy' => $hasAllergy,

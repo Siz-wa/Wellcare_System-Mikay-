@@ -36,7 +36,7 @@ const Section: React.FC<{
                     fontFamily: 'var(--font-display)',
                     fontSize: 'var(--text-2xl)',
                     fontWeight: 800,
-                    color: 'var(--wc-dark)',
+                    color: 'var(--wc-text-primary)',
                     marginBottom: 'var(--space-2)',
                     letterSpacing: 'var(--tracking-tighter)',
                 }}
@@ -46,7 +46,7 @@ const Section: React.FC<{
             {desc && (
                 <p
                     style={{
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         fontSize: 'var(--text-sm)',
                     }}
                 >
@@ -100,7 +100,7 @@ const Swatch: React.FC<{ color: string; name: string; hex: string }> = ({
             style={{
                 fontSize: 'var(--text-xs)',
                 fontWeight: 700,
-                color: 'var(--wc-gray-700)',
+                color: 'var(--wc-text-secondary)',
             }}
         >
             {name}
@@ -108,7 +108,7 @@ const Swatch: React.FC<{ color: string; name: string; hex: string }> = ({
         <p
             style={{
                 fontSize: 'var(--text-xs)',
-                color: 'var(--wc-gray-400)',
+                color: 'var(--wc-text-muted)',
                 fontFamily: 'monospace',
             }}
         >
@@ -325,6 +325,7 @@ export default function DesignSystemShowcase() {
 
             {/* ── Main Content ─────────────────────────────────────── */}
             <main
+                id="main-content"
                 style={{
                     maxWidth: 'var(--container-xl)',
                     margin: '0 auto',
@@ -353,7 +354,7 @@ export default function DesignSystemShowcase() {
                                         hex: '#0056b3',
                                     },
                                     {
-                                        color: 'var(--wc-sky-500)',
+                                        color: 'var(--wc-link)',
                                         name: 'Secondary',
                                         hex: '#00a8e8',
                                     },
@@ -363,7 +364,7 @@ export default function DesignSystemShowcase() {
                                         hex: '#f8f9fa',
                                     },
                                     {
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                         name: 'Dark',
                                         hex: '#1a1a1a',
                                     },
@@ -418,22 +419,22 @@ export default function DesignSystemShowcase() {
                                 group: 'Semantic',
                                 swatches: [
                                     {
-                                        color: 'var(--wc-success)',
+                                        color: 'var(--wc-text-success)',
                                         name: 'Success',
                                         hex: '#16a34a',
                                     },
                                     {
-                                        color: 'var(--wc-warning)',
+                                        color: 'var(--wc-text-warning)',
                                         name: 'Warning',
                                         hex: '#ca8a04',
                                     },
                                     {
-                                        color: 'var(--wc-error)',
+                                        color: 'var(--wc-text-error)',
                                         name: 'Error',
                                         hex: '#dc2626',
                                     },
                                     {
-                                        color: 'var(--wc-info)',
+                                        color: 'var(--wc-text-info)',
                                         name: 'Info',
                                         hex: '#2563eb',
                                     },
@@ -444,7 +445,7 @@ export default function DesignSystemShowcase() {
                                 <p
                                     className="wc-label"
                                     style={{
-                                        color: 'var(--wc-gray-400)',
+                                        color: 'var(--wc-text-muted)',
                                         marginBottom: 'var(--space-4)',
                                     }}
                                 >
@@ -463,7 +464,7 @@ export default function DesignSystemShowcase() {
                 {/* ── TYPOGRAPHY ──────────────────────── */}
                 <Section
                     title="Typography"
-                    desc="Bricolage Grotesque for display, DM Sans for body text."
+                    desc="Atkinson Hyperlegible Next throughout — designed by the Braille Institute for low-vision readers. Hierarchy comes from size, weight and tracking rather than a second typeface. The scale is floored at 14px and declared in rem, so it scales with the reader’s browser setting and the in-app Text size control."
                 >
                     <Card>
                         <CardBody>
@@ -518,7 +519,7 @@ export default function DesignSystemShowcase() {
                                     family: 'var(--font-body)',
                                 },
                                 {
-                                    label: 'Caption / Label',
+                                    label: 'Caption / Label (14px floor)',
                                     size: 'var(--text-xs)',
                                     weight: 700,
                                     text: 'TRUSTED HEALTHCARE PARTNER',
@@ -552,7 +553,7 @@ export default function DesignSystemShowcase() {
                                             style={{
                                                 fontSize: 'var(--text-xs)',
                                                 fontWeight: 700,
-                                                color: 'var(--wc-gray-400)',
+                                                color: 'var(--wc-text-muted)',
                                                 letterSpacing:
                                                     'var(--tracking-widest)',
                                                 textTransform: 'uppercase',
@@ -571,7 +572,7 @@ export default function DesignSystemShowcase() {
                                                 textTransform: upper
                                                     ? 'uppercase'
                                                     : undefined,
-                                                color: 'var(--wc-dark)',
+                                                color: 'var(--wc-text-primary)',
                                                 lineHeight: 1.15,
                                             }}
                                         >
@@ -602,7 +603,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -636,7 +637,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -667,7 +668,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -709,7 +710,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -777,7 +778,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -805,7 +806,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -830,7 +831,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -883,7 +884,7 @@ export default function DesignSystemShowcase() {
                                     style={{
                                         fontWeight: 700,
                                         fontSize: 'var(--text-sm)',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                         letterSpacing: '0.05em',
                                         textTransform: 'uppercase',
                                     }}
@@ -903,7 +904,7 @@ export default function DesignSystemShowcase() {
                                 </h4>
                                 <p
                                     style={{
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                         fontSize: 'var(--text-sm)',
                                     }}
                                 >
@@ -940,7 +941,7 @@ export default function DesignSystemShowcase() {
                                 </h4>
                                 <p
                                     style={{
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                         fontSize: 'var(--text-sm)',
                                     }}
                                 >
@@ -971,7 +972,7 @@ export default function DesignSystemShowcase() {
                                 </h4>
                                 <p
                                     style={{
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                         fontSize: 'var(--text-sm)',
                                     }}
                                 >
@@ -1072,8 +1073,8 @@ export default function DesignSystemShowcase() {
                                 <p
                                     style={{
                                         fontWeight: 700,
-                                        fontSize: 12,
-                                        color: 'var(--wc-gray-400)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--wc-text-muted)',
                                         letterSpacing: '0.08em',
                                         textTransform: 'uppercase',
                                     }}
@@ -1151,8 +1152,8 @@ export default function DesignSystemShowcase() {
                                 <p
                                     style={{
                                         fontWeight: 700,
-                                        fontSize: 12,
-                                        color: 'var(--wc-gray-400)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--wc-text-muted)',
                                         letterSpacing: '0.08em',
                                         textTransform: 'uppercase',
                                     }}
@@ -1269,7 +1270,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -1299,7 +1300,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -1337,7 +1338,7 @@ export default function DesignSystemShowcase() {
                                     <p
                                         className="wc-label"
                                         style={{
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             marginBottom: 'var(--space-4)',
                                         }}
                                     >
@@ -1389,7 +1390,7 @@ export default function DesignSystemShowcase() {
                                                 style={{
                                                     fontSize: 'var(--text-xs)',
                                                     fontWeight: 700,
-                                                    color: 'var(--wc-gray-500)',
+                                                    color: 'var(--wc-text-muted)',
                                                 }}
                                             >
                                                 {val === 100
@@ -1511,13 +1512,13 @@ export default function DesignSystemShowcase() {
                                 fontFamily: 'var(--font-display)',
                                 fontWeight: 800,
                                 letterSpacing: '-0.03em',
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                             }}
                         >
                             WELLCARE{' '}
                             <span
                                 style={{
-                                    color: 'var(--wc-sky-500)',
+                                    color: 'var(--wc-link)',
                                     fontWeight: 500,
                                 }}
                             >
@@ -1528,7 +1529,7 @@ export default function DesignSystemShowcase() {
                     <p
                         style={{
                             fontSize: 'var(--text-xs)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             fontWeight: 500,
                         }}
                     >

@@ -27,7 +27,7 @@ function StatusBadge({ status }: { status: PatientStatus }): ReactElement {
                 alignItems: 'center',
                 padding: '3px 12px',
                 borderRadius: '100px',
-                fontSize: '11px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
@@ -71,7 +71,7 @@ function PatientAvatar({ patient }: { patient: Patient }): ReactElement {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '13px',
+                fontSize: 'var(--text-sm)',
                 fontWeight: 700,
                 flexShrink: 0,
             }}
@@ -120,9 +120,9 @@ function PatientRow({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: '14px',
+                                fontSize: 'var(--text-sm)',
                                 fontWeight: 600,
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                                 lineHeight: 1.3,
                             }}
                         >
@@ -131,8 +131,8 @@ function PatientRow({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: '12px',
-                                color: 'var(--wc-gray-400)',
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--wc-text-muted)',
                                 lineHeight: 1.3,
                                 marginTop: '2px',
                             }}
@@ -147,8 +147,8 @@ function PatientRow({
             <td
                 style={{
                     padding: '16px 24px',
-                    fontSize: '14px',
-                    color: 'var(--wc-gray-600)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-secondary)',
                     fontWeight: 500,
                 }}
             >
@@ -159,8 +159,8 @@ function PatientRow({
             <td
                 style={{
                     padding: '16px 24px',
-                    fontSize: '14px',
-                    color: 'var(--wc-gray-600)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-secondary)',
                     fontWeight: 500,
                 }}
             >
@@ -249,7 +249,7 @@ export function PatientListCard({ search }: { search: string }): ReactElement {
                             margin: 0,
                             fontSize: 'var(--text-lg)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {meta.listCardTitle}
@@ -259,7 +259,7 @@ export function PatientListCard({ search }: { search: string }): ReactElement {
                         style={{
                             fontSize: 'var(--text-xs)',
                             fontWeight: 700,
-                            color: 'var(--wc-sky-500)',
+                            color: 'var(--wc-link)',
                             textDecoration: 'none',
                             letterSpacing: '0.06em',
                         }}
@@ -293,9 +293,9 @@ export function PatientListCard({ search }: { search: string }): ReactElement {
                                             padding: '12px 24px',
                                             textAlign:
                                                 i === 4 ? 'right' : 'left',
-                                            fontSize: '11px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.08em',
                                             background: 'transparent',
@@ -322,8 +322,8 @@ export function PatientListCard({ search }: { search: string }): ReactElement {
                                         style={{
                                             padding: '40px',
                                             textAlign: 'center',
-                                            color: 'var(--wc-gray-400)',
-                                            fontSize: '14px',
+                                            color: 'var(--wc-text-muted)',
+                                            fontSize: 'var(--text-sm)',
                                         }}
                                     >
                                         No patients found matching "{search}"

@@ -42,7 +42,23 @@ export interface ServiceItem {
     tagline: string;
     desc: string;
     features: string[];
+    /**
+     * Where the card's call to action goes.
+     *
+     * Every `?service=` here must be a slug in SERVICE_CATALOGUE, or the
+     * wizard silently ignores it and the patient lands on a blank dropdown.
+     * Four of these used to point at services that did not exist —
+     * `consultation`, `preventive`, `emergency`, `telemedicine`.
+     */
     href: string;
+    /** CTA wording. Defaults to "Book this service". */
+    cta?: string;
+    /**
+     * True when the destination is the booking wizard, which is gated to
+     * signed-in patients. A card that points somewhere public (the contact
+     * page) sets this false so its CTA is shown to everyone.
+     */
+    requiresBooking?: boolean;
 }
 
 export const servicesData: ServiceItem[] = [
@@ -80,11 +96,24 @@ export const servicesData: ServiceItem[] = [
         id: 'consultations',
         iconKey: 'users',
         color: 'success',
-        title: 'Specialist Consultations',
-        tagline: '50+ specialists, one roof.',
-        desc: 'Access board-certified specialists across cardiology, neurology, oncology, pulmonology, and more — all in-clinic or via telemedicine.',
-        features: ['Cardiology', 'Neurology', 'Oncology', 'Pulmonology'],
-        href: '/book?service=consultation',
+        title: 'Doctor Consultations',
+        tagline: 'Seven specialties, one roof.',
+        // Every name below is a specialty the clinic actually rosters doctors
+        // under, and every one of them is a service in the booking dropdown.
+        // This card used to advertise neurology, oncology and pulmonology --
+        // no doctor on staff holds any of the three -- while omitting family
+        // medicine, which is the largest clinic the branch runs.
+        desc: 'See a family doctor for everyday care, or a board-certified specialist -- in the clinic or by video consultation.',
+        features: [
+            'Family Medicine',
+            'Internal Medicine',
+            'Pediatrics',
+            'OB-Gyne',
+            'Cardiology',
+            'Dermatology',
+            'Orthopedics',
+        ],
+        href: '/book',
     },
     {
         id: 'preventive',
@@ -99,7 +128,7 @@ export const servicesData: ServiceItem[] = [
             'Cancer Screening',
             'Lifestyle Counselling',
         ],
-        href: '/book?service=preventive',
+        href: '/book?service=preventive-care',
     },
     {
         id: 'emergency',
@@ -114,7 +143,11 @@ export const servicesData: ServiceItem[] = [
             'On-Call Specialists',
             'Rapid Turnaround',
         ],
-        href: '/book?service=emergency',
+        href: '/contact',
+        cta: 'Call the clinic',
+        // Walk-in, not bookable: the wizard needs two hours' notice and a
+        // slot on a rostered doctor's day, neither of which an emergency has.
+        requiresBooking: false,
     },
     {
         id: 'telemedicine',
@@ -129,7 +162,7 @@ export const servicesData: ServiceItem[] = [
             'Lab Order Upload',
             'Follow-Up Scheduling',
         ],
-        href: '/book?service=telemedicine',
+        href: '/book?type=virtual',
     },
 ];
 
@@ -161,7 +194,7 @@ export const processData = {
         {
             number: '01',
             title: 'Book Online or by Phone',
-            desc: 'Schedule your appointment in minutes via our portal or by calling +63 (2) 8888-9355. Same-day slots are often available.',
+            desc: 'Schedule your appointment in minutes via our portal or by calling (046) 450-5116. Same-day slots are often available.',
         },
         {
             number: '02',

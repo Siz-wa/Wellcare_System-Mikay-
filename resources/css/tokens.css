@@ -3,7 +3,14 @@
   
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;400;500;600;700;1,9..40,400&display=swap');
+/* Fonts are self-hosted in public/fonts/atkinson and loaded by
+   resources/views/app.blade.php — no Google Fonts request, so the UI is the
+   same with or without internet. Change families there, not here.
+
+   Atkinson Hyperlegible Next (Braille Institute) is used for ALL text. It was
+   designed for readers with low vision: the letterforms disambiguate the pairs
+   that collapse in ordinary grotesques — I/l/1, O/0, b/d, p/q, rn/m — which is
+   the difference between "0.5 mg" and "O.5 mg" on a prescription line. */
 
 :root {
     /* ── BRAND COLORS ─────────────────────────────────────── */
@@ -52,33 +59,73 @@
     --wc-info: #2563eb;
     --wc-info-dark: #1d4ed8;
 
-    /* ── TYPOGRAPHY ───────────────────────────────────────── */
-    --font-display: 'Bricolage Grotesque', sans-serif;
-    --font-body: 'DM Sans', sans-serif;
+    /* ── TYPOGRAPHY ─────────────────────────────────────────
+       The type SCALE itself lives in the `@theme` block in app.css so that a
+       single definition drives both the Tailwind `text-*` utilities and the
+       `var(--text-*)` references in components.css. Do not redeclare --text-*
+       here: this file is unlayered, so it would silently outrank @theme and
+       the utilities and the stylesheet would drift apart.
 
-    --text-xs: 0.75rem; /* 12px */
-    --text-sm: 0.875rem; /* 14px */
-    --text-base: 1rem; /* 16px */
-    --text-lg: 1.125rem; /* 18px */
-    --text-xl: 1.25rem; /* 20px */
-    --text-2xl: 1.5rem; /* 24px */
-    --text-3xl: 1.875rem; /* 30px */
-    --text-4xl: 2.25rem; /* 36px */
-    --text-5xl: 3rem; /* 48px */
-    --text-6xl: 3.75rem; /* 60px */
-    --text-7xl: 4.5rem; /* 72px */
+       Only the family aliases and the non-scale rhythm tokens live here. ── */
 
-    --leading-tight: 1.1;
-    --leading-snug: 1.3;
+    --font-body: var(--font-sans);
+
+    /* Line heights. Body copy sits at or above 1.5 so that the layout already
+       satisfies the WCAG 1.4.12 text-spacing override instead of breaking when
+       a low-vision user applies it. */
+    --leading-none: 1;
+    --leading-tight: 1.2;
+    --leading-snug: 1.35;
     --leading-normal: 1.5;
-    --leading-relaxed: 1.7;
+    --leading-relaxed: 1.65;
+    --leading-loose: 1.8;
 
-    --tracking-tightest: -0.04em;
-    --tracking-tighter: -0.02em;
-    --tracking-tight: -0.01em;
+    /* Tracking. Negative tracking is reserved for large display sizes; body and
+       small text never get it, because tightening is the first thing that fails
+       for a reader with reduced acuity. */
+    --tracking-tightest: -0.022em;
+    --tracking-tighter: -0.016em;
+    --tracking-tight: -0.008em;
     --tracking-normal: 0;
-    --tracking-wide: 0.04em;
+    --tracking-wide: 0.02em;
+    --tracking-wider: 0.06em;
     --tracking-widest: 0.1em;
+
+    /* Measure. Long clinical prose is capped so the eye can find the next line
+       without losing the row. */
+    --measure-narrow: 45ch;
+    --measure-base: 68ch;
+    --measure-wide: 80ch;
+
+    /* ── TEXT COLOR (semantic) ──────────────────────────────
+       Every value below is >= 7:1 on white (WCAG AAA for normal text). The raw
+       --wc-gray-* ramp stays available for borders, icons and fills, but must
+       not be used for text: gray-400 is 2.56:1 and gray-500 is 4.36:1 on the
+       app background, both of which fail for body copy. ── */
+    --wc-text-primary: #0f172a; /* 17.85:1 — headings, values, table cells   */
+    --wc-text-secondary: #334155; /* 10.35:1 — body copy, descriptions        */
+    --wc-text-muted: #475569; /*  7.58:1 — meta, captions, helper text    */
+    --wc-text-inverse: #ffffff; /* on brand-blue / dark surfaces            */
+
+    /* On the dark footer and the brand sidebars the muted role has to get
+       LIGHTER, not darker. --wc-text-muted (#475569) would be 1.9:1 there. */
+    --wc-text-muted-inverse: #cbd5e1; /* 12.02:1 on --wc-gray-900 */
+    --wc-accent-inverse: #38bdf8; /*  8.33:1 on --wc-gray-900 */
+
+    --wc-link: #0056b3; /*  7.04:1 */
+    --wc-link-hover: #003370; /* 12.30:1 — hover RAISES contrast          */
+
+    --wc-text-success: #166534; /*  7.13:1 */
+    --wc-text-warning: #713f12; /*  8.67:1 */
+    --wc-text-error: #991b1b; /*  8.31:1 */
+    --wc-text-info: #1e40af; /*  8.72:1 */
+
+    /* ── ACCESSIBILITY CONTROLS ─────────────────────────────
+       Driven by data-text-size / data-contrast on <html>; see base.css and
+       resources/js/hooks/use-typography-preferences.tsx. ── */
+    --wc-text-scale: 1;
+    --wc-focus-ring-width: 3px;
+    --wc-focus-ring-offset: 2px;
 
     /* ── SPACING ──────────────────────────────────────────── */
     --space-1: 0.25rem; /* 4px  */
@@ -118,13 +165,36 @@
     --shadow-sky: 0 16px 40px -8px rgb(0 168 232 / 0.22);
     --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
 
-    /* ── Z-INDEX ──────────────────────────────────────────── */
+    /* ── Z-INDEX ──────────────────────────────────────────────
+       One ordered scale, lowest layer first. Read it top to bottom and the
+       rule is the whole design: anything further down covers anything above
+       it.
+
+       The order used to be wrong in a way that only showed up in one place.
+       `--z-modal` sat at 1000, BELOW `--z-nav` at 5000, so a modal rendered
+       under the header; the Radix primitives worked around that by stacking
+       themselves at `calc(var(--z-nav) + 10)` and their dropdowns at
+       `+ 20`, which fixed those two surfaces and left the scale itself
+       inverted. AdminModal then picked 9998 — a number chosen to beat the
+       nav, which also beat the dropdown layer — and every Select inside an
+       admin form opened *behind* the dialog that owned it.
+
+       So: modals clear the nav, popovers clear modals, and a toast clears
+       everything, because a toast is how the app reports that the thing in
+       the modal succeeded or failed.
+
+       Gaps of 1000 leave room for a surface that must sit between two
+       layers without another magic number being invented for it. */
     --z-base: 1;
     --z-raised: 10;
     --z-overlay: 100;
-    --z-modal: 1000;
-    --z-toast: 2000;
     --z-nav: 5000;
+    --z-modal: 6000;
+    /* Portalled popper panels — Select, DropdownMenu, Tooltip. They render as
+       children of <body>, so they escape the modal's stacking context and have
+       to out-rank it here rather than inheriting from their trigger. */
+    --z-popover: 7000;
+    --z-toast: 8000;
 
     /* ── TRANSITIONS ──────────────────────────────────────── */
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);

@@ -95,6 +95,12 @@ class PatientConsultationController extends Controller
         // Still never renders the video console for a dead room: a page that
         // connects to nothing is the hardest failure to diagnose from a phone.
         $closedBecause = match (true) {
+            // Ahead of `not_open`, because the two are both "no room yet" and
+            // only one of them tells the patient what to do about it. An
+            // unsettled visit has no session precisely BECAUSE gate G5 refused
+            // to open one, so reporting it as "not open" would hide the reason
+            // behind the symptom.
+            ! $appointment->isSettledForConsultation() => 'unpaid',
             $session === null => 'not_open',
             $session->isFinalized() => 'finalized',
             ! $session->isLive() => 'ended',
@@ -102,9 +108,21 @@ class PatientConsultationController extends Controller
         };
 
         if ($closedBecause !== null) {
+            $payment = $appointment->paymentVerification;
+
             return Inertia::render('user/consultations/closed', [
                 'appointment' => $this->appointmentProps($appointment),
                 'reason' => $closedBecause,
+                // Only ever non-null on the `unpaid` branch. The closed page
+                // needs the amount and the reference to be worth reading —
+                // "you have not paid" with no figure and no number to quote at
+                // the counter is a dead end.
+                'payment' => $closedBecause === 'unpaid' && $payment !== null ? [
+                    'reference' => $payment->payment_reference,
+                    'amountDue' => (float) $payment->amount_due,
+                    'status' => $payment->status,
+                    'dueAt' => $payment->due_at?->format('d M Y, g:i A'),
+                ] : null,
             ]);
         }
 

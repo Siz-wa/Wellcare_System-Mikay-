@@ -32,7 +32,7 @@ export function AdminTable({
                 style={{
                     padding: 'var(--space-10) var(--space-6)',
                     textAlign: 'center',
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                     fontSize: 'var(--text-sm)',
                 }}
             >
@@ -58,11 +58,11 @@ export function AdminTable({
                                 style={{
                                     textAlign: 'left',
                                     padding: '10px 12px',
-                                    fontSize: '10px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
                                     letterSpacing: '0.12em',
                                     textTransform: 'uppercase',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     borderBottom: '1px solid #e2e8f0',
                                     whiteSpace: 'nowrap',
                                 }}
@@ -90,7 +90,7 @@ export function AdminTableCell({
             style={{
                 padding: '12px',
                 borderBottom: '1px solid #f1f5f9',
-                color: 'var(--wc-dark)',
+                color: 'var(--wc-text-primary)',
                 verticalAlign: 'middle',
                 whiteSpace: nowrap ? 'nowrap' : 'normal',
             }}

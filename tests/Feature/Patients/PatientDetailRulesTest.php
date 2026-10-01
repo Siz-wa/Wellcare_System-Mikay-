@@ -89,7 +89,9 @@ it('reports the age as of today, not as of when the record was typed', function 
 
 // ── Minors and coverage ───────────────────────────────────────────────────────
 
-it('refuses to store a coverage other than cash for a minor', function (string $coverage) {
+it('lets a minor carry dependent coverage on a parent\'s plan', function (string $coverage) {
+    // Children in the Philippines are routinely HMO or PhilHealth dependents
+    // with their own member number; forcing every minor to self-pay was a gap.
     $this->actingAs($this->guarantor)
         ->post('/user/patients', ($this->payload)([
             'birthdate' => now()->subYears(8)->toDateString(),
@@ -97,10 +99,10 @@ it('refuses to store a coverage other than cash for a minor', function (string $
             'hmoProvider' => 'maxicare',
             'hmoId' => 'MC-123456',
         ]))
-        ->assertSessionHasErrors('default_coverage');
+        ->assertSessionHasNoErrors();
 
-    expect(Patient::count())->toBe(0);
-})->with(['hmo', 'philhealth', 'corporate']);
+    expect(Patient::sole()->default_coverage)->toBe($coverage);
+})->with(['hmo', 'philhealth']);
 
 it('still allows cash for a minor', function () {
     $this->actingAs($this->guarantor)
@@ -121,7 +123,7 @@ it('treats exactly 18 as a minor and 19 as an adult', function () {
         ->and($nineteen->isMinor())->toBeFalse();
 });
 
-it('marks a minor on the booking page so the coverage step can hide the chooser', function () {
+it('marks a minor on the booking page so the coverage step can explain dependent cover', function () {
     Patient::factory()->forGuarantor($this->guarantor)->aged(8)->create();
 
     $this->actingAs($this->guarantor)
@@ -129,9 +131,9 @@ it('marks a minor on the booking page so the coverage step can hide the chooser'
         ->assertInertia(fn ($page) => $page->where('patients.0.isMinor', true));
 });
 
-// ── Minors cannot be booked under their own coverage ─────────────────────────
+// ── Minors can be booked under dependent HMO coverage ────────────────────────
 
-it('refuses a non-cash booking for a minor', function () {
+it('books a minor under dependent HMO coverage, pending LOA approval', function () {
     $doctor = userWithRole('doctor');
     DoctorProfile::create([
         'user_id' => $doctor->id,
@@ -161,9 +163,9 @@ it('refuses a non-cash booking for a minor', function () {
             'hmoId' => 'MC-123456',
             'doctorId' => $doctor->id,
         ])
-        ->assertSessionHasErrors('coverage');
+        ->assertSessionHasNoErrors();
 
-    expect(Appointment::count())->toBe(0);
+    expect(Appointment::sole()->status)->toBe('pending_hmo_approval');
 });
 
 // ── "Other" needs saying ──────────────────────────────────────────────────────

@@ -169,8 +169,12 @@ export function VideoStage({
                             pointerEvents: 'none',
                         }}
                     >
-                        <strong style={{ fontSize: 16 }}>{copy.title}</strong>
-                        <span style={{ fontSize: 14, opacity: 0.9 }}>
+                        <strong style={{ fontSize: 'var(--text-base)' }}>
+                            {copy.title}
+                        </strong>
+                        <span
+                            style={{ fontSize: 'var(--text-sm)', opacity: 0.9 }}
+                        >
                             {error ?? copy.body}
                         </span>
                     </div>
@@ -224,10 +228,15 @@ export function VideoStage({
                             font: 'inherit',
                         }}
                     >
-                        <strong style={{ fontSize: 16 }}>
+                        <strong style={{ fontSize: 'var(--text-base)' }}>
                             {consultationRoomMeta.audioBlockedTitle}
                         </strong>
-                        <span style={{ fontSize: 13, opacity: 0.85 }}>
+                        <span
+                            style={{
+                                fontSize: 'var(--text-sm)',
+                                opacity: 0.85,
+                            }}
+                        >
                             {consultationRoomMeta.audioBlockedBody}
                         </span>
                     </button>
@@ -246,7 +255,7 @@ export function VideoStage({
                             borderRadius: 999,
                             background: 'rgba(15,23,42,0.72)',
                             color: '#e2e8f0',
-                            fontSize: 12,
+                            fontSize: 'var(--text-xs)',
                             fontFamily: 'ui-monospace, Consolas, monospace',
                         }}
                     >
@@ -281,7 +290,7 @@ export function VideoStage({
                             justifyContent: 'center',
                             background: '#0f172a',
                             color: '#94a3b8',
-                            fontSize: 15,
+                            fontSize: 'var(--text-base)',
                             pointerEvents: 'none',
                         }}
                     >
@@ -299,7 +308,7 @@ export function VideoStage({
                             borderRadius: 999,
                             background: 'var(--wc-error)',
                             color: '#fff',
-                            fontSize: 12,
+                            fontSize: 'var(--text-xs)',
                             fontWeight: 600,
                             pointerEvents: 'none',
                         }}
@@ -401,8 +410,8 @@ export function VideoStage({
                 <span
                     style={{
                         marginLeft: 'var(--space-2)',
-                        fontSize: 13,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {remoteLabel}
@@ -414,8 +423,8 @@ export function VideoStage({
                     style={{
                         margin: 0,
                         textAlign: 'center',
-                        fontSize: 13,
-                        color: 'var(--wc-error)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-error)',
                     }}
                 >
                     {consultationRoomMeta.audioOnlyNotice}
@@ -431,8 +440,8 @@ export function VideoStage({
                     style={{
                         margin: 0,
                         textAlign: 'center',
-                        fontSize: 12,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {consultationRoomMeta.headphoneAdvisory}

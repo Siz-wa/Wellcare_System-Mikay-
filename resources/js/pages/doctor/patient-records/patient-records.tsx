@@ -101,7 +101,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                         color: '#b91c1c',
                         padding: '3px 10px',
                         borderRadius: '100px',
-                        fontSize: '10px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 800,
                         border: '1px solid #fecaca',
                         display: 'flex',
@@ -118,7 +118,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
             <h3
                 style={{
                     margin: '0 0 4px',
-                    fontSize: '1.1rem',
+                    fontSize: 'var(--text-lg)',
                     fontWeight: 700,
                     color: hovered ? 'var(--wc-blue-600)' : 'var(--wc-dark)',
                     transition: 'color 0.22s ease',
@@ -132,7 +132,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                 style={{
                     margin: '0 0 var(--space-5)',
                     fontSize: 'var(--text-xs)',
-                    color: 'var(--wc-gray-400)',
+                    color: 'var(--wc-text-muted)',
                     fontWeight: 600,
                 }}
             >
@@ -155,7 +155,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                 >
                     <span
                         style={{
-                            fontSize: '11px',
+                            fontSize: 'var(--text-xs)',
                             fontWeight: 700,
                             color: '#c2410c',
                         }}
@@ -181,7 +181,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         fontSize: 'var(--text-xs)',
                         fontWeight: 600,
                     }}
@@ -197,14 +197,14 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                         <circle cx="12" cy="12" r="10" />
                         <polyline points="12 6 12 12 16 14" />
                     </svg>
-                    {patient.lastUpdate}
+                    {patient.lastUpdate ?? '—'}
                 </div>
                 <div
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         fontSize: 'var(--text-xs)',
                         fontWeight: 600,
                     }}
@@ -227,7 +227,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         fontSize: 'var(--text-xs)',
                         fontWeight: 600,
                     }}
@@ -250,15 +250,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
             </div>
 
             {/* Footer */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderTop: '1px solid var(--wc-gray-100)',
-                    paddingTop: 'var(--space-4)',
-                }}
-            >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-t-[var(--wc-gray-100)] pt-4">
                 <span
                     style={{
                         display: 'inline-flex',
@@ -268,7 +260,7 @@ function RecordCard({ patient }: { patient: Patient }): ReactElement {
                         color: '#16a34a',
                         padding: '4px 10px',
                         borderRadius: '12px',
-                        fontSize: '10px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 800,
                         border: '1px solid #dcfce7',
                     }}
@@ -332,7 +324,7 @@ export default function PatientRecordsPage(): ReactElement {
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         fontFamily: 'var(--font-display)',
                     }}
                 >
@@ -342,7 +334,7 @@ export default function PatientRecordsPage(): ReactElement {
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-base)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.pageSubtitle}
@@ -380,7 +372,7 @@ export default function PatientRecordsPage(): ReactElement {
                         style={{
                             fontSize: 'var(--text-sm)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         Total Patients
@@ -409,7 +401,7 @@ export default function PatientRecordsPage(): ReactElement {
                         style={{
                             fontSize: 'var(--text-sm)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         Patients with Known Allergies
@@ -433,7 +425,7 @@ export default function PatientRecordsPage(): ReactElement {
                             left: 'var(--space-4)',
                             top: '50%',
                             transform: 'translateY(-50%)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             display: 'flex',
                             pointerEvents: 'none',
                         }}
@@ -481,7 +473,7 @@ export default function PatientRecordsPage(): ReactElement {
                             margin: 0,
                             fontSize: 'var(--text-lg)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {meta.listCardTitle}
@@ -489,7 +481,7 @@ export default function PatientRecordsPage(): ReactElement {
                     <span
                         style={{
                             fontSize: 'var(--text-xs)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             fontWeight: 600,
                         }}
                     >
@@ -509,7 +501,7 @@ export default function PatientRecordsPage(): ReactElement {
                             style={{
                                 margin: 0,
                                 fontSize: 'var(--text-base)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             No patients found.

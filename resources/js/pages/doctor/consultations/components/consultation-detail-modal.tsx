@@ -15,14 +15,26 @@
 
 import type { ReactElement } from 'react';
 import { useState, useEffect } from 'react';
+import { hasAnyVital } from '@/lib/vitals';
+import type { VitalsSource } from '@/lib/vitals';
 import { IconSchedule } from '@/pages/doctor/icons';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Matches `consultation_prescriptions` — and matches what this file already
+ * renders, which reads `rx.name` and `rx.instructions`.
+ *
+ * The old declaration said `{ medication, dosage, duration }`, none of which
+ * exist on the model. It went unnoticed because the only producer was
+ * `mapAppointment()`, which hardcoded `prescriptions => []`: an empty array
+ * satisfies any element type, so the mismatch could not surface until real rows
+ * started flowing in task 1.1.
+ */
 interface Prescription {
-    medication: string;
-    dosage: string;
-    duration: string;
+    id?: string;
+    name: string;
+    instructions: string;
 }
 
 interface SoapData {
@@ -39,6 +51,9 @@ interface VitalsData {
     oxygenSaturation: string;
     weight: string;
     height: string;
+    source: VitalsSource;
+    /** Null only for rows written before provenance was recorded. */
+    sourceLabel: string | null;
 }
 
 interface HistoryVisit {
@@ -56,6 +71,8 @@ interface Consultation {
     id: number;
     patientName: string;
     patientId: string;
+    /** The Patient record's id — visit history is keyed on it, not on email. */
+    patientRecordId?: number | null;
     date: string;
     time: string;
     type: string;
@@ -88,9 +105,9 @@ function SectionHeader({ title }: { title: string }): ReactElement {
         <p
             style={{
                 margin: '0 0 10px',
-                fontSize: '10px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 800,
-                color: 'var(--wc-gray-400)',
+                color: 'var(--wc-text-muted)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
             }}
@@ -105,7 +122,7 @@ function EmptyNote({ text }: { text: string }): ReactElement {
         <p
             style={{
                 margin: 0,
-                fontSize: '13px',
+                fontSize: 'var(--text-sm)',
                 color: 'var(--wc-gray-300)',
                 fontStyle: 'italic',
             }}
@@ -138,9 +155,9 @@ function VitalChip({
             <p
                 style={{
                     margin: '0 0 4px',
-                    fontSize: '10px',
+                    fontSize: 'var(--text-xs)',
                     fontWeight: 700,
-                    color: 'var(--wc-gray-400)',
+                    color: 'var(--wc-text-muted)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                 }}
@@ -151,18 +168,18 @@ function VitalChip({
                 <p
                     style={{
                         margin: 0,
-                        fontSize: '20px',
+                        fontSize: 'var(--text-lg)',
                         fontWeight: 800,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         letterSpacing: '-0.02em',
                     }}
                 >
                     {value}{' '}
                     <span
                         style={{
-                            fontSize: '11px',
+                            fontSize: 'var(--text-xs)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {unit}
@@ -172,7 +189,7 @@ function VitalChip({
                 <p
                     style={{
                         margin: 0,
-                        fontSize: '13px',
+                        fontSize: 'var(--text-sm)',
                         color: 'var(--wc-gray-300)',
                         fontStyle: 'italic',
                     }}
@@ -223,9 +240,9 @@ function SoapBlock({
                 />
                 <span
                     style={{
-                        fontSize: '10px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 800,
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         textTransform: 'uppercase',
                         letterSpacing: '0.07em',
                     }}
@@ -244,8 +261,8 @@ function SoapBlock({
                     <p
                         style={{
                             margin: 0,
-                            fontSize: '13px',
-                            color: 'var(--wc-gray-700)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-secondary)',
                             lineHeight: 1.6,
                             whiteSpace: 'pre-wrap',
                         }}
@@ -263,11 +280,11 @@ function SoapBlock({
 // ── History Panel ─────────────────────────────────────────────────────────────
 
 function HistoryPanel({
-    email,
+    patientRecordId,
     excludeId,
     onClose,
 }: {
-    email: string;
+    patientRecordId: number | null;
     excludeId: number;
     onClose: () => void;
 }): ReactElement {
@@ -283,7 +300,7 @@ function HistoryPanel({
      * one patient's history under another's name. In a medical record that is
      * the kind of bug worth going out of your way to make impossible.
      */
-    const requestKey = `${email}:${excludeId}`;
+    const requestKey = `${patientRecordId}:${excludeId}`;
     const [loaded, setLoaded] = useState<{
         key: string;
         visits: HistoryVisit[];
@@ -292,8 +309,13 @@ function HistoryPanel({
     useEffect(() => {
         let cancelled = false;
 
+        if (patientRecordId === null) {
+            return;
+        }
+
         fetch(
-            `/dashboard/consultations/patient-history?email=${encodeURIComponent(email)}&exclude_id=${excludeId}`,
+            `/doctor/consultations/patient-history?patient_id=${patientRecordId}&exclude_id=${excludeId}`,
+            { headers: { Accept: 'application/json' } },
         )
             .then((r) => r.json())
             .then((data) => {
@@ -310,9 +332,9 @@ function HistoryPanel({
         return () => {
             cancelled = true;
         };
-    }, [requestKey, email, excludeId]);
+    }, [requestKey, patientRecordId, excludeId]);
 
-    const loading = loaded?.key !== requestKey;
+    const loading = patientRecordId !== null && loaded?.key !== requestKey;
     const history = loaded?.key === requestKey ? loaded.visits : [];
 
     return (
@@ -322,7 +344,7 @@ function HistoryPanel({
                 top: 0,
                 right: 0,
                 bottom: 0,
-                width: '360px',
+                width: 'min(360px, 100%)',
                 background: 'var(--wc-white)',
                 borderLeft: '1px solid var(--wc-gray-100)',
                 display: 'flex',
@@ -346,9 +368,9 @@ function HistoryPanel({
                     <p
                         style={{
                             margin: 0,
-                            fontSize: '14px',
+                            fontSize: 'var(--text-sm)',
                             fontWeight: 800,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         Past History
@@ -356,8 +378,8 @@ function HistoryPanel({
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: '11px',
-                            color: 'var(--wc-gray-400)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         Previous completed consultations
@@ -369,7 +391,7 @@ function HistoryPanel({
                         background: 'none',
                         border: 'none',
                         cursor: 'pointer',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         padding: '4px',
                         borderRadius: '6px',
                     }}
@@ -393,8 +415,8 @@ function HistoryPanel({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: '13px',
-                                color: 'var(--wc-gray-400)',
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             Loading history…
@@ -405,9 +427,9 @@ function HistoryPanel({
                         <p
                             style={{
                                 margin: '0 0 4px',
-                                fontSize: '13px',
+                                fontSize: 'var(--text-sm)',
                                 fontWeight: 600,
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             No previous visits
@@ -415,8 +437,8 @@ function HistoryPanel({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: '12px',
-                                color: 'var(--wc-gray-400)',
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             This patient has no other completed consultations on
@@ -475,9 +497,9 @@ function HistoryPanel({
                                             <p
                                                 style={{
                                                     margin: 0,
-                                                    fontSize: '13px',
+                                                    fontSize: 'var(--text-sm)',
                                                     fontWeight: 700,
-                                                    color: 'var(--wc-dark)',
+                                                    color: 'var(--wc-text-primary)',
                                                 }}
                                             >
                                                 {visit.service}
@@ -485,8 +507,8 @@ function HistoryPanel({
                                             <p
                                                 style={{
                                                     margin: '2px 0 0',
-                                                    fontSize: '11px',
-                                                    color: 'var(--wc-gray-400)',
+                                                    fontSize: 'var(--text-xs)',
+                                                    color: 'var(--wc-text-muted)',
                                                 }}
                                             >
                                                 {visit.date} · {visit.time}
@@ -502,7 +524,8 @@ function HistoryPanel({
                                             {hasSoap && (
                                                 <span
                                                     style={{
-                                                        fontSize: '10px',
+                                                        fontSize:
+                                                            'var(--text-xs)',
                                                         fontWeight: 700,
                                                         color: 'var(--wc-blue-600)',
                                                         background:
@@ -527,7 +550,7 @@ function HistoryPanel({
                                                         : 'none',
                                                     transition:
                                                         'transform 0.2s ease',
-                                                    color: 'var(--wc-gray-400)',
+                                                    color: 'var(--wc-text-muted)',
                                                     flexShrink: 0,
                                                 }}
                                             >
@@ -579,9 +602,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: '0 0 2px',
                                                                             fontSize:
-                                                                                '9px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-gray-400)',
+                                                                            color: 'var(--wc-text-muted)',
                                                                             textTransform:
                                                                                 'uppercase',
                                                                         }}
@@ -592,9 +615,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: 0,
                                                                             fontSize:
-                                                                                '12px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-dark)',
+                                                                            color: 'var(--wc-text-primary)',
                                                                         }}
                                                                     >
                                                                         {
@@ -622,9 +645,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: '0 0 2px',
                                                                             fontSize:
-                                                                                '9px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-gray-400)',
+                                                                            color: 'var(--wc-text-muted)',
                                                                             textTransform:
                                                                                 'uppercase',
                                                                         }}
@@ -635,9 +658,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: 0,
                                                                             fontSize:
-                                                                                '12px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-dark)',
+                                                                            color: 'var(--wc-text-primary)',
                                                                         }}
                                                                     >
                                                                         {
@@ -666,9 +689,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: '0 0 2px',
                                                                             fontSize:
-                                                                                '9px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-gray-400)',
+                                                                            color: 'var(--wc-text-muted)',
                                                                             textTransform:
                                                                                 'uppercase',
                                                                         }}
@@ -679,9 +702,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: 0,
                                                                             fontSize:
-                                                                                '12px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-dark)',
+                                                                            color: 'var(--wc-text-primary)',
                                                                         }}
                                                                     >
                                                                         {
@@ -704,8 +727,9 @@ function HistoryPanel({
                                                     <p
                                                         style={{
                                                             margin: 0,
-                                                            fontSize: '12px',
-                                                            color: 'var(--wc-gray-700)',
+                                                            fontSize:
+                                                                'var(--text-xs)',
+                                                            color: 'var(--wc-text-secondary)',
                                                             lineHeight: 1.5,
                                                             whiteSpace:
                                                                 'pre-wrap',
@@ -723,8 +747,9 @@ function HistoryPanel({
                                                     <p
                                                         style={{
                                                             margin: 0,
-                                                            fontSize: '12px',
-                                                            color: 'var(--wc-gray-700)',
+                                                            fontSize:
+                                                                'var(--text-xs)',
+                                                            color: 'var(--wc-text-secondary)',
                                                             lineHeight: 1.5,
                                                             whiteSpace:
                                                                 'pre-wrap',
@@ -765,9 +790,9 @@ function HistoryPanel({
                                                                         style={{
                                                                             margin: 0,
                                                                             fontSize:
-                                                                                '12px',
+                                                                                'var(--text-xs)',
                                                                             fontWeight: 700,
-                                                                            color: 'var(--wc-dark)',
+                                                                            color: 'var(--wc-text-primary)',
                                                                         }}
                                                                     >
                                                                         {
@@ -779,8 +804,8 @@ function HistoryPanel({
                                                                             style={{
                                                                                 margin: '1px 0 0',
                                                                                 fontSize:
-                                                                                    '11px',
-                                                                                color: 'var(--wc-gray-400)',
+                                                                                    'var(--text-xs)',
+                                                                                color: 'var(--wc-text-muted)',
                                                                             }}
                                                                         >
                                                                             {
@@ -842,17 +867,12 @@ export function ConsultationDetailModal({
 
     return (
         <div
+            className="fixed inset-0 flex items-center justify-center p-4 sm:p-6"
             style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
                 backgroundColor: 'rgba(15, 23, 42, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
+                // Was a bare 1000 — below --z-nav (5000), so the sidebar and
+                // topbar rendered on top of the modal.
+                zIndex: 'var(--z-modal)',
                 backdropFilter: 'blur(6px)',
             }}
             onClick={onClose}
@@ -906,7 +926,7 @@ export function ConsultationDetailModal({
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '17px',
+                                    fontSize: 'var(--text-base)',
                                     fontWeight: 800,
                                     color: '#fff',
                                     flexShrink: 0,
@@ -925,9 +945,9 @@ export function ConsultationDetailModal({
                                     <h2
                                         style={{
                                             margin: 0,
-                                            fontSize: '17px',
+                                            fontSize: 'var(--text-base)',
                                             fontWeight: 800,
-                                            color: 'var(--wc-dark)',
+                                            color: 'var(--wc-text-primary)',
                                             letterSpacing: '-0.02em',
                                         }}
                                     >
@@ -935,7 +955,7 @@ export function ConsultationDetailModal({
                                     </h2>
                                     <span
                                         style={{
-                                            fontSize: '11px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
                                             padding: '3px 10px',
                                             borderRadius: '100px',
@@ -957,8 +977,8 @@ export function ConsultationDetailModal({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '12px',
-                                            color: 'var(--wc-gray-400)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 500,
                                         }}
                                     >
@@ -968,8 +988,8 @@ export function ConsultationDetailModal({
                                         <p
                                             style={{
                                                 margin: 0,
-                                                fontSize: '12px',
-                                                color: 'var(--wc-gray-400)',
+                                                fontSize: 'var(--text-xs)',
+                                                color: 'var(--wc-text-muted)',
                                                 fontWeight: 500,
                                             }}
                                         >
@@ -988,8 +1008,8 @@ export function ConsultationDetailModal({
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '4px',
-                                            fontSize: '12px',
-                                            color: 'var(--wc-gray-400)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 500,
                                         }}
                                     >
@@ -1023,7 +1043,7 @@ export function ConsultationDetailModal({
                                     color: showHistory
                                         ? '#fff'
                                         : 'var(--wc-gray-600)',
-                                    fontSize: '13px',
+                                    fontSize: 'var(--text-sm)',
                                     fontWeight: 700,
                                     cursor: 'pointer',
                                     display: 'flex',
@@ -1053,7 +1073,7 @@ export function ConsultationDetailModal({
                                     border: '1px solid var(--wc-gray-200)',
                                     background: 'none',
                                     cursor: 'pointer',
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -1082,7 +1102,7 @@ export function ConsultationDetailModal({
                                     padding: '8px 16px',
                                     border: 'none',
                                     background: 'transparent',
-                                    fontSize: '13px',
+                                    fontSize: 'var(--text-sm)',
                                     fontWeight: tab === t.key ? 700 : 500,
                                     color:
                                         tab === t.key
@@ -1127,13 +1147,7 @@ export function ConsultationDetailModal({
                                 }}
                             >
                                 {/* Service + coverage + patient type */}
-                                <div
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '1fr 1fr 1fr',
-                                        gap: '12px',
-                                    }}
-                                >
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                     <div
                                         style={{
                                             padding: '16px',
@@ -1146,9 +1160,9 @@ export function ConsultationDetailModal({
                                         <p
                                             style={{
                                                 margin: 0,
-                                                fontSize: '14px',
+                                                fontSize: 'var(--text-sm)',
                                                 fontWeight: 700,
-                                                color: 'var(--wc-dark)',
+                                                color: 'var(--wc-text-primary)',
                                             }}
                                         >
                                             {consultation.diagnosis}
@@ -1166,9 +1180,9 @@ export function ConsultationDetailModal({
                                         <p
                                             style={{
                                                 margin: 0,
-                                                fontSize: '14px',
+                                                fontSize: 'var(--text-sm)',
                                                 fontWeight: 700,
-                                                color: 'var(--wc-dark)',
+                                                color: 'var(--wc-text-primary)',
                                                 textTransform: 'capitalize',
                                             }}
                                         >
@@ -1187,9 +1201,9 @@ export function ConsultationDetailModal({
                                         <p
                                             style={{
                                                 margin: 0,
-                                                fontSize: '14px',
+                                                fontSize: 'var(--text-sm)',
                                                 fontWeight: 700,
-                                                color: 'var(--wc-dark)',
+                                                color: 'var(--wc-text-primary)',
                                             }}
                                         >
                                             {consultation.type}
@@ -1210,8 +1224,8 @@ export function ConsultationDetailModal({
                                         <p
                                             style={{
                                                 margin: 0,
-                                                fontSize: '14px',
-                                                color: 'var(--wc-gray-700)',
+                                                fontSize: 'var(--text-sm)',
+                                                color: 'var(--wc-text-secondary)',
                                                 lineHeight: 1.6,
                                                 whiteSpace: 'pre-wrap',
                                             }}
@@ -1223,11 +1237,16 @@ export function ConsultationDetailModal({
                                     )}
                                 </div>
 
-                                {/* Quick vitals snapshot */}
+                                {/* Quick vitals snapshot.
+
+                                    hasAnyVital(), not Object.values(...).some:
+                                    the payload now carries `source` on every
+                                    saved session, so iterating the object would
+                                    report "has vitals" for a visit where nothing
+                                    was ever measured and render a panel of
+                                    dashes. */}
                                 {consultation.vitals &&
-                                    Object.values(consultation.vitals).some(
-                                        (v) => v?.trim(),
-                                    ) && (
+                                    hasAnyVital(consultation.vitals) && (
                                         <div
                                             style={{
                                                 padding: '18px',
@@ -1236,6 +1255,23 @@ export function ConsultationDetailModal({
                                             }}
                                         >
                                             <SectionHeader title="Vitals Snapshot" />
+                                            {consultation.vitals
+                                                .sourceLabel && (
+                                                <p
+                                                    style={{
+                                                        margin: '-4px 0 12px',
+                                                        fontSize:
+                                                            'var(--text-xs)',
+                                                        fontWeight: 600,
+                                                        color: 'var(--wc-text-muted)',
+                                                    }}
+                                                >
+                                                    {
+                                                        consultation.vitals
+                                                            .sourceLabel
+                                                    }
+                                                </p>
+                                            )}
                                             <div
                                                 style={{
                                                     display: 'grid',
@@ -1325,8 +1361,8 @@ export function ConsultationDetailModal({
                                         <p
                                             style={{
                                                 margin: 0,
-                                                fontSize: '13px',
-                                                color: 'var(--wc-gray-600)',
+                                                fontSize: 'var(--text-sm)',
+                                                color: 'var(--wc-text-secondary)',
                                                 lineHeight: 1.6,
                                             }}
                                         >
@@ -1352,9 +1388,9 @@ export function ConsultationDetailModal({
                                             <p
                                                 style={{
                                                     margin: 0,
-                                                    fontSize: '13px',
+                                                    fontSize: 'var(--text-sm)',
                                                     fontWeight: 600,
-                                                    color: 'var(--wc-dark)',
+                                                    color: 'var(--wc-text-primary)',
                                                 }}
                                             >
                                                 {consultation.contactNumber}
@@ -1366,9 +1402,10 @@ export function ConsultationDetailModal({
                                                 <p
                                                     style={{
                                                         margin: 0,
-                                                        fontSize: '13px',
+                                                        fontSize:
+                                                            'var(--text-sm)',
                                                         fontWeight: 600,
-                                                        color: 'var(--wc-dark)',
+                                                        color: 'var(--wc-text-primary)',
                                                     }}
                                                 >
                                                     {consultation.email}
@@ -1382,13 +1419,7 @@ export function ConsultationDetailModal({
 
                         {/* ── SOAP NOTES ── */}
                         {tab === 'soap' && (
-                            <div
-                                style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '1fr 1fr',
-                                    gap: '14px',
-                                }}
-                            >
+                            <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2">
                                 <SoapBlock
                                     label="Subjective"
                                     value={consultation.soap?.subjective ?? ''}
@@ -1414,13 +1445,7 @@ export function ConsultationDetailModal({
 
                         {/* ── VITALS ── */}
                         {tab === 'vitals' && (
-                            <div
-                                style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(3, 1fr)',
-                                    gap: '14px',
-                                }}
-                            >
+                            <div className="grid grid-cols-2 gap-[14px] md:grid-cols-3">
                                 <VitalChip
                                     label="Blood Pressure"
                                     value={
@@ -1465,7 +1490,9 @@ export function ConsultationDetailModal({
                     {/* ── Past History slide-in panel ── */}
                     {showHistory && consultation.email && (
                         <HistoryPanel
-                            email={consultation.email}
+                            patientRecordId={
+                                consultation.patientRecordId ?? null
+                            }
                             excludeId={consultation.id}
                             onClose={() => setShowHistory(false)}
                         />
@@ -1490,11 +1517,11 @@ export function ConsultationDetailModal({
                             padding: '0 20px',
                             borderRadius: '10px',
                             background: 'var(--wc-gray-50)',
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                             fontWeight: 700,
                             border: '1px solid var(--wc-gray-100)',
                             cursor: 'pointer',
-                            fontSize: '13px',
+                            fontSize: 'var(--text-sm)',
                         }}
                     >
                         Close
@@ -1510,7 +1537,7 @@ export function ConsultationDetailModal({
                             fontWeight: 700,
                             border: 'none',
                             cursor: 'pointer',
-                            fontSize: '13px',
+                            fontSize: 'var(--text-sm)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',

@@ -11,6 +11,13 @@ use App\Models\User;
 use App\Services\BookingService;
 use App\Services\LoaService;
 use Carbon\Carbon;
+use Database\Seeders\AdminSeeder;
+use Database\Seeders\AppointmentSeeder;
+use Database\Seeders\DoctorSeeder;
+use Database\Seeders\HrSeeder;
+use Database\Seeders\NurseSeeder;
+use Database\Seeders\PatientSeeder;
+use Database\Seeders\RoleAndPermissionSeeder;
 
 /**
  * The booking → HR → patient LOA workflow (Fig. 6 processes 3 and 4), plus the
@@ -157,6 +164,28 @@ it('releases the appointment to the doctor when HR approves', function () {
         ->and($appointment->status)->toBe('requested');
 });
 
+it('will not approve coverage for a visit whose date has passed', function () {
+    $appointment = ($this->book)();
+    $loa = LoaRequest::firstOrFail();
+    $appointment->update(['appointment_date' => today()->subDays(2)->toDateString()]);
+
+    $this->actingAs($this->hr)
+        ->post("/hr/hmo-approvals/{$loa->id}/approve")
+        ->assertSessionHasErrors('remarks');
+
+    expect($loa->fresh()->status)->toBe('submitted')
+        ->and($appointment->fresh()->status)->toBe('pending_hmo_approval');
+});
+
+it('flags a past-dated request on the HR queue', function () {
+    $appointment = ($this->book)();
+    $appointment->update(['appointment_date' => today()->subDay()->toDateString()]);
+
+    $this->actingAs($this->hr)
+        ->get('/hr/hmo-approvals')
+        ->assertInertia(fn ($page) => $page->where('appointments.0.isPast', true));
+});
+
 it('notifies the guarantor when an LOA is approved', function () {
     $appointment = ($this->book)();
     $loa = LoaRequest::firstOrFail();
@@ -299,4 +328,52 @@ it('keeps an appointment out of the doctor queue until its LOA is approved', fun
     $this->loa->approve($loa, $this->hr);
 
     expect(Appointment::where('status', 'requested')->count())->toBe(1);
+});
+
+/**
+ * OB-04 of the 2026-09-11 governance walkthrough.
+ *
+ * The HMO queue reads `loa_requests`. It used to read `appointments.status`,
+ * and when the workflow moved to its own table AppointmentSeeder was left
+ * behind — so a freshly seeded database produced five appointments sitting at
+ * `pending_hmo_approval` with no request row behind any of them. HR Approvals
+ * rendered "No pending LOA requests" while the queue was notionally full, and
+ * the admin dashboard tile, which counts the table, read 0 against those five.
+ *
+ * The invariant is asserted rather than the seeder's internals: an HMO
+ * appointment without an LOA is the bug, wherever it came from.
+ */
+it('leaves no seeded HMO appointment without an LOA behind it', function () {
+    $this->seed(RoleAndPermissionSeeder::class);
+    $this->seed(AdminSeeder::class);
+    $this->seed(DoctorSeeder::class);
+    $this->seed(HrSeeder::class);
+    $this->seed(NurseSeeder::class);
+    $this->seed(PatientSeeder::class);
+    $this->seed(AppointmentSeeder::class);
+
+    $hmoWithoutLoa = Appointment::where('coverage', 'hmo')
+        ->whereDoesntHave('loaRequest')
+        ->count();
+
+    expect($hmoWithoutLoa)->toBe(0);
+});
+
+it('seeds a queue the HMO officer can actually work', function () {
+    // The seeder's own comment argues an empty queue "reads as a broken page".
+    // This is that comment as an assertion.
+    $this->seed(RoleAndPermissionSeeder::class);
+    $this->seed(AdminSeeder::class);
+    $this->seed(DoctorSeeder::class);
+    $this->seed(HrSeeder::class);
+    $this->seed(NurseSeeder::class);
+    $this->seed(PatientSeeder::class);
+    $this->seed(AppointmentSeeder::class);
+
+    expect(LoaRequest::awaitingApproval()->count())->toBeGreaterThan(0);
+
+    // And every one of those matches an appointment still waiting on HR, so the
+    // queue and the appointment statuses cannot drift apart again.
+    LoaRequest::awaitingApproval()->with('appointment')->get()
+        ->each(fn ($loa) => expect($loa->appointment->status)->toBe('pending_hmo_approval'));
 });

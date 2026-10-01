@@ -53,7 +53,7 @@ export function LoaMonitorRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -64,8 +64,8 @@ export function LoaMonitorRow({
                 <p
                     style={{
                         margin: '2px 0 0',
-                        fontSize: '12px',
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.loaNumber} · {item.patientId} · {item.hmoProvider}
@@ -74,8 +74,8 @@ export function LoaMonitorRow({
                 <p
                     style={{
                         margin: '2px 0 0',
-                        fontSize: '12px',
-                        color: 'var(--wc-gray-400)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.service} · {item.appointmentDate}
@@ -92,7 +92,7 @@ export function LoaMonitorRow({
                         display: 'inline-block',
                         padding: '3px 10px',
                         borderRadius: 999,
-                        fontSize: '11px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 700,
                         background: style.bg,
                         color: style.color,
@@ -104,8 +104,8 @@ export function LoaMonitorRow({
                 <p
                     style={{
                         margin: '4px 0 0',
-                        fontSize: '11px',
-                        color: 'var(--wc-gray-400)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.timeAgo}

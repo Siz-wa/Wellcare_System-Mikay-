@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Nurse;
 use App\Exceptions\InvalidLabTransitionException;
 use App\Http\Controllers\Controller;
 use App\Models\LabTestResult;
+use App\Models\PatientDocument;
 use App\Services\LabResultService;
+use App\Services\PatientDocumentStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +21,10 @@ use Inertia\Response;
  */
 class LabQueueController extends Controller
 {
-    public function __construct(private LabResultService $labResults) {}
+    public function __construct(
+        private LabResultService $labResults,
+        private PatientDocumentStorage $documents,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -60,7 +65,11 @@ class LabQueueController extends Controller
             'parameters.*.unit' => ['nullable', 'string', 'max:50'],
             'parameters.*.ref_range' => ['nullable', 'string', 'max:100'],
             'parameters.*.status' => ['required', Rule::in(['normal', 'abnormal'])],
+            // The analyzer printout. Optional: many results are read off a
+            // screen. Filed on the patient's record as a lab document.
+            'attachment' => ['nullable', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png'],
         ], [
+            'attachment.mimes' => 'The printout must be a PDF or an image (JPG, PNG).',
             'parameters.required' => 'Add at least one test parameter before submitting.',
             'parameters.*.name.required' => 'Every parameter needs a name.',
         ]);
@@ -75,6 +84,25 @@ class LabQueueController extends Controller
             );
         } catch (InvalidLabTransitionException $e) {
             return back()->withErrors(['severity' => $e->getMessage()]);
+        }
+
+        if ($request->hasFile('attachment') && $labTestResult->patient_id) {
+            $file = $request->file('attachment');
+
+            PatientDocument::create([
+                'patient_id' => $labTestResult->patient_id,
+                'user_id' => $labTestResult->patient?->guarantor_id,
+                'appointment_id' => $labTestResult->appointment_id,
+                'uploaded_by' => Auth::id(),
+                'title' => "{$labTestResult->test_name} — analyzer printout",
+                'type' => 'lab',
+                // SC-6: encrypted on disk, like every patient document.
+                'file_path' => $this->documents->store($file, $labTestResult->patient_id),
+                'file_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'is_encrypted' => true,
+            ]);
         }
 
         return back()->with('success', "{$labTestResult->test_name} recorded and sent to the doctor for review.");

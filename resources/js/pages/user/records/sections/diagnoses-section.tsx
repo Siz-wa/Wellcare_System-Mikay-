@@ -56,16 +56,16 @@ export function DiagnosesSection({
                             >
                                 <span
                                     style={{
-                                        fontSize: 15,
+                                        fontSize: 'var(--text-base)',
                                         fontWeight: 600,
-                                        color: 'var(--wc-gray-900)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {diagnosis.diagnosis}
                                 </span>
                                 <span
                                     style={{
-                                        fontSize: 11,
+                                        fontSize: 'var(--text-xs)',
                                         fontWeight: 700,
                                         textTransform: 'uppercase',
                                         letterSpacing: '.05em',
@@ -80,10 +80,10 @@ export function DiagnosesSection({
                                 {diagnosis.icdCode && (
                                     <span
                                         style={{
-                                            fontSize: 12,
+                                            fontSize: 'var(--text-xs)',
                                             fontFamily:
                                                 'ui-monospace, monospace',
-                                            color: 'var(--wc-gray-500)',
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
                                         {labels.icdCode} {diagnosis.icdCode}
@@ -94,8 +94,8 @@ export function DiagnosesSection({
                             <p
                                 style={{
                                     margin: '6px 0 0',
-                                    fontSize: 13,
-                                    color: 'var(--wc-gray-500)',
+                                    fontSize: 'var(--text-sm)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {labels.diagnosedOn} {diagnosis.diagnosedAt}
@@ -105,8 +105,8 @@ export function DiagnosesSection({
                                 <p
                                     style={{
                                         margin: '6px 0 0',
-                                        fontSize: 13,
-                                        color: 'var(--wc-gray-700)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-secondary)',
                                     }}
                                 >
                                     {diagnosis.notes}

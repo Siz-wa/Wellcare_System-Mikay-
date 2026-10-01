@@ -36,7 +36,7 @@ export function AttentionList({
                     margin: '0 0 var(--space-1)',
                     fontSize: 'var(--text-sm)',
                     fontWeight: 700,
-                    color: 'var(--wc-gray-800)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {diagnosticsCopy.attentionTitle}
@@ -44,8 +44,8 @@ export function AttentionList({
             <p
                 style={{
                     margin: '0 0 var(--space-4)',
-                    fontSize: 11,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {diagnosticsCopy.attentionIntro}
@@ -57,7 +57,7 @@ export function AttentionList({
                         padding: 'var(--space-6)',
                         borderRadius: 10,
                         background: 'var(--wc-success-light)',
-                        color: 'var(--wc-success-dark)',
+                        color: 'var(--wc-text-success)',
                         fontSize: 'var(--text-sm)',
                         fontWeight: 500,
                     }}
@@ -101,7 +101,7 @@ export function AttentionList({
                                 <strong
                                     style={{
                                         fontSize: 'var(--text-sm)',
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {item.title}
@@ -111,8 +111,8 @@ export function AttentionList({
                             <p
                                 style={{
                                     margin: 0,
-                                    fontSize: 12,
-                                    color: 'var(--wc-gray-600)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-secondary)',
                                 }}
                             >
                                 {item.evidence}
@@ -128,8 +128,8 @@ export function AttentionList({
                             >
                                 <span
                                     style={{
-                                        fontSize: 12,
-                                        color: 'var(--wc-gray-800)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {item.action}

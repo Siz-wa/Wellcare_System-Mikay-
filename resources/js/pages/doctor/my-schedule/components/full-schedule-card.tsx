@@ -145,7 +145,7 @@ function AppointmentRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 600,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         lineHeight: 1.3,
                     }}
                 >
@@ -155,7 +155,7 @@ function AppointmentRow({
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         lineHeight: 1.3,
                         marginTop: 'var(--space-1)',
                     }}
@@ -169,7 +169,7 @@ function AppointmentRow({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'var(--space-1)',
-                    color: 'var(--wc-gray-400)',
+                    color: 'var(--wc-text-muted)',
                     flexShrink: 0,
                 }}
             >
@@ -190,7 +190,7 @@ function AppointmentRow({
                     style={{
                         fontSize: 'var(--text-sm)',
                         fontWeight: 500,
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {appt.time}
@@ -222,7 +222,7 @@ export default function FullScheduleCard(): ReactElement {
                         margin: 0,
                         fontSize: 'var(--text-lg)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {SCHEDULE_META.scheduleCardTitle}
@@ -232,7 +232,7 @@ export default function FullScheduleCard(): ReactElement {
                     style={{
                         fontSize: 'var(--text-xs)',
                         fontWeight: 700,
-                        color: 'var(--wc-sky-500)',
+                        color: 'var(--wc-link)',
                         textDecoration: 'none',
                         letterSpacing: '0.06em',
                     }}

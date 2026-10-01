@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\ProtectsRetainedRecords;
 use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +34,7 @@ use Illuminate\Support\Str;
 class Patient extends Model
 {
     use HasFactory;
+    use ProtectsRetainedRecords;
     use RecordsActivity;
     use SoftDeletes;
 
@@ -63,15 +65,27 @@ class Patient extends Model
      */
     public const MINOR_MAX_AGE = 18;
 
+    /** Every civil status the clinic records. Separated and annulled added for G-9. */
+    public const CIVIL_STATUSES = ['single', 'married', 'widowed', 'separated', 'annulled'];
+
+    public const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
     protected $fillable = [
         'guarantor_id', 'relationship_to_guarantor', 'relationship_note',
         'first_name', 'last_name', 'email', 'contact_number',
-        'age', 'gender', 'birthdate', 'address', 'civil_status', 'company',
+        'age', 'gender', 'birthdate', 'address', 'civil_status', 'blood_type', 'company',
         'default_coverage', 'hmo_provider', 'hmo_id',
         'clinic_id',
     ];
 
     protected $casts = [
+        // SC-5 — encrypted at rest. See the encrypt_sensitive_clinical_columns
+        // migration for why these columns and not others: anything the app
+        // filters on in SQL stays plaintext, because LIKE over ciphertext
+        // returns nothing rather than failing, and anything audited into
+        // activity_log stays plaintext too, because Spatie reads through the
+        // cast and would just relocate the clear text.
+        'hmo_id' => 'encrypted',
         'birthdate' => 'date',
         'age' => 'integer',
     ];
@@ -151,6 +165,88 @@ class Patient extends Model
         return $this->birthdate?->age ?? $this->age;
     }
 
+    /**
+     * The retention clock starts at this patient's last encounter.
+     *
+     * "Last encounter" is the latest appointment date on record, whatever its
+     * status — a cancelled or no-show visit is still a date on which the clinic
+     * processed this person's data. Falling back to `created_at` covers a
+     * record that exists but has never been booked against.
+     *
+     * Consequence worth stating: booking a new appointment silently extends
+     * retention for the whole record, which is the correct reading of "from the
+     * last encounter" and the reason this is computed rather than stored in a
+     * `retain_until` column that would go stale the moment it was written.
+     */
+    protected function retentionAnchorDate(): ?Carbon
+    {
+        $last = $this->appointments()->max('appointment_date');
+
+        return $last ? Carbon::parse($last) : $this->created_at?->copy();
+    }
+
+    /**
+     * The chart itself is the clinical record, and every child row that is not
+     * laboratory paperwork inherits this period through its own declaration.
+     */
+    protected function retentionPeriodKey(): string
+    {
+        return 'clinical_record';
+    }
+
+    /**
+     * Is this patient under the care of the given staff member?
+     *
+     * SC-2 in WELLCARE-COMPLIANCE-PLAN.md — the "minimum necessary" rule from
+     * RA 10173 and the Health Privacy Code, expressed as a query. Before this
+     * there was nothing to express it with: `Doctor\PatientRecordController::show()`
+     * took a route-bound Patient and applied no relationship check at all, so
+     * any account holding `role:doctor` could read any chart in the clinic.
+     *
+     * ## The definition, and why it is drawn here
+     *
+     * A **doctor** is in relationship with a patient they have an appointment
+     * with. Unassigned appointments (`doctor_id IS NULL`) count, because that is
+     * the pool any available doctor claims from — the same widening
+     * DoctorAppointmentController::authorizeDoctor() already makes deliberately,
+     * and narrowing it here would break confirming a walk-in.
+     *
+     * A **nurse** is in relationship with anyone who is actually a patient of
+     * the clinic. Nurses run intake, vitals and the lab queue across the whole
+     * roster and there is no per-nurse assignment in this schema to key on, so a
+     * tighter rule would be fiction — it would deny real work while proving
+     * nothing. What it does still exclude is a record with no clinical footing
+     * at all.
+     *
+     * ## What this does NOT do, deliberately
+     *
+     * It does not by itself deny access. The policies treat a false result as
+     * *break-glass*: the read proceeds and `record_access_log.had_care_relationship`
+     * is set to false, so it is visible and reviewable. Turning break-glass into
+     * a hard 403 is a one-line change in PatientPolicy — and it is a clinical
+     * workflow decision, not a developer's. A doctor covering a colleague's
+     * list at 2am must not meet a permission error, and a control that gets
+     * switched off after the first such night was never a control.
+     *
+     * ND-2 in §5 of the compliance plan is where that decision sits.
+     */
+    public function isUnderCareOf(User $staff): bool
+    {
+        if ($staff->hasRole('nurse')) {
+            return $this->appointments()->exists();
+        }
+
+        if ($staff->hasRole('doctor')) {
+            return $this->appointments()
+                ->where(fn ($query) => $query
+                    ->where('doctor_id', $staff->id)
+                    ->orWhereNull('doctor_id'))
+                ->exists();
+        }
+
+        return false;
+    }
+
     /** Too young to hold their own coverage. Null age is not assumed to be a child. */
     public function isMinor(): bool
     {
@@ -195,6 +291,22 @@ class Patient extends Model
      * Guarantor-less bookings (staff walk-ins) keep the old global match, since
      * there is no owner to scope by.
      */
+    /**
+     * The withCount() definition every record screen shares. `appointments_count`
+     * counts COMPLETED visits only: the screens label it "visits", and counting
+     * every booking showed "1 visits" for a patient who had never been seen and
+     * disagreed with the Visit History list under it.
+     *
+     * @return array<int|string, mixed>
+     */
+    public static function recordCounts(): array
+    {
+        return [
+            'appointments' => fn ($q) => $q->where('status', 'completed'),
+            'documents',
+        ];
+    }
+
     public static function findOrCreateFromBooking(array $data, ?int $guarantorId): self
     {
         $existing = self::whereRaw('LOWER(first_name) = ?', [strtolower($data['first_name'])])

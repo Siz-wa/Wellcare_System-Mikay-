@@ -36,15 +36,12 @@ export function ResultsStats({ stats }: ResultsStatsProps): ReactElement {
         },
     ];
 
+    // Two up on a phone, then as many as fit. `auto-fit` with a 180px minimum
+    // cannot place two columns in a 358px content box, so on the device most of
+    // this portal is read on it produced one tall column of counts and pushed
+    // the actual list below the fold.
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: 'var(--space-4)',
-                marginBottom: 'var(--space-6)',
-            }}
-        >
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {cards.map((card) => (
                 <div
                     key={card.label}
@@ -78,10 +75,10 @@ export function ResultsStats({ stats }: ResultsStatsProps): ReactElement {
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: 22,
+                                fontSize: 'var(--text-xl)',
                                 fontWeight: 700,
                                 lineHeight: 1.1,
-                                color: 'var(--wc-gray-900)',
+                                color: 'var(--wc-text-primary)',
                             }}
                         >
                             {card.value}
@@ -89,8 +86,8 @@ export function ResultsStats({ stats }: ResultsStatsProps): ReactElement {
                         <p
                             style={{
                                 margin: '2px 0 0',
-                                fontSize: 12,
-                                color: 'var(--wc-gray-500)',
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {card.label}

@@ -2,28 +2,38 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 2: Coverage, Doctor & Time
 //
-// Fix: SERVICE_TO_SPECIALTIES now maps to DB specialty slugs (e.g. "cardiology")
-// not display strings (e.g. "Internal Medicine"), so the filter actually works.
+// The specialty filter compares `doctor_profiles.specialty` slugs (e.g.
+// "cardiology") against the service's own list, not display strings — see
+// specialtiesForService in bookingdata.ts.
 
 import type { ReactElement } from 'react';
 import { useMemo, useEffect, useState } from 'react';
+import { DoctorAvatar } from '@/components/doctor-avatar';
+import { Select } from '@/design-system';
 import type { Step2Errors } from '@/hooks/use-step-validators';
+import { splitHmoProvider } from '@/lib/hmo-providers';
+import { sanitizeHmoId, makePasteHandler } from '@/lib/input-masks';
 import { specialtyLabel, doctorRoleLabel } from '@/lib/specialties';
-import { BrandSelect } from '../components';
-import { sanitizeHmoId, makePasteHandler } from '../utils/sanitizers';
+import { cn } from '@/lib/utils';
 import type {
     BookingFormData,
     CoverageOption,
     DoctorOption,
     PatientOption,
+    ServiceDefinition,
 } from './bookingdata';
 import {
+    clinicDaysLabel,
+    clinicHoursLines,
     coverageOptions,
     hmoOptions,
+    readableDate,
+    weekdayNameFor,
     STEP_HEADINGS,
-    SERVICE_TO_SPECIALTIES,
+    specialtiesForService,
     HMO_NOTICE,
     MINOR_COVERAGE_NOTICE,
+    virtualSelfPayNotice,
 } from './bookingdata';
 
 const HMO_MAX = 20;
@@ -51,6 +61,8 @@ interface StepCoverageProps {
     onNext: () => void;
     onBack: () => void;
     doctors: DoctorOption[];
+    /** The bookable catalogue, served from the `services` table. */
+    services: ServiceDefinition[];
 }
 
 export default function StepCoverage({
@@ -61,6 +73,7 @@ export default function StepCoverage({
     onNext,
     onBack,
     doctors,
+    services,
 }: StepCoverageProps): ReactElement {
     const { title, subtitle } = STEP_HEADINGS[2];
 
@@ -91,11 +104,21 @@ export default function StepCoverage({
         data.appointmentDate !== '' &&
         availabilityFor?.date !== data.appointmentDate;
 
-    const slotsKey = `${data.doctorId ?? ''}:${data.appointmentDate}`;
+    // The patient is part of the key, not just the doctor and date. A patient
+    // may hold several appointments a day, so the list is now filtered to the
+    // times *they* can attend — two people looking at the same doctor on the
+    // same date can legitimately see different slots.
+    const slotsKey = `${data.doctorId ?? ''}:${data.appointmentDate}:${data.patientId ?? ''}`;
     const [slotsFor, setSlotsFor] = useState<{
         key: string;
         slots: string[];
         hasSchedule: boolean | null;
+        /** The patient has already booked all the visits a day allows. */
+        limitReached: boolean;
+        /** How many more they may book today; null when no patient was named. */
+        remaining: number | null;
+        /** The clinic's per-patient daily maximum, for the copy. */
+        dailyLimit: number | null;
     } | null>(null);
 
     const forThisRequest = slotsFor?.key === slotsKey ? slotsFor : null;
@@ -105,6 +128,9 @@ export default function StepCoverage({
         forThisRequest === null;
     const doctorSlots = forThisRequest?.slots ?? [];
     const doctorHasSchedule = forThisRequest?.hasSchedule ?? null;
+    const patientLimitReached = forThisRequest?.limitReached ?? false;
+    const patientSlotsLeft = forThisRequest?.remaining ?? null;
+    const patientDailyLimit = forThisRequest?.dailyLimit ?? null;
 
     /*
      * 1. Fetch per-doctor slot counts on date change.
@@ -120,7 +146,10 @@ export default function StepCoverage({
             return;
         }
 
-        fetch(`/appointments/doctor-availability?date=${data.appointmentDate}`)
+        fetch(
+            `/appointments/doctor-availability?date=${data.appointmentDate}` +
+                (data.patientId ? `&patient_id=${data.patientId}` : ''),
+        )
             .then((r) => r.json())
             .then((d) => {
                 const map: Record<number, DoctorDayAvailability> = {};
@@ -139,7 +168,7 @@ export default function StepCoverage({
             .catch(() =>
                 setAvailabilityFor({ date: data.appointmentDate, map: {} }),
             );
-    }, [data.appointmentDate]);
+    }, [data.appointmentDate, data.patientId]);
 
     /*
      * 2. Fetch the actual slot list once doctor + date are both set.
@@ -158,7 +187,8 @@ export default function StepCoverage({
         }
 
         fetch(
-            `/appointments/slots?doctor_id=${data.doctorId}&date=${data.appointmentDate}`,
+            `/appointments/slots?doctor_id=${data.doctorId}&date=${data.appointmentDate}` +
+                (data.patientId ? `&patient_id=${data.patientId}` : ''),
         )
             .then((r) => r.json())
             .then((d) => {
@@ -166,6 +196,9 @@ export default function StepCoverage({
                     key: slotsKey,
                     slots: d.slots ?? [],
                     hasSchedule: d.has_schedule === true,
+                    limitReached: d.patient_limit_reached === true,
+                    remaining: d.patient_slots_remaining ?? null,
+                    dailyLimit: d.patient_daily_limit ?? null,
                 });
 
                 if (
@@ -176,9 +209,16 @@ export default function StepCoverage({
                 }
             })
             .catch(() => {
-                setSlotsFor({ key: slotsKey, slots: [], hasSchedule: null });
+                setSlotsFor({
+                    key: slotsKey,
+                    slots: [],
+                    hasSchedule: null,
+                    limitReached: false,
+                    remaining: null,
+                    dailyLimit: null,
+                });
             });
-    }, [data.doctorId, data.appointmentDate]);
+    }, [data.doctorId, data.appointmentDate, data.patientId]);
 
     const hasFetched =
         data.doctorId !== null &&
@@ -186,10 +226,29 @@ export default function StepCoverage({
         !slotsLoading &&
         doctorHasSchedule !== null;
     const doctorNoSchedule = hasFetched && doctorHasSchedule === false;
+
+    // An empty list has two quite different causes now, and telling a patient
+    // the wrong one sends them to the wrong remedy: a full doctor means pick
+    // another doctor, their own daily maximum means pick another day.
+    const patientDayFull =
+        hasFetched && doctorHasSchedule === true && patientLimitReached;
     const doctorFullyBooked =
-        hasFetched && doctorHasSchedule === true && doctorSlots.length === 0;
+        hasFetched &&
+        doctorHasSchedule === true &&
+        !patientLimitReached &&
+        doctorSlots.length === 0;
     const showSlots =
         hasFetched && doctorHasSchedule === true && doctorSlots.length > 0;
+
+    // The doctor the messages below are about. Every one of them used to say
+    // "this doctor", which reads as though the form is talking about a record
+    // rather than to the person choosing one.
+    const chosenDoctor = doctors.find((d) => d.id === data.doctorId) ?? null;
+    const chosenDoctorDays = chosenDoctor
+        ? clinicDaysLabel(chosenDoctor)
+        : null;
+    const chosenWeekday = weekdayNameFor(data.appointmentDate);
+    const chosenDateLabel = readableDate(data.appointmentDate);
 
     const allSpecialties = useMemo(
         () =>
@@ -199,11 +258,13 @@ export default function StepCoverage({
         [doctors],
     );
 
-    // ── THE FIX: compare d.specialty against SERVICE_TO_SPECIALTIES slugs ──────
+    // Compare d.specialty against the service's own specialty slugs ─────────
     const filteredDoctors = useMemo<DoctorOption[]>(() => {
         // Get the allowed specialty slugs for the chosen service (null = show all)
-        const serviceSpecialties: string[] | null =
-            SERVICE_TO_SPECIALTIES[data.service] ?? null;
+        const serviceSpecialties: string[] | null = specialtiesForService(
+            services,
+            data.service,
+        );
 
         let list = serviceSpecialties
             ? doctors.filter((d) => serviceSpecialties.includes(d.specialty))
@@ -224,7 +285,7 @@ export default function StepCoverage({
         }
 
         return list;
-    }, [data.service, doctors, specialtyFilter, docSearch]);
+    }, [services, data.service, doctors, specialtyFilter, docSearch]);
 
     const totalPages = Math.max(
         1,
@@ -251,6 +312,10 @@ export default function StepCoverage({
         setLastFilterKey(filterKey);
         setCurrentPage(1);
     }
+
+    // One stored string, two controls: the dropdown, plus the "which one?" box
+    // that "Other" opens. See @/lib/hmo-providers.
+    const hmoProvider = splitHmoProvider(data.hmo, (v) => setData('hmo', v));
 
     const handleCoverageChange = (value: string) => {
         setData('coverage', value);
@@ -281,7 +346,7 @@ export default function StepCoverage({
     }, [doctorIsValid, setData]);
 
     // ── Service restriction notice ────────────────────────────────────────────
-    const serviceSpecialties = SERVICE_TO_SPECIALTIES[data.service] ?? null;
+    const serviceSpecialties = specialtiesForService(services, data.service);
     const isFiltered = serviceSpecialties !== null;
 
     return (
@@ -293,7 +358,7 @@ export default function StepCoverage({
                         color: 'var(--wc-blue-600)',
                         display: 'block',
                         marginBottom: 'var(--space-2)',
-                        fontSize: '11px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         letterSpacing: '0.08em',
@@ -306,12 +371,12 @@ export default function StepCoverage({
                         margin: '0 0 4px',
                         fontSize: 'var(--text-3xl)',
                         fontWeight: 800,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {title}
                 </h2>
-                <p style={{ margin: 0, color: 'var(--wc-gray-500)' }}>
+                <p style={{ margin: 0, color: 'var(--wc-text-muted)' }}>
                     {subtitle}
                 </p>
             </div>
@@ -329,9 +394,10 @@ export default function StepCoverage({
                     three options and reject two, the chooser is replaced by a
                     line saying so, and booking-form.tsx has already seeded the
                     coverage as cash. */}
-                {patient.isMinor ? (
+                {patient.isMinor && (
                     <div
                         style={{
+                            marginBottom: 12,
                             padding: '14px 18px',
                             borderRadius: '12px',
                             background: 'var(--wc-blue-50)',
@@ -349,29 +415,30 @@ export default function StepCoverage({
                             {MINOR_COVERAGE_NOTICE}
                         </p>
                     </div>
-                ) : (
+                )}
+                {
                     <div>
                         <label
                             style={{
                                 display: 'block',
-                                fontSize: '11px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.07em',
                                 marginBottom: '10px',
                             }}
                         >
                             Mode of Coverage{' '}
-                            <span style={{ color: 'var(--wc-error)' }}>*</span>
+                            <span style={{ color: 'var(--wc-text-error)' }}>
+                                *
+                            </span>
                         </label>
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                gap: 'var(--space-3)',
-                            }}
-                        >
+                        {/* Stacked on a phone. Three columns across 358px is a
+                            111px card, and these carry a label plus a line of
+                            description — at that width every one of them wrapped
+                            to four lines and the row read as noise. */}
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             {coverageOptions.map((o: CoverageOption) => {
                                 const isActive = data.coverage === o.value;
 
@@ -462,8 +529,8 @@ export default function StepCoverage({
                             <p
                                 style={{
                                     margin: '6px 0 0',
-                                    fontSize: '11px',
-                                    color: 'var(--wc-error)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-error)',
                                     fontWeight: 600,
                                     display: 'flex',
                                     alignItems: 'center',
@@ -486,7 +553,68 @@ export default function StepCoverage({
                             </p>
                         )}
                     </div>
-                )}
+                }
+
+                {/* ── Virtual self-pay notice ──
+                    The combination the whole payments module exists for. An
+                    in-person self-payer needs none of this: they pass a
+                    cashier on the way in. */}
+                {data.coverage === 'cash' &&
+                    data.consultationType === 'virtual' && (
+                        <div
+                            style={{
+                                padding: '14px 18px',
+                                borderRadius: '12px',
+                                background: '#fffbeb',
+                                border: '1px solid #fde68a',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '10px',
+                            }}
+                        >
+                            <svg
+                                width="16"
+                                height="16"
+                                fill="none"
+                                stroke="#b45309"
+                                strokeWidth={2}
+                                viewBox="0 0 24 24"
+                                style={{ flexShrink: 0, marginTop: 2 }}
+                                aria-hidden="true"
+                            >
+                                <rect
+                                    x="2"
+                                    y="5"
+                                    width="20"
+                                    height="14"
+                                    rx="2"
+                                />
+                                <path d="M2 10h20" />
+                            </svg>
+                            <div>
+                                <p
+                                    style={{
+                                        margin: 0,
+                                        fontSize: 'var(--text-sm)',
+                                        fontWeight: 700,
+                                        color: '#92400e',
+                                    }}
+                                >
+                                    {virtualSelfPayNotice.title}
+                                </p>
+                                <p
+                                    style={{
+                                        margin: '4px 0 0',
+                                        fontSize: 'var(--text-xs)',
+                                        lineHeight: 1.6,
+                                        color: '#92400e',
+                                    }}
+                                >
+                                    {virtualSelfPayNotice.body}
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                 {/* ── HMO notice ── */}
                 {data.coverage === 'hmo' && (
@@ -527,33 +655,27 @@ export default function StepCoverage({
 
                 {/* ── HMO fields ── */}
                 {data.coverage === 'hmo' && (
-                    <div
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: 'var(--space-4)',
-                        }}
-                    >
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label
                                 style={{
                                     display: 'block',
-                                    fontSize: '11px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.07em',
                                     marginBottom: '6px',
                                 }}
                             >
                                 HMO Provider{' '}
-                                <span style={{ color: 'var(--wc-error)' }}>
+                                <span style={{ color: 'var(--wc-text-error)' }}>
                                     *
                                 </span>
                             </label>
-                            <BrandSelect
-                                value={data.hmo}
-                                onChange={(v) => setData('hmo', v)}
+                            <Select
+                                value={hmoProvider.selectValue}
+                                onChange={hmoProvider.onSelectChange}
                                 options={hmoOptions}
                                 invalid={Boolean(errors.hmo)}
                                 aria-label="HMO provider"
@@ -562,8 +684,8 @@ export default function StepCoverage({
                                 <p
                                     style={{
                                         margin: '4px 0 0',
-                                        fontSize: '11px',
-                                        color: 'var(--wc-error)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--wc-text-error)',
                                         fontWeight: 600,
                                     }}
                                 >
@@ -576,21 +698,24 @@ export default function StepCoverage({
                             <label
                                 style={{
                                     display: 'block',
-                                    fontSize: '11px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.07em',
                                     marginBottom: '6px',
                                 }}
                             >
                                 HMO ID Number{' '}
-                                <span style={{ color: 'var(--wc-error)' }}>
+                                <span style={{ color: 'var(--wc-text-error)' }}>
                                     *
                                 </span>
                             </label>
                             <input
-                                className={`wc-input${errors.hmoId ? 'wc-input-error' : ''}`}
+                                className={cn(
+                                    'wc-input',
+                                    errors.hmoId && 'wc-input-error',
+                                )}
                                 type="text"
                                 placeholder="e.g. MC-123456"
                                 value={data.hmoId}
@@ -615,8 +740,8 @@ export default function StepCoverage({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '11px',
-                                            color: 'var(--wc-error)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-error)',
                                             fontWeight: 600,
                                         }}
                                     >
@@ -626,7 +751,7 @@ export default function StepCoverage({
                                     <span
                                         style={{
                                             fontSize: 'var(--text-xs)',
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
                                         Uppercase letters, numbers, hyphens
@@ -646,26 +771,63 @@ export default function StepCoverage({
                                 </span>
                             </div>
                         </div>
+
+                        {/* "Other" is not a provider HR can verify coverage
+                            against, so the option asks which one. The typed
+                            name is what `hmo` carries from here on. */}
+                        {hmoProvider.showOther && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label
+                                    style={{
+                                        display: 'block',
+                                        fontSize: 'var(--text-xs)',
+                                        fontWeight: 700,
+                                        color: 'var(--wc-text-muted)',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.07em',
+                                        marginBottom: '6px',
+                                    }}
+                                >
+                                    Which HMO Provider?{' '}
+                                    <span
+                                        style={{
+                                            color: 'var(--wc-text-error)',
+                                        }}
+                                    >
+                                        *
+                                    </span>
+                                </label>
+                                <input
+                                    className={cn(
+                                        'wc-input',
+                                        errors.hmo && 'wc-input-error',
+                                    )}
+                                    type="text"
+                                    maxLength={100}
+                                    placeholder="The name on your card, e.g. Sun Life Grepa"
+                                    value={hmoProvider.otherValue}
+                                    onChange={(e) =>
+                                        hmoProvider.onOtherChange(
+                                            e.target.value,
+                                        )
+                                    }
+                                    aria-label="Which HMO provider"
+                                />
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {/* ── Preferred Doctor ── */}
                 <div>
                     {/* Header row */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: '12px',
-                        }}
-                    >
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <label
                                 style={{
-                                    fontSize: '11px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.07em',
                                 }}
@@ -675,9 +837,9 @@ export default function StepCoverage({
                             <span
                                 style={{
                                     marginLeft: '8px',
-                                    fontSize: '11px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 500,
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {filteredDoctors.length}{' '}
@@ -692,7 +854,7 @@ export default function StepCoverage({
                                             borderRadius: '100px',
                                             background: 'var(--wc-blue-50)',
                                             color: 'var(--wc-blue-600)',
-                                            fontSize: '10px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
                                         }}
                                     >
@@ -704,8 +866,8 @@ export default function StepCoverage({
                         {loadingAvail && data.appointmentDate && (
                             <span
                                 style={{
-                                    fontSize: '11px',
-                                    color: 'var(--wc-gray-400)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
                                     fontStyle: 'italic',
                                 }}
                             >
@@ -715,8 +877,8 @@ export default function StepCoverage({
                         {!loadingAvail && data.appointmentDate && (
                             <span
                                 style={{
-                                    fontSize: '11px',
-                                    color: 'var(--wc-gray-400)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 Availability for {data.appointmentDate}
@@ -725,7 +887,13 @@ export default function StepCoverage({
                     </div>
 
                     {/* Service filter notice */}
-                    {isFiltered && filteredDoctors.length === 0 && (
+                    {/* Empty for any reason, not only a service filter.
+                        `doctors` now arrives already stripped of anyone with
+                        no approved roster, so "nobody here" is a state a plain
+                        unfiltered list can reach too — and silently showing
+                        zero cards with no explanation is the worst version of
+                        it. */}
+                    {filteredDoctors.length === 0 && (
                         <div
                             style={{
                                 padding: '12px 16px',
@@ -757,21 +925,17 @@ export default function StepCoverage({
                                     color: '#92400e',
                                 }}
                             >
-                                No doctors available for the selected service.
-                                You may choose <strong>Next Available</strong>{' '}
-                                to be assigned automatically.
+                                {docSearch.trim() || specialtyFilter !== 'all'
+                                    ? 'No doctor matches that search. Clear the search or specialty filter to see everyone taking this service.'
+                                    : isFiltered
+                                      ? 'No doctor is currently taking appointments for this service. Try another service, or choose Next Available to be assigned automatically.'
+                                      : 'No doctor has published clinic hours yet. Please try again shortly, or call the clinic to book.'}
                             </p>
                         </div>
                     )}
 
                     {/* Filter bar — only show specialty filter if no service restriction */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: 'var(--space-3)',
-                            marginBottom: 'var(--space-4)',
-                        }}
-                    >
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row">
                         <div style={{ flex: 1, position: 'relative' }}>
                             <span
                                 style={{
@@ -779,7 +943,7 @@ export default function StepCoverage({
                                     left: '12px',
                                     top: '50%',
                                     transform: 'translateY(-50%)',
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     display: 'flex',
                                     pointerEvents: 'none',
                                 }}
@@ -810,14 +974,13 @@ export default function StepCoverage({
                                 style={{
                                     paddingLeft: '36px',
                                     fontSize: 'var(--text-sm)',
-                                    height: 40,
                                 }}
                             />
                         </div>
                         {/* Only show specialty dropdown when service has no restriction (null) */}
                         {!isFiltered && (
-                            <div style={{ minWidth: 180 }}>
-                                <BrandSelect
+                            <div className="w-full sm:w-auto sm:min-w-[180px]">
+                                <Select
                                     value={specialtyFilter}
                                     onChange={setSpecialtyFilter}
                                     options={[
@@ -918,8 +1081,8 @@ export default function StepCoverage({
                                     <p
                                         style={{
                                             margin: '2px 0 0',
-                                            fontSize: '10px',
-                                            color: 'var(--wc-gray-400)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                             lineHeight: 1.4,
                                         }}
                                     >
@@ -984,7 +1147,7 @@ export default function StepCoverage({
                                                 position: 'absolute',
                                                 top: 8,
                                                 right: 8,
-                                                fontSize: '9px',
+                                                fontSize: 'var(--text-xs)',
                                                 fontWeight: 800,
                                                 background: '#fed7aa',
                                                 color: '#c2410c',
@@ -1008,7 +1171,7 @@ export default function StepCoverage({
                                                     position: 'absolute',
                                                     top: 8,
                                                     right: 8,
-                                                    fontSize: '9px',
+                                                    fontSize: 'var(--text-xs)',
                                                     fontWeight: 700,
                                                     background: '#dcfce7',
                                                     color: '#16a34a',
@@ -1018,7 +1181,7 @@ export default function StepCoverage({
                                             >
                                                 {remaining !== null &&
                                                 dailyCap !== null
-                                                    ? `${remaining} of ${dailyCap} left`
+                                                    ? `${remaining} of ${dailyCap} places left`
                                                     : `${slotCount} slots`}
                                             </span>
                                         )}
@@ -1030,24 +1193,17 @@ export default function StepCoverage({
                                             gap: '10px',
                                         }}
                                     >
-                                        <div
+                                        <DoctorAvatar
+                                            photoUrl={doc.photo_url}
+                                            initials={doc.initials}
+                                            color={doc.color}
+                                            name={doc.name}
+                                            size={36}
                                             style={{
-                                                width: 36,
-                                                height: 36,
                                                 borderRadius: '10px',
-                                                background: doc.color,
-                                                color: '#fff',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '12px',
-                                                fontWeight: 800,
-                                                flexShrink: 0,
                                                 letterSpacing: '0.02em',
                                             }}
-                                        >
-                                            {doc.initials}
-                                        </div>
+                                        />
                                         <div style={{ minWidth: 0 }}>
                                             <p
                                                 style={{
@@ -1073,13 +1229,39 @@ export default function StepCoverage({
                                             <p
                                                 style={{
                                                     margin: '2px 0 0',
-                                                    fontSize: '10px',
-                                                    color: 'var(--wc-gray-400)',
+                                                    fontSize: 'var(--text-xs)',
+                                                    color: 'var(--wc-text-muted)',
                                                     lineHeight: 1.3,
                                                 }}
                                             >
                                                 {doctorRoleLabel(doc)}
                                             </p>
+                                            {/* The roster, on the card. A
+                                                patient who can see "Mon / Wed
+                                                / Fri" before they commit to a
+                                                doctor does not have to find
+                                                the days by trying dates. */}
+                                            {clinicHoursLines(doc).map(
+                                                (line) => (
+                                                    <p
+                                                        key={line}
+                                                        style={{
+                                                            margin: '2px 0 0',
+                                                            fontSize:
+                                                                'var(--text-xs)',
+                                                            color: 'var(--wc-text-muted)',
+                                                            lineHeight: 1.3,
+                                                            whiteSpace:
+                                                                'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow:
+                                                                'ellipsis',
+                                                        }}
+                                                    >
+                                                        {line}
+                                                    </p>
+                                                ),
+                                            )}
                                         </div>
                                     </div>
                                 </button>
@@ -1121,7 +1303,7 @@ export default function StepCoverage({
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                 }}
                             >
                                 <svg
@@ -1192,7 +1374,7 @@ export default function StepCoverage({
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                 }}
                             >
                                 <svg
@@ -1213,7 +1395,7 @@ export default function StepCoverage({
                             style={{
                                 margin: '10px 0 0',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 fontStyle: 'italic',
                             }}
                         >
@@ -1236,16 +1418,18 @@ export default function StepCoverage({
                         <label
                             style={{
                                 display: 'block',
-                                fontSize: '11px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.07em',
                                 marginBottom: 'var(--space-4)',
                             }}
                         >
                             Preferred Time{' '}
-                            <span style={{ color: 'var(--wc-error)' }}>*</span>
+                            <span style={{ color: 'var(--wc-text-error)' }}>
+                                *
+                            </span>
                         </label>
 
                         {slotsLoading && (
@@ -1253,7 +1437,7 @@ export default function StepCoverage({
                                 style={{
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     fontStyle: 'italic',
                                 }}
                             >
@@ -1262,6 +1446,76 @@ export default function StepCoverage({
                         )}
 
                         {!slotsLoading && doctorNoSchedule && (
+                            <div
+                                style={{
+                                    padding: '12px 16px',
+                                    borderRadius: '10px',
+                                    background: '#fff7ed',
+                                    border: '1px solid #fed7aa',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '8px',
+                                }}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    fill="none"
+                                    stroke="#c2410c"
+                                    strokeWidth={2}
+                                    viewBox="0 0 24 24"
+                                    style={{ flexShrink: 0, marginTop: 3 }}
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                <div>
+                                    <p
+                                        style={{
+                                            margin: 0,
+                                            fontSize: 'var(--text-sm)',
+                                            color: '#c2410c',
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        {chosenDoctor?.name ?? 'This doctor'}{' '}
+                                        does not hold clinic
+                                        {chosenWeekday
+                                            ? ` on ${chosenWeekday}`
+                                            : ` on ${chosenDateLabel}`}
+                                        .
+                                    </p>
+                                    {chosenDoctorDays ? (
+                                        <p
+                                            style={{
+                                                margin: '4px 0 0',
+                                                fontSize: 'var(--text-sm)',
+                                                color: '#9a3412',
+                                            }}
+                                        >
+                                            They see patients on{' '}
+                                            <strong>{chosenDoctorDays}</strong>{' '}
+                                            — pick one of those dates, or choose
+                                            another doctor.
+                                        </p>
+                                    ) : (
+                                        <p
+                                            style={{
+                                                margin: '4px 0 0',
+                                                fontSize: 'var(--text-sm)',
+                                                color: '#9a3412',
+                                            }}
+                                        >
+                                            Please choose a different date or
+                                            another doctor.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {!slotsLoading && patientDayFull && (
                             <div
                                 style={{
                                     padding: '12px 16px',
@@ -1282,8 +1536,7 @@ export default function StepCoverage({
                                     viewBox="0 0 24 24"
                                 >
                                     <circle cx="12" cy="12" r="10" />
-                                    <line x1="12" y1="8" x2="12" y2="12" />
-                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                    <polyline points="12 6 12 12 16 14" />
                                 </svg>
                                 <p
                                     style={{
@@ -1293,9 +1546,11 @@ export default function StepCoverage({
                                         fontWeight: 600,
                                     }}
                                 >
-                                    This doctor has no availability configured
-                                    for {data.appointmentDate}. Please choose a
-                                    different date or select another doctor.
+                                    {patient.firstName} already has the maximum
+                                    of {patientDailyLimit} appointments on{' '}
+                                    {chosenDateLabel}. Please choose a different
+                                    date, or cancel one of the existing bookings
+                                    first.
                                 </p>
                             </div>
                         )}
@@ -1308,7 +1563,7 @@ export default function StepCoverage({
                                     background: '#fee2e2',
                                     border: '1px solid #fecaca',
                                     display: 'flex',
-                                    alignItems: 'center',
+                                    alignItems: 'flex-start',
                                     gap: '8px',
                                 }}
                             >
@@ -1319,6 +1574,7 @@ export default function StepCoverage({
                                     stroke="#b91c1c"
                                     strokeWidth={2}
                                     viewBox="0 0 24 24"
+                                    style={{ flexShrink: 0, marginTop: 3 }}
                                 >
                                     <circle cx="12" cy="12" r="10" />
                                     <line x1="12" y1="8" x2="12" y2="12" />
@@ -1332,12 +1588,34 @@ export default function StepCoverage({
                                         fontWeight: 600,
                                     }}
                                 >
-                                    This doctor is fully booked on{' '}
-                                    {data.appointmentDate}. Please choose a
-                                    different date or another doctor.
+                                    {chosenDoctor?.name ?? 'This doctor'} is
+                                    fully booked on {chosenDateLabel}.
+                                    {chosenDoctorDays
+                                        ? ` They also see patients on ${chosenDoctorDays} — try another of those dates, or choose another doctor.`
+                                        : ' Please choose a different date or another doctor.'}
                                 </p>
                             </div>
                         )}
+
+                        {!slotsLoading &&
+                            showSlots &&
+                            patientSlotsLeft !== null &&
+                            patientDailyLimit !== null &&
+                            patientSlotsLeft < patientDailyLimit && (
+                                <p
+                                    style={{
+                                        margin: '0 0 var(--space-3)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-muted)',
+                                    }}
+                                >
+                                    {patient.firstName} already has{' '}
+                                    {patientDailyLimit - patientSlotsLeft} of{' '}
+                                    {patientDailyLimit} appointments booked on
+                                    this date. Times that clash with them are
+                                    not shown.
+                                </p>
+                            )}
 
                         {!slotsLoading && showSlots && (
                             <>
@@ -1397,8 +1675,8 @@ export default function StepCoverage({
                                     <p
                                         style={{
                                             margin: '6px 0 0',
-                                            fontSize: '11px',
-                                            color: 'var(--wc-error)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-error)',
                                             fontWeight: 600,
                                             display: 'flex',
                                             alignItems: 'center',
@@ -1437,44 +1715,18 @@ export default function StepCoverage({
             </div>
 
             {/* Step nav */}
-            <div
-                style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginTop: 'var(--space-8)',
-                }}
-            >
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between sm:gap-0">
                 <button
                     type="button"
                     onClick={onBack}
-                    style={{
-                        height: 48,
-                        padding: '0 24px',
-                        borderRadius: '100px',
-                        border: '1.5px solid var(--wc-gray-200)',
-                        background: '#fff',
-                        color: 'var(--wc-gray-600)',
-                        fontWeight: 700,
-                        fontSize: 'var(--text-sm)',
-                        cursor: 'pointer',
-                    }}
+                    className="h-12 w-full cursor-pointer rounded-full border-[1.5px] border-wc-gray-200 bg-white px-6 text-sm font-bold text-ink-secondary sm:w-auto"
                 >
                     ← Back
                 </button>
                 <button
                     type="button"
                     onClick={onNext}
-                    style={{
-                        height: 48,
-                        padding: '0 28px',
-                        borderRadius: '100px',
-                        background: 'var(--wc-blue-600)',
-                        color: '#fff',
-                        border: 'none',
-                        fontWeight: 700,
-                        fontSize: 'var(--text-sm)',
-                        cursor: 'pointer',
-                    }}
+                    className="h-12 w-full cursor-pointer rounded-full border-none bg-wc-blue-600 px-7 text-sm font-bold text-white sm:w-auto"
                 >
                     Review Appointment →
                 </button>

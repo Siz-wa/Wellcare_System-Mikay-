@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Concerns\NormalizesPhoneNumbers;
+use App\Concerns\ValidatesHmoProvider;
 use App\Models\Patient;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
@@ -27,6 +29,8 @@ use Illuminate\Validation\Rule;
  */
 class SavePatientRequest extends FormRequest
 {
+    use NormalizesPhoneNumbers, ValidatesHmoProvider;
+
     public function authorize(): bool
     {
         return true;
@@ -37,9 +41,11 @@ class SavePatientRequest extends FormRequest
         $birthdate = $this->input('birthdate');
 
         $this->merge([
-            'first_name' => $this->input('firstName', $this->input('first_name')),
-            'last_name' => $this->input('lastName', $this->input('last_name')),
-            'contact_number' => $this->input('contactNumber', $this->input('contact_number')),
+            'first_name' => self::tidyName($this->input('firstName', $this->input('first_name'))),
+            'last_name' => self::tidyName($this->input('lastName', $this->input('last_name'))),
+            'contact_number' => $this->normalizePhoneNumber(
+                $this->input('contactNumber', $this->input('contact_number'))
+            ),
             'civil_status' => $this->input('civilStatus', $this->input('civil_status')),
             'relationship_to_guarantor' => $this->input('relationship', $this->input('relationship_to_guarantor')),
             'relationship_note' => $this->input('relationshipNote', $this->input('relationship_note')),
@@ -51,6 +57,26 @@ class SavePatientRequest extends FormRequest
             // shows it read-only for the same reason.
             'age' => self::ageFrom($birthdate),
         ]);
+    }
+
+    /**
+     * Trim and collapse spaces, and fix a name typed entirely in one case
+     * ("junior TESTER" → "Junior Tester"). Mixed case is left exactly as typed,
+     * so "de la Cruz" and "McArthur" survive.
+     */
+    private static function tidyName(mixed $name): mixed
+    {
+        if (! is_string($name)) {
+            return $name;
+        }
+
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+
+        if ($name === mb_strtolower($name) || $name === mb_strtoupper($name)) {
+            $name = mb_convert_case(mb_strtolower($name), MB_CASE_TITLE);
+        }
+
+        return $name;
     }
 
     /** @return int|null null when the date is absent or unparseable */
@@ -76,7 +102,7 @@ class SavePatientRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:50', 'regex:/^[\pL\s\'\-]+$/u'],
             'last_name' => ['required', 'string', 'max:50', 'regex:/^[\pL\s\'\-]+$/u'],
             'email' => ['required', 'email:rfc', 'max:255'],
-            'contact_number' => ['required', 'string', 'regex:/^(\+639|09)\d{9}$/'],
+            'contact_number' => $this->phoneRules(required: true),
             'gender' => ['required', Rule::in(['male', 'female', 'other'])],
             'relationship_to_guarantor' => [
                 'required',
@@ -102,11 +128,11 @@ class SavePatientRequest extends FormRequest
             'age' => ['required', 'integer', 'min:0', 'max:120'],
 
             'address' => ['nullable', 'string', 'max:500'],
-            'civil_status' => ['nullable', Rule::in(['single', 'married', 'widowed'])],
+            'civil_status' => ['nullable', Rule::in(Patient::CIVIL_STATUSES)],
             'company' => ['nullable', 'string', 'max:255'],
 
             'default_coverage' => ['nullable', Rule::in(['cash', 'hmo', 'philhealth', 'corporate'])],
-            'hmo_provider' => ['nullable', 'required_if:default_coverage,hmo', 'string', 'max:100'],
+            'hmo_provider' => $this->hmoProviderRules('default_coverage'),
             'hmo_id' => [
                 'nullable',
                 'required_if:default_coverage,hmo',
@@ -125,31 +151,42 @@ class SavePatientRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                $this->assertCoverageFitsAge($validator);
                 $this->assertOnlyOneSelf($validator);
+                $this->assertNotAlreadyListed($validator);
             },
         ];
     }
 
     /**
-     * A minor cannot hold their own HMO or PhilHealth membership, so the form
-     * hides the coverage chooser for them entirely. This is the enforcement
-     * behind that — a direct POST would otherwise store a coverage default the
-     * counter cannot honour, and the booking flow would prefill from it.
+     * The same person twice is two medical charts for one body: allergies
+     * recorded on one are invisible from the other. Matched on name (any case)
+     * and birthdate within this guarantor's list, the same identity the
+     * booking dedupe (Patient::findOrCreateFromBooking) relies on.
      */
-    private function assertCoverageFitsAge(Validator $validator): void
+    private function assertNotAlreadyListed(Validator $validator): void
     {
-        $age = $this->input('age');
-        $coverage = $this->input('default_coverage');
+        $first = $this->input('first_name');
+        $last = $this->input('last_name');
+        $birthdate = $this->input('birthdate');
 
-        if ($age === null || $age > Patient::MINOR_MAX_AGE) {
+        if (! is_string($first) || ! is_string($last) || ! $birthdate) {
             return;
         }
 
-        if ($coverage !== null && $coverage !== '' && $coverage !== 'cash') {
+        $current = $this->route('patient');
+
+        $match = Patient::query()
+            ->where('guarantor_id', Auth::id())
+            ->whereRaw('LOWER(first_name) = ?', [mb_strtolower($first)])
+            ->whereRaw('LOWER(last_name) = ?', [mb_strtolower($last)])
+            ->whereDate('birthdate', $birthdate)
+            ->when($current instanceof Patient, fn ($q) => $q->whereKeyNot($current->getKey()))
+            ->first();
+
+        if ($match) {
             $validator->errors()->add(
-                'default_coverage',
-                'A patient aged '.Patient::MINOR_MAX_AGE.' or under is billed to their guarantor, so only cash can be set here.'
+                'first_name',
+                "{$match->first_name} {$match->last_name}, born on this date, is already on your list. Edit that record instead of adding a second one."
             );
         }
     }
@@ -188,7 +225,7 @@ class SavePatientRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'contact_number.regex' => 'Please enter a valid PH number (e.g. +639XXXXXXXXX or 09XXXXXXXXX).',
+            ...$this->phoneMessages(),
             'relationship_to_guarantor.required' => 'Please tell us how this patient is related to you.',
             'relationship_note.required_if' => 'Please say what the relationship is.',
             'birthdate.required' => 'Birthdate is required — the age is worked out from it.',
@@ -196,6 +233,7 @@ class SavePatientRequest extends FormRequest
             'birthdate.after' => 'Please check the birth year.',
             'age.required' => 'Birthdate is required — the age is worked out from it.',
             'hmo_provider.required_if' => 'Please select the HMO provider.',
+            ...$this->hmoProviderMessages('hmo_provider'),
             'hmo_id.required_if' => 'Please enter the HMO ID number.',
             'hmo_id.regex' => 'HMO ID may only contain uppercase letters, numbers, and hyphens.',
         ];

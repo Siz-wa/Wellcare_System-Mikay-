@@ -53,9 +53,9 @@ export function DocumentsSection({
                             <p
                                 style={{
                                     margin: 0,
-                                    fontSize: 14,
+                                    fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-gray-900)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
                                 {doc.title}
@@ -63,8 +63,8 @@ export function DocumentsSection({
                             <p
                                 style={{
                                     margin: '2px 0 0',
-                                    fontSize: 12,
-                                    color: 'var(--wc-gray-500)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {documentTypeLabels[doc.type]} · {doc.size} ·{' '}
@@ -82,7 +82,7 @@ export function DocumentsSection({
                                 borderRadius: 8,
                                 border: '1px solid var(--wc-gray-300)',
                                 color: 'var(--wc-blue-600)',
-                                fontSize: 13,
+                                fontSize: 'var(--text-sm)',
                                 fontWeight: 600,
                                 textDecoration: 'none',
                                 flexShrink: 0,

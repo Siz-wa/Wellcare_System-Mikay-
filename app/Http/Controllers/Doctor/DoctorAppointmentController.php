@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
-use App\Mail\AppointmentConfirmedMail;
 use App\Models\Appointment;
 use App\Models\AppointmentNotification;
+use App\Models\NotificationPreference;
+use App\Services\AppointmentCancellationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,8 +46,7 @@ class DoctorAppointmentController extends Controller
         })
             ->whereIn('status', ['requested', 'confirmed'])
             ->whereDate('appointment_date', '>=', today())   // ← ONLY today & future
-            ->orderBy('appointment_date')
-            ->orderBy('appointment_time')
+            ->orderBy('appointment_at')
             ->get()
             ->map(fn (Appointment $a) => $this->mapAppointment($a));
 
@@ -89,8 +88,12 @@ class DoctorAppointmentController extends Controller
             'doctor_id' => $appointment->doctor_id ?? Auth::id(),
         ]);
 
-        // Send confirmation email to patient
-        Mail::to($appointment->email)->send(new AppointmentConfirmedMail($appointment));
+        // The confirmation email used to be sent here, and it was the only
+        // outbound mail in the application — one type out of fifteen.
+        //
+        // Task 1.2 moved delivery to AppointmentNotification::booted(), which
+        // dispatches DeliverNotification for every notification the system
+        // creates. Sending here as well would deliver this one twice.
 
         // Create in-app notification for the patient
         if ($appointment->user_id) {
@@ -99,12 +102,26 @@ class DoctorAppointmentController extends Controller
                 'user_id' => $appointment->user_id,
                 'type' => 'confirmed',
                 'subject' => 'Your appointment has been confirmed',
-                'body' => "Your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been confirmed by your doctor. Please check in when you arrive at the clinic.",
+                'body' => "Your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been confirmed by your doctor. "
+                    .($appointment->consultation_type === 'virtual'
+                        ? 'On the day, check in from your dashboard and wait for your doctor to open the video room.'
+                        : 'Please check in when you arrive at the clinic.'),
                 'read' => false,
             ]);
         }
 
-        return back()->with('success', "Appointment confirmed. A confirmation email has been sent to {$appointment->email}.");
+        // Delivery itself is decided in AppointmentNotification::booted(); this
+        // only reports which way it went. Read from the same preference the
+        // dispatcher consults, so the message cannot drift from what was sent.
+        $emailAllowed = NotificationPreference::allows(
+            $appointment->user_id,
+            'email',
+            'confirmed',
+        );
+
+        return back()->with('success', $emailAllowed
+            ? "Appointment confirmed. A confirmation email has been sent to {$appointment->email}."
+            : 'Appointment confirmed. The patient has turned off appointment emails, so none was sent.');
     }
 
     // ── Cancel ────────────────────────────────────────────────────────────────
@@ -121,22 +138,11 @@ class DoctorAppointmentController extends Controller
             return back()->withErrors(['status' => 'This appointment cannot be cancelled.']);
         }
 
-        $appointment->update([
-            'status' => 'cancelled',
-            'cancellation_reason' => $request->string('reason', 'Cancelled by doctor')->toString(),
-            'cancelled_at' => now(),
-        ]);
-
-        if ($appointment->user_id) {
-            AppointmentNotification::create([
-                'appointment_id' => $appointment->id,
-                'user_id' => $appointment->user_id,
-                'type' => 'cancelled',
-                'subject' => 'Your appointment has been cancelled',
-                'body' => "We're sorry, your appointment on {$appointment->appointment_date->format('F j, Y')} at {$appointment->appointment_time} has been cancelled. Please book a new appointment at your convenience.",
-                'read' => false,
-            ]);
-        }
+        app(AppointmentCancellationService::class)->cancel(
+            $appointment,
+            $request->string('reason', 'Cancelled by doctor')->toString() ?: 'Cancelled by doctor',
+            AppointmentCancellationService::BY_DOCTOR,
+        );
 
         return back()->with('success', 'Appointment cancelled and patient has been notified.');
     }
@@ -176,6 +182,9 @@ class DoctorAppointmentController extends Controller
             'time' => $a->appointment_time,
             'patientStatus' => $a->patient_status,
             'coverage' => $a->coverage,
+            // So a doctor can tell a video visit from an in-person one before
+            // confirming it — they prepare differently for each.
+            'consultationType' => $a->consultation_type,
             'hmo' => $a->hmo,
             'status' => $a->status,
             'additionalInfo' => $a->additional_info,

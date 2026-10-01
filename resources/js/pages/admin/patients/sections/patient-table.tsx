@@ -50,7 +50,7 @@ export function PatientTable({
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            fontSize: 12,
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
                                             flexShrink: 0,
                                         }}
@@ -63,8 +63,8 @@ export function PatientTable({
                                         </div>
                                         <div
                                             style={{
-                                                fontSize: 12,
-                                                color: 'var(--wc-gray-500)',
+                                                fontSize: 'var(--text-xs)',
+                                                color: 'var(--wc-text-muted)',
                                             }}
                                         >
                                             {patient.email}
@@ -99,8 +99,8 @@ export function PatientTable({
                                     <div
                                         style={{
                                             marginTop: 4,
-                                            fontSize: 11,
-                                            color: 'var(--wc-gray-500)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
                                         {patient.hmoProvider}

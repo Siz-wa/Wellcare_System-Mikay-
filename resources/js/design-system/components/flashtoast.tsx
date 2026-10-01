@@ -50,7 +50,7 @@ export function FlashToast(): ReactElement | null {
                 background: isSuccess ? '#f0fdf4' : '#fef2f2',
                 border: `1px solid ${isSuccess ? '#bbf7d0' : '#fecaca'}`,
                 color: isSuccess ? '#15803d' : '#b91c1c',
-                fontSize: '14px',
+                fontSize: 'var(--text-sm)',
                 fontWeight: 600,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
                 display: 'flex',
@@ -96,7 +96,7 @@ export function FlashToast(): ReactElement | null {
                     color: 'inherit',
                     opacity: 0.6,
                     padding: 0,
-                    fontSize: '18px',
+                    fontSize: 'var(--text-lg)',
                     lineHeight: 1,
                 }}
             >

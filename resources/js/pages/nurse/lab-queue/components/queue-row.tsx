@@ -57,7 +57,7 @@ export function QueueRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -68,8 +68,8 @@ export function QueueRow({
                 <p
                     style={{
                         margin: '2px 0 0',
-                        fontSize: '12px',
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.test} · {item.patientId}
@@ -86,7 +86,7 @@ export function QueueRow({
                         display: 'inline-block',
                         padding: '3px 10px',
                         borderRadius: 999,
-                        fontSize: '11px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 700,
                         background: `${accent}15`,
                         color: accent,
@@ -99,8 +99,8 @@ export function QueueRow({
                 <p
                     style={{
                         margin: '4px 0 0',
-                        fontSize: '11px',
-                        color: 'var(--wc-gray-400)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.timeAgo}

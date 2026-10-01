@@ -349,6 +349,8 @@ single figure states together.
 | **Generate reports** | ✅ `HR\AnalyticsController` + `AnalyticsService`, `/hr/analytics` with CSV export — *Phase 6, 2026-08-05* |
 | **Backup database** | ❌ — deferred to Phase 7; a `mysqldump` runbook step, not a web feature |
 | **Manage virtual consultation / generate meeting links** | ❌ — Phase 3, still unscoped (§5.2) |
+| **Staff credentialing & specialty assignment** | ✅ `Admin\AdminStaffController` + `CredentialingService` — PRC/PTR/PhilHealth/specialty board, verify → publish gate — *Phase 9, 2026-09-08* |
+| **Doctor schedule approval** | ✅ doctors propose, the administrator publishes; `credentials:sweep` withdraws lapsed licences nightly — *Phase 9, 2026-09-08* |
 | Manage appointments (approve/cancel/reassign doctor) | ❌ (doctors self-confirm) |
 | Verify & upload lab results | ❌ (duplicates the nurse/doctor lab flow) |
 
@@ -593,10 +595,15 @@ currently gives away for free:
   > diagram, and is part of the caption/image contradiction in §3. The ERD
   > **supports** the guarantor model; the paragraph beneath it does not.
 - **Concurrency control.** `BookingService::bookSlot()` runs in a transaction
-  with `lockForUpdate()` on both the slot and the per-patient/per-day conflict
-  check, retried 3×, plus a 10-minute `hold_expires_at` soft hold and a unique
+  with `lockForUpdate()` on both the slot and the per-patient conflict check,
+  retried 3×, plus a 10-minute `hold_expires_at` soft hold and a unique
   active-slot index. Directly answers **Table 8**'s "Double booking or invalid
   schedule" case with an actual mechanism.
+- **A patient may book several times a day** (2026-09-08). The per-patient rule
+  used to be one appointment per date, which rejected an ordinary clinic day —
+  a consultation and the lab work it orders. It is now a *time-overlap* check
+  against `appointments.duration_minutes` plus a daily maximum of 3, so
+  back-to-back visits are legal and being in two rooms at once is not.
 - **Availability model.** `availability_blocks` with weekly recurrence +
   date-specific overrides, `is_available:false` blackouts, 5-min inter-slot
   buffer, 2-hour minimum lead, 3-month horizon, 60s slot cache.
@@ -617,21 +624,24 @@ currently gives away for free:
 
 | Module | Documented | Built | Est. |
 |---|---|---|---|
-| Auth + RBAC (5 roles) | ✅ | ✅ | ~95% |
-| Appointment booking & scheduling | ✅ | ✅ | ~90% |
-| Doctor availability | ✅ | ✅ | ~90% |
-| Consultation documentation (in-person) | ✅ | ✅ | ~85% |
+| Auth + RBAC (5 roles) | ✅ | ✅ | ~95% — *Phase 8, 2026-09-07: settings un-gated from `role:user` so all five roles reach their own account; sign-in / sign-out / failed-attempt audit trail added* |
+| Appointment booking & scheduling | ✅ | ✅ | ~92% — *2026-09-08: the per-patient rule narrowed from one-per-day to a time-overlap check plus a daily maximum of 3, so a patient can book a consultation and its follow-up lab work on the same day* |
+| Doctor availability | ✅ | ✅ | ~95% — *Phase 9, 2026-09-08: hours are now a **proposal**. A doctor states when they can attend; nothing is bookable until an administrator publishes it. Time off stays immediate* |
+| Consultation documentation (in-person) | ✅ | ✅ | ~88% — *2026-09-10: the "Start New Session" button removed. A consultation now begins where it actually begins — the patient checks in, and the doctor's Start posts the guarded `checked_in → in_progress` transition* |
 | Lab workflow (order → record → validate) | ✅ | ✅ | ~80% |
 | Patient records (doctor-side) | ✅ | ✅ | ~80% |
-| Notifications | ✅ | ✅ | ~75% |
+| Notifications | ✅ | ✅ | ~85% — *Phase 8, 2026-09-07: per-account preferences across 5 categories × 2 channels, gated at both choke points. Critical lab values and security alerts deliberately unmutable* |
 | **LOA module (Obj. 1.6)** | ✅ | ✅ | ~85% — *Phase 2, 2026-07-31* |
-| Patient portal (records/labs/LOA) | ✅ | ✅ | ~90% — *LOA status page shipped* |
+| Patient portal (records/labs/LOA) | ✅ | ✅ | ~92% — *LOA status page shipped. 2026-09-10: the doctor's name on an appointment links to their public profile — credentials, board standing and clinic hours* |
 | **Nurse module** | ✅ | ✅ | ~85% — *Phase 5, 2026-08-01. All 5 Fig. 10 processes + dashboard + appointment monitor. Diagnoses deliberately read-only* |
-| **Admin module** | ✅ | ✅ | ~70% — *Phase 4, 2026-07-31. Reports + backup deliberately deferred* |
+| **Admin module** | ✅ | ✅ | ~90% — *Phase 4, 2026-07-31 + **Phase 9, 2026-09-08**. Phase 9 added the missing authority: staff credentialing (PRC/PTR/PhilHealth/specialty board), specialty conferral, and roster approval. Backup deliberately deferred* |
+| **Staff credentialing & governance (Phase 9)** | ⚠️ *not a documented objective; the paper assumes the roles exist but never says who creates them* | ✅ | ~93% — *2026-09-08. PRC/PTR/PhilHealth/S2 + specialty board on file; verify → publish gate; nightly `credentials:sweep` auto-withdraws lapsed licences; specialty conferred only against a Diplomate/Fellow certificate.* **2026-09-10: the record is no longer one-way.** The doctor sees their own file and its expiry dates, and the two credentials a patient can independently verify (PRC number, specialty board standing) are published on a per-doctor profile page |
 | **Analytics / reports (Obj. 1.5)** | ✅ | ✅ | ~90% — *Phase 6 + 6.1, 2026-08-05. Five reports + CSV export, admin and HR. **Descriptive and diagnostic tiers, plus rule-based prescriptive actions; predictive deliberately excluded on evidence (§11)**. No scheduled/emailed reports* |
+| **Account settings (profile · security · notifications · privacy)** | ⚠️ *not a documented objective; every system has one* | ✅ | ~90% — *Phase 8, 2026-09-07. Full demographic profile, password, 2FA, browser sessions, account activity, notification preferences, RA 10173 data export, account closure. Role-aware shell* |
 | **Activity log · Archive** | ✅ | ✅ | ~85% — *Phase 4. No retention sweep yet* |
 | Database backup | ✅ | ❌ | 0% — *reclassified: a Phase 7 runbook step, not a web feature* |
-| **Virtual consultation** | ⚠️ *(11 places, none of them an objective — §5.2, wording proposed in §5.2a)* | ✅ | ~95% — *Phase 3 built 2026-08-03; Phase 3.1 hardening 2026-08-04. Two-device call verified across separate networks. Real teardown, monotonic call state, role-aware leave, ICE-restart recovery from either side, peer mute/camera state, departure on every exit path, autosave, scheduled sweep of abandoned rooms. Presence verified on two devices; spike deleted; **§12 risk 7 closed on a 24m 12s cross-network call, pair `srflx ⇄ srflx (udp)`, no relay**. No engineering work remains — what is left is the §5.2a objective wording, which is a paragraph in the paper* |
+| **Virtual consultation** | ⚠️ *(11 places, none of them an objective — §5.2, wording proposed in §5.2a)* | ✅ | ~95% — *Phase 3 built 2026-08-03; Phase 3.1 hardening 2026-08-04. Two-device call verified across separate networks. Real teardown, monotonic call state, role-aware leave, ICE-restart recovery from either side, peer mute/camera state, departure on every exit path, autosave, scheduled sweep of abandoned rooms. Presence verified on two devices; spike deleted; **§12 risk 7 closed on a 24m 12s cross-network call, pair `srflx ⇄ srflx (udp)`, no relay**. **2026-09-16: the coverage hole closed.** `coverage = cash` on a virtual booking was legal and meaningless — cash is handed to a cashier and there is no cashier on a video call, so a self-paid video visit could happen with no record that anything was owed. A settlement module now raises the fee at booking, gate G5 holds the room shut until a person confirms the money arrived, and `wellcare:payments:sweep` releases the slot if the deadline lapses. **No payment gateway**: the clinic's own GCash/bank/cashier move the money and the system records the claim and the finding. Cash reaches a video consultation through the branch counter, recorded by the cashier. No engineering work remains — what is left is the §5.2a objective wording, which is a paragraph in the paper* |
+| **Video consultation settlement (payments)** | ⚠️ *not a documented objective; the paper never says how a virtual visit is paid for* | ✅ | ~85% — *2026-09-16. Fee raised at booking, patient declares a remittance, HR confirms it against the clinic's own records, gate G5 holds the room, scheduled sweep releases unpaid slots. Cash accepted at the branch counter in one step. No gateway, no funds through the application. Left out: dashboard counters, a nurse-side monitor, and revenue reporting* |
 | **ISO 25010 evaluation (Obj. 4)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 | **Implementation & training plan (Obj. 5)** | ✅ | ❌ | 0% — *added 2026-07-31* |
 
@@ -1105,6 +1115,106 @@ already promise these in the past tense; they need to exist.
 - [ ] Cite **Figures 12–17** in Ch. 3's testing section — they already show the
       built login, registration and 4-step booking wizard (§2a).
 
+### Phase 8 — Account settings and site-wide essentials ✅ *done 2026-09-07*
+
+*Not in the paper, and that is the point.* Every one of the 17 figures describes
+clinical flow; none describes what a signed-in person does with their own
+account. The starter kit shipped three settings pages and they had been left
+where it put them, which is how the defect below survived.
+
+- [x] **Un-gate settings from `role:user`.** `require routes/settings.php` sat
+      inside the patient route group, and nested middleware accumulates — so
+      `/settings/*` carried `role:user` and returned **403 for doctors, nurses,
+      HR and admin**. Four of five roles could not change their own password or
+      enable 2FA. Moved to the shared `auth` group.
+- [x] **Role-aware settings shell.** `layouts/app-layout.tsx` wrapped settings in
+      `PatientDashboardLayout` unconditionally, so even once a doctor could
+      reach the page they would have got the *patient* sidebar.
+      `pages/settings/layout/settings-shell.tsx` dispatches on the signed-in
+      role instead.
+- [x] **Profile** — the form collected first name, last name and email while
+      `patient_profiles` carries seven more columns. Now edits contact number,
+      address, company, sex, birthdate and civil status too, with the
+      `client_number` shown read-only.
+- [x] **Security** — password and 2FA (kept), plus **active browser sessions**
+      with "sign out everywhere else", and **recent account activity**.
+- [x] **Notification preferences** — 5 categories × 2 channels, enforced at the
+      two choke points rather than per-caller.
+- [x] **Privacy & data** — holdings summary, JSON export (RA 10173 access and
+      portability), account closure. Staff self-deletion refused.
+- [x] **Auth audit trail** — `Login`, `Logout`, `Failed`, `PasswordReset` into
+      `activity_log` under log name `auth`, so the existing admin filter picks
+      them up unchanged.
+- [x] **Branded error pages** for 403 / 404 / 429 / 500 / 503; 419 bounces back
+      with a flash instead.
+- [x] **Security headers** on every response, including the ones the exception
+      handler builds.
+- [x] **Account menu in the topbar.** The user chip had `cursor: pointer`, a
+      hover state and a chevron, and no click handler — it looked like a menu on
+      every dashboard and did nothing.
+- [x] **Settings entry in all five sidebars.** No role's sidebar linked to
+      settings at all; HR's had it commented out.
+
+**Deliberately not built:**
+- **Avatar upload.** Initials are generated from the profile name and are
+  consistent everywhere. Real uploads mean storage, a resize pipeline, and a
+  moderation question on a system holding medical records — none of which is a
+  documented requirement. **Narrowed 2026-09-10, not reversed:** doctors may now
+  publish a photograph, because a doctor's photo has a reader — the patient
+  choosing them — and a patient's does not. Still no upload for patients, HR,
+  nurses or admins, and still no resize pipeline. See §11.
+- **Full CSP.** A policy loose enough to admit Vite's dev server, its HMR
+  socket, Reverb's origin and this codebase's pervasive inline styles is
+  decorative; one tight enough to matter breaks `composer dev`. `frame-ancestors`
+  is included because it costs nothing.
+- **Scheduled notification digests.** The preference matrix says *whether*, not
+  *when*.
+
+### Phase 9 — Staff onboarding, credentialing and roster governance ✅ *done 2026-09-08*
+
+*Not in the paper either, and for a sharper reason than Phase 8.* All seventeen
+figures assume the five roles already exist and are competent. Not one says who
+creates a doctor, who decides their specialty, who approves their hours, or who
+checks they are licensed at all. The system inherited that silence: every role
+administered itself, which is why the app read as though nobody ran the clinic.
+
+**The defect underneath it.** `StaffAccountService::create()` wrote `users` +
+`patient_profiles` + a role and stopped. A doctor created through the admin UI
+therefore had **no `doctor_profiles` row** — invisible to `DoctorProfile::active()`,
+unbookable, no specialty, and a blank name everywhere
+`doctorProfile.display_name` is read. No error anywhere. The only writer of
+`doctor_profiles` was a seeder, so this was invisible in development and would
+have appeared the first time a real doctor was hired.
+
+- [x] **Fix the ghost account.** `doctor_profiles` is created in the same
+      transaction as the account, mirroring the existing `ensureSelfPatient()`
+      branch. New doctors start **unpublished**.
+- [x] **`app/Enums/`** — `Specialty`, `CredentialStatus`, `BoardStatus`. String-backed,
+      so `->value` is byte-identical to what is already stored; the seven
+      specialty slugs had lived as undeclared strings in three places.
+- [x] **`staff_credentials`** — PRC registration + expiry, PTR + LGU + expiry,
+      PhilHealth accreditation, S2, specialty board + Diplomate/Fellow rank, annual
+      medical certificate. Modelled on what a Philippine clinic actually files.
+- [x] **`CredentialingService`** — submit / verify / reject / suspend / conferSpecialty
+      / sweepExpired. **`doctor_profiles.is_active` is now derived, never set by
+      hand**, and this service is its only writer.
+- [x] **`credentials:sweep`**, scheduled daily at 02:00. A lapsed PRC withdraws
+      clearance automatically rather than raising a warning somebody must notice.
+- [x] **Roster approval.** A doctor's weekly hours are a proposal; nothing is
+      bookable until an administrator publishes it. **Time off is exempt** and
+      applies immediately — see §11.
+- [x] **`Admin\AdminStaffController`** + `/admin/staff`, `/admin/staff/roster`,
+      and eight action routes. New **CLINIC GOVERNANCE** sidebar group.
+- [x] **Doctor-side visibility** — the availability page now says *why* nothing is
+      bookable: awaiting approval, sent back with a remark, or a lapsed licence.
+- [x] **Not in the original plan:** `BookingService::getAvailableSlots()` never
+      checked whether a doctor was published. Found by a failing test, not review.
+
+*Deliberately not built:* HMO/PhilHealth accreditation of the **facility** (a
+document the clinic holds, not a workflow); automated PRC registry verification
+(PRC publishes no API — the administrator checks the portal by hand, which is
+what the real process is); nurse/RMT scheduling (nurses are not bookable).
+
 ---
 
 ## 10. Verification
@@ -1194,6 +1304,17 @@ New Pest features per phase:
 | 2026-08-05 | Diagnostic tier and the paper | **Build it; change nothing in the paper.** Objective 1.5 already reads "tracking and **analyzing**", and Phase 6 delivered only the tracking half — diagnostic work is what "analyzing" means, so it needs no new sub-objective. Group 5's call, taken this session: these tiers are fundamental to an analytics module rather than a new claim, so unlike virtual consultation (§5.2a) there is no wording gap to close. |
 | 2026-08-05 | Prescriptive without a model | **Threshold rules, not scoring.** Every recommendation states a number a human can re-check (7 days pending, 48 hours stalled, over the daily cap). Defensible, debuggable, and honest about what it is. A learned "priority score" over this dataset would be the predictive problem wearing a different hat. |
 | 2026-08-05 | Un-timeable records in averages | **Exclude and state the sample size; never clamp.** Two averages had rows that cannot be measured: appointments back-entered after the visit (no lead time) and LOA requests back-filled by the Phase 2 migration with a decision predating their own submission. Clamping to zero would have hidden them; excluding them and printing "over N …" keeps the figure honest and auditable. Neither is a live-code bug — `BookingService` and `LoaService` cannot produce either ordering. |
+
+| 2026-09-08 | **Who administers the clinic** | **The administrator acts as the clinic's medical director / credentialing authority.** The paper never names anyone who creates staff accounts, assigns a specialty or approves hours, so the system had every role administering itself. In a Philippine clinic nobody self-appoints: a facility keeps a credentialing record for every professional it clears, *including the practice privileges conferred on them*. Phase 9 gives that role to `admin`. The HR/admin split was considered and rejected — separation of duties is real practice, but this clinic is one branch with a single administrator, and a two-queue workflow would be ceremony the users would route around. |
+| 2026-09-08 | **`doctor_profiles.is_active` is derived** | **It means "holds a verified, unlapsed credential", and `CredentialingService` is its only writer.** Previously it defaulted to true and nothing ever changed it, so "is this doctor allowed to see patients" had no answer anywhere in the system. Any code setting it directly reintroduces exactly that. |
+| 2026-09-08 | PRC/PTR stored **unencrypted** | **Plain text, deliberately — a departure from `encrypt_sensitive_clinical_columns`.** A PRC licence number is a *public professional registry* identifier; PRC publishes a verification portal precisely so anyone can check one. It is not health information about a patient, and it has to be searchable and indexable, which an encrypted column cannot be. RA 10173 governs how the personal information is handled, not secrecy of a published licence number. |
+| 2026-09-08 | Time off is **exempt** from roster approval | **A doctor closes a day immediately; only bookable hours wait for approval.** Two reasons and both matter. Safety: making a cancellation wait on an administrator is the wrong failure mode. Correctness: `scopePublished()` filters out unpublished rows, so an unapproved blackout would leave the day quietly *open* — the exact opposite of what the doctor asked for. |
+| 2026-09-08 | Lapsed licences **auto-withdraw** | **`credentials:sweep` unpublishes without asking, unlike the record purge which only reports.** The asymmetry is deliberate. The purge destroys medical records and must not run unattended; this withdraws a clearance an administrator restores in one click. The cost of acting is a doctor briefly unbookable; the cost of not acting is an unlicensed consultation. |
+| 2026-09-08 | New PHP enums alongside existing string statuses | **`app/Enums/` for new work; `LoaRequest`/`Appointment` statuses left as strings.** The project had no enum precedent, but it also had no canonical specialty list — seven slugs living in three places with nothing to check them. String-backed enums serialise to the identical values, so this is additive. Rewriting the older status columns is a separate change with its own regression surface and was not bundled in. |
+| 2026-09-10 | **A consultation cannot be started by the doctor** | **The "Start New Session" button is removed, not repaired.** It opened the full clinical editor against no appointment, and the editor's Save and Finalize are disabled without one — a doctor could type a complete SOAP note and lose every word of it. There is also no correct version of it: a consultation is documented against a booked appointment (patient, coverage, allergies, lab orders all hang off it) and the doctor is not the one who books. The visit arrives from the patient's own check-in; the doctor's Start now posts the `checked_in → in_progress` transition that already existed in `DoctorConsultationController` and had never been wired to anything. A doctor who needs to see a walk-in books the appointment first — same as the front desk. |
+| 2026-09-10 | **Doctor photographs — narrows the Phase 8 "no avatar upload" decision** | **Built for doctors; still not built for patients or other staff.** Phase 8 declined avatar upload on the grounds that initials are consistent and uploads mean storage plus a moderation question. That reasoning holds for a patient account, where the photo has no reader. A doctor's photograph has one: it is how a patient recognises the person they are about to be examined by, and every real clinic directory carries one. Scope is deliberately narrow — one role, no resize pipeline (validated dimensions and a 4 MB cap instead of one), no cropping UI, and the file is served by a controller rather than a public symlink so consent stays revocable. |
+| 2026-09-10 | **What a public doctor profile may carry** | **Name, specialty, PRC registration number, specialty board standing, clinic hours, languages, and a short factual practice statement. Nothing else.** Two rules bound it from opposite sides. The PRC Board of Medicine / PMA Code of Ethics permits a physician to publish name, field of specialty, office hours and affiliation, and forbids publishing personal superiority, certificates, diplomas or postgraduate training, or soliciting patients by advertisement — so there are no ratings, testimonials, rankings or awards, and the practice statement is capped at 600 characters and described in the UI as factual. The DOH Patient's Bill of Rights pulls the other way: a patient is entitled to know who is treating them and on what credentials, which is why the PRC number is published at all — it is the one item a patient can verify without the clinic's help, on PRC's own portal. Withheld in every case: the PTR number, the PhilHealth accreditation number, and the PDEA/DDB S2 licence, which identifies a prescriber of dangerous drugs. |
+| 2026-09-10 | **A photograph needs consent; a licence number does not** | **`photo_consent_at` on `doctor_profiles`, owned by the doctor and withdrawable in one tick.** A PRC number is published professional-registry data and is handled under the same reasoning as the 2026-09-08 plain-text decision. A photograph is the doctor's likeness used for the clinic's publicity, which under RA 10173 is where NPC guidance points at consent rather than legitimate interest. Uploading is therefore not publishing: the file is stored and shown back to the doctor, and nothing is public until the box is ticked. Deleting the photo clears the consent with it, so the next upload is not silently pre-authorised. |
 
 ---
 
@@ -3126,6 +3247,269 @@ lines of which two thirds were whitespace.
 
 ---
 
+### 2026-09-10 — Consultations start with the patient; doctors get a real profile
+
+**Phase:** 9 (extension) · **Status:** done
+
+**Changed:**
+
+*Consultation origin*
+- `app/Http/Controllers/Doctor/DoctorConsultationController.php` (`start()` documented
+  and made idempotent from `in_progress`)
+- `resources/js/pages/doctor/consultations/consultations.tsx` (dead button removed;
+  Start now posts the guarded transition), `consultations-data.ts`,
+  `session-editor/session-editor.tsx` (`consultation` prop no longer nullable),
+  `session-editor/lab-orders.tsx`
+- `tests/Feature/Consultation/ConsultationStartTest.php` *(new)*
+
+*Doctor profile, photograph and published credentials*
+- `database/migrations/2026_09_10_143838_add_public_profile_to_doctor_profiles.php` *(new)*
+  — `photo_path`, `photo_consent_at`, `bio`, `languages`, `practising_since`
+- `app/Models/DoctorProfile.php` (`credential()`, `publishedCredential()`,
+  `hasPublishablePhoto()`, `photoVersion()`, `getRouteKeyName() = user_id`)
+- `app/Services/DoctorPhotoStorage.php` *(new)*
+- `app/Http/Resources/DoctorResource.php` (photo, profile URL, practice details,
+  published credentials)
+- `app/Http/Controllers/GenController.php` (`doctor()`, `doctorPhoto()`);
+  `app/Http/Controllers/Settings/ProfessionalProfileController.php` *(new)*;
+  `app/Http/Requests/Settings/ProfessionalProfileUpdateRequest.php` *(new)*
+- `app/Http/Controllers/AppointmentController.php`,
+  `app/Http/Controllers/Patient/PatientDashboardController.php` (doctor profile link)
+- `routes/web.php` (`/doctors/{doctor}`, `/doctors/{doctor}/photo`);
+  `routes/settings.php` (`settings/professional` + photo verbs, own `role:doctor` group)
+- `resources/js/components/doctor-avatar.tsx` *(new)*;
+  `resources/js/pages/generals/doctors/{profile.tsx,sections/doctor-profile.tsx}` *(new)*;
+  `resources/js/pages/settings/professional/**` *(new — index, data, 4 sections)*;
+  `resources/js/lib/specialties.ts` (`DoctorCredentials`, `doctorCredentialLine`);
+  `doctors-grid.tsx`, `doctor-picker.tsx`, `step-coverage.tsx`, `bookingdata.ts`,
+  `appointment-card.tsx`, `dashboard-data.ts`, `settings-data.ts`, `settings-nav.tsx`,
+  `resources/css/components.css`
+- `tests/Feature/Staff/DoctorPublicProfileTest.php` *(new)*;
+  `tests/Feature/Settings/ProfessionalProfileTest.php` *(new)*
+
+**Why:** Two unrelated reports, one root cause each.
+
+*The "Start New Session" button could not start anything.* It opened the session
+editor with no appointment behind it, and the editor's Save Draft and Finalize
+are both `disabled` without one — so a doctor could type a full SOAP note and
+lose every word of it. There is no working version of that button: a
+consultation is documented against a booked appointment, and the doctor is not
+the one who books. A consultation begins when the patient checks in on the day
+(`PatientDashboardController::checkIn`, day-of only), which is the *only* thing
+that produces `checked_in`. The button is gone, the page says where visits come
+from, and the row-level Start now posts `doctor.consultations.start` — an
+endpoint that already existed, refuses anything but `checked_in`, and had never
+been wired to the UI at all. The status flip previously happened on the first
+draft save, so a doctor who opened a chart and was called away left the patient's
+dashboard still reading "checked in".
+
+*A doctor could not see their own record.* Phase 9 files a PRC registration, PTR,
+PhilHealth accreditation and specialty board certificate for every clinical
+account — and showed the subject of that record none of it. `/doctor/settings`
+redirects to `/settings/profile`, which is a patient's form: civil status,
+birthdate, company. There was no photograph anywhere in the system, so the public
+directory and the booking picker were a grid of coloured initials, and a patient
+choosing a doctor had no way to see who they were or what they were licensed to
+do.
+
+**What may be published, and why the list is short.** Two rules bound it from
+opposite sides, and both are recorded in §11:
+- The **PRC Board of Medicine / PMA Code of Ethics** permits a physician to
+  publish name, field of specialty, office hours and affiliation, and forbids
+  publishing personal superiority, certificates, diplomas or postgraduate
+  training, or soliciting patients by advertisement. So: no ratings, no
+  testimonials, no rankings, and a practice statement capped at 600 characters
+  and labelled as factual.
+- The **DOH Patient's Bill of Rights** entitles a patient to know who is
+  treating them and on what credentials — which is why the PRC number is
+  published at all. It is the one item a patient can check without the clinic,
+  on PRC's own verification portal, and it is what Philippine doctor directories
+  already carry.
+- **RA 10173** separates the two kinds of data: a licence number is published
+  registry data; a photograph is a likeness used for the clinic's publicity, so
+  it is opt-in (`photo_consent_at`), withdrawable in one tick, and served by a
+  controller rather than a public symlink so a withdrawal takes effect on the
+  next request.
+- Never published: the PTR number, the PhilHealth accreditation number, and the
+  PDEA/DDB S2 licence. A test asserts all three are absent from the rendered
+  public page.
+
+`doctor_profiles.is_active` keeps its Phase 9 meaning, so an unpublished doctor's
+profile page 404s, their photo stops being served, and their credentials
+disappear — one gate, three surfaces.
+
+**Verified:** `php artisan test --compact` — **1138 passed, 4012 assertions**,
+0 failed, 1139.74s. Baseline before this work was 1096 passed / 3799 assertions,
+so the 42 new tests are the difference. An earlier run reported *26 failed* and
+was discarded: a second Pest process had been started against the same
+`wellcare_test` database and truncated rows mid-run (`ModelNotFoundException`
+in tests untouched by this work). Re-run alone, green.
+`vendor/bin/pint --dirty` — pass. `npx tsc --noEmit` — clean.
+`npm run lint` — 1 error, 5 warnings, all pre-existing (see below).
+Live check against the dev server: `/doctors` serves 34 doctors with published
+PRC numbers and board standing, `/doctors/18` renders `generals/doctors/profile`,
+`/doctors/18/photo` 404s with no consent on file, `/settings/professional`
+redirects a guest.
+
+**Found while building, not planned:** every photo URL is fixed for the life of
+the account, so the long `Cache-Control` on the streamed response would have kept
+serving a *replaced* photograph out of the browser cache for a day — the doctor
+uploads a new one, sees the old one, re-uploads. Fixed with a `?v=` token derived
+from the stored path (`DoctorProfile::photoVersion()`), which changes on every
+upload. Also fixed, in a file this work touched: `session-editor.tsx` read
+`setSaveLabel` above its own `useState` declaration, which ESLint reports as an
+error (`react-hooks/immutability`); the three state declarations were hoisted
+above the effect.
+
+**Blocked / left out:**
+- **`npm run lint` still reports one pre-existing error**, in the uncommitted
+  allergy-panel work in `session-editor.tsx:125` — `setState` called
+  synchronously inside an effect (`react-hooks/immutability`). It predates this
+  session and fixing it means rewriting how flashed contraindications are read,
+  which belongs with that feature rather than bundled in here.
+- **No photo for patients, nurses, HR or admins**, and no photo in the topbar
+  chip — the topbar would cost a `doctor_profiles` load on every request for
+  every role, and the ask was the public pages and the booking picker.
+- **No resize or crop pipeline.** Dimensions and a 4 MB cap are validated
+  instead; a 4 MB headshot is served as uploaded.
+- **Nurses cannot see their own credentialing file.** `staff_credentials` covers
+  them, but they have no professional-profile page — same page, different role
+  gate, and not what was reported.
+
+---
+
+### 2026-09-10 — Photo upload failed silently; two separate bugs behind it
+
+**Phase:** 9 (extension) · **Status:** done
+
+**Changed:**
+- `app/Providers/AppServiceProvider.php` (`allowServeSubprocessUploads()`)
+- `app/Http/Controllers/Settings/ProfessionalProfileController.php` (custom
+  `photo.uploaded` message)
+- `resources/js/pages/settings/professional/sections/photo-panel.tsx`
+  (reads the error from shared page props; `preserveState` on the upload visit),
+  `sections/practice-form.tsx`
+- `tests/Feature/Settings/PhotoUploadFailureTest.php` *(new)*
+
+**Why:** Reported from the browser: choosing a photo did nothing at all, and the
+DevTools payload showed the server had answered
+`errors: {photo: "The photo failed to upload."}` — an error the page received
+and never displayed. Two independent bugs, one on each side.
+
+*1 — The upload really was failing, and not because of the file.* Reproduced by
+signing in over curl and posting a 6 KB JPEG at the endpoint:
+
+    PHP Request Startup: File upload error - unable to create a temporary
+    file in Unknown on line 0
+
+`artisan serve` gives the `php -S` child a filtered environment
+(`ServeCommand::$passthroughVariables`) so it can watch `.env`. That list does
+not carry `TMP` or `TEMP`, and on Windows those are how PHP finds a scratch
+directory: GetTempPath() reads TMP, then TEMP, then USERPROFILE, then falls back
+to the Windows directory — which a normal account cannot write to. `SystemRoot`
+*is* passed through (the 2026-08-27 fix), so the fallback resolved, was refused,
+and PHP discarded `$_FILES` before any rule ran. **This affected every upload in
+the application under `composer dev` on Windows — patient documents and lab
+scans too, not only doctor photos.** A bare `php -S` from the same shell with
+the same php.ini accepted the identical file with `error: 0`, which is what
+pointed at the environment rather than the endpoint. Fixed in the same provider
+and by the same mechanism as the `Path` / `SystemRoot` fix beside it. **A running
+`composer dev` must be restarted to pick it up.**
+
+*2 — The rejection was invisible, which is the part that made it "fail
+silently".* The photo upload is its own `router.post` visit, not a submit of the
+surrounding Inertia `<Form>`, and a Form's render-prop `errors` only ever carry
+that form's own submissions. The panel read `errors.photo` from there, so the
+server's answer arrived in shared page props and nothing on screen changed. It
+now reads `usePage().props.errors.photo` and renders the alert at the top of the
+card. Laravel's default `uploaded` message was replaced too: it reads like a bad
+file, and this failure is never the doctor's file — by the time validation runs
+PHP has already thrown the upload away, so `max` cannot even see it.
+
+**Verified:** Reproduced and fixed against a real browser-shaped request, not a
+test double. Before: `POST /settings/professional/photo` → **422**, body
+`{"message":"The photo failed to upload."}` plus the PHP warning above. After,
+on a patched server on port 8901: **302** back to the settings page; the file on
+disk at `doctor-photos/2/…jpg`, 6467 bytes, `photo_consent_at` still null
+(uploading is not publishing). Consent round-trip over HTTP: own photo **200**
+before consent, public **404** before consent, public **200** after the tick-box
+is saved. A rejected upload (40×40) puts
+`props.errors = {"photo":"Use a photo at least 200 by 200 pixels."}` on the next
+page — the prop the panel now reads. Dev data restored afterwards: photo
+deleted, `languages` cleared, `storage/app/private/doctor-photos/` removed.
+`php artisan test --compact --filter="PhotoUploadFailureTest|ProfessionalProfileTest|DoctorPublicProfileTest"`
+— **39 passed, 207 assertions**. Full suite after the provider change, which
+boots on every test: `php artisan test --compact` — **1144 passed, 4024
+assertions**, 0 failed, 1291.03s (1138 before, plus the 6 new ones here). Pint
+pass; `format:check` clean; `tsc --noEmit` clean.
+
+**Blocked / left out:** no test can catch the original environment failure end
+to end — `UploadedFile::fake()` sets Symfony's `$test` flag, which is precisely
+the flag that skips the `is_uploaded_file()` check that was failing, so the
+existing upload tests passed throughout and always would have. The new file
+covers the two reachable angles instead: the passthrough list must carry a temp
+directory, and a PHP-refused upload must produce a message that does not blame
+the doctor's file.
+
+---
+
+### 2026-09-10 — Photo limits loosened, and derived rather than declared
+
+**Phase:** 9 (extension) · **Status:** done
+
+**Changed:**
+- `app/Services/DoctorPhotoStorage.php` (`PREFERRED_MAX_KILOBYTES`,
+  `MIN_EDGE_PIXELS`, `maxKilobytes()`, `maxLabel()`, `iniKilobytes()`)
+- `app/Http/Controllers/Settings/ProfessionalProfileController.php` (rules and
+  messages read the derived cap; unwritable-temp-dir diagnostic before validation)
+- `resources/js/pages/settings/professional/**` (`PhotoLimits` prop threaded to
+  the hint), `professional-data.ts`
+- `tests/Feature/Settings/PhotoUploadFailureTest.php`
+
+**Why:** Reported as "the limitation of uploading file is too tight". It was:
+4 MB refuses ordinary phone pictures, which are routinely 4–10 MB, and a 200 px
+minimum edge is stricter than it needs to be for rejecting thumbnails.
+
+Raised to **12 MB** and **150 px**, but not by editing a constant. The cap is now
+`min(clinic preference, upload_max_filesize, post_max_size)`, because a cap set
+above PHP's own limit manufactures the exact failure of the previous entry: PHP
+discards the upload before any rule runs, `max` never sees it, and the only
+message left is the opaque "the server refused it". On this machine that
+resolves to 12 MB (`upload_max_filesize=24M`); on a host with a stock 2 MB
+setting it honestly says 2 MB rather than promising 12. The figure the rule
+enforces, the figure in the refusal message, and the figure in the hint the
+doctor reads are all the same call — `photoLimits` is sent as a page prop rather
+than written into the copy, so the hint cannot drift from the validator.
+
+**Also added: the diagnostic for "it's rejecting everything".** Reported twice in
+one session, both times while the fix from the previous entry was already on disk
+but the dev server had not been restarted. `updatePhoto()` now checks
+`is_writable(sys_get_temp_dir())` before validating and, when it fails, says so —
+naming the directory and saying that `composer dev` has to be restarted. Verified
+that this is the real signal rather than a guess: with TMP, TEMP and USERPROFILE
+stripped from the environment (which is exactly what
+`ServeCommand::$passthroughVariables` does), `php -S` reports
+`sys_temp: C:\WINDOWS`, `temp_writable: false`, and `$_FILES` carries
+`error: 6` — UPLOAD_ERR_NO_TMP_DIR.
+
+**Found while building, not planned:** stripping only TMP and TEMP is *not*
+enough to reproduce the failure — PHP falls through to `USERPROFILE`, which is
+writable, and the upload succeeds. Only when USERPROFILE is missing too does the
+fallback reach the Windows directory and fail. Both are already in the
+passthrough list, so the fix is covered twice over, but it explains why the
+original bug needed all three names to be absent.
+
+**Verified:** VERIFIED_LINE
+
+**Blocked / left out:** no resize or crop pipeline still, so a 12 MB headshot is
+now the most disk one doctor's photo can occupy and is served at that size.
+HEIC is still not accepted: PHP's `image` rule cannot read it and a browser
+cannot render it in an `<img>`, so accepting one would store a file nothing can
+display. The file input's `accept` attribute is what avoids this in practice —
+iOS converts to JPEG on pick when it is set.
+
+---
+
 ## What this phase actually taught — seven silent defects
 
 Worth its own section because it is the transferable part, and because it is the
@@ -3400,3 +3784,814 @@ every capital. Pre-existing — **it was visible on Phase 6's service chart too.
   Phase 6's SVG custom-property risk — but it has not been seen.
 - The attention list is only on the analytics page. Surfacing the same items on
   the HR and admin dashboards would be useful and was not in scope.
+
+### 2026-09-08 — Data protection compliance audit (RA 10173 / DOH)
+**Phase:** compliance · **Status:** done (audit only — no code changed)
+**Changed:** `WELLCARE-COMPLIANCE-PLAN.md` (new, v1.0)
+**Why:** Nothing in this repo had ever been checked against the Data Privacy Act
+or the DOH health-data rules, despite the schema holding sensitive personal
+information across 11 tables. Full inventory, gap analysis and remediation
+backlog now live in that document; this entry is the pointer.
+**Verified:** 15 Pass, 15 Partial, 24 Missing across 8 control areas. Top
+finding is **RET-1** — `Settings\ProfileController::destroy()` hard-deletes
+`users` (no `SoftDeletes`), and eight `CASCADE` foreign keys confirmed via
+`information_schema.REFERENTIAL_CONSTRAINTS` take the patient's allergies,
+diagnoses, documents and profile with it. Reachable today at
+`DELETE /settings/profile`. Second: `Doctor\PatientRecordController::show()` and
+the nurse equivalent apply no care-relationship check, and no read is audited
+anywhere, so unauthorised access is both possible and invisible.
+**Blocked / left out:** No remediation implemented — awaiting approval of §3 of
+the compliance plan. Nine decisions in §5 belong to a human or a DPO; ND-1
+(consent text), ND-6 (retention period) and ND-8 (`APP_KEY` custody) block SC-4,
+SC-1 and SC-5 respectively.
+
+### 2026-09-08 — Phase 3 remediation pass 1 (v1.1)
+**Phase:** compliance · **Status:** done
+**Changed:**
+- `.env.example`, `config/filesystems.php`, `app/Providers/AppServiceProvider.php`
+- `database/migrations/2026_09_08_062851_add_soft_deletes_to_clinical_record_tables.php`
+- `database/migrations/2026_09_08_062853_make_clinical_record_foreign_keys_retention_safe.php`
+- `database/migrations/2026_09_08_062855_add_soft_deletes_to_users_table.php`
+- `database/migrations/2026_09_08_064203_create_record_access_log_table.php`
+- `database/migrations/2026_09_08_065230_add_care_relationship_to_record_access_log.php`
+- `app/Models/{User,Patient,PatientAllergy,PatientDiagnosis,PatientDocument,ConsultationSession,ConsultationPrescription,PatientProfile,PatientMedical,RecordAccessLog}.php`
+- `app/Concerns/LogsRecordAccess.php` (new)
+- `app/Policies/{PatientPolicy,PatientDocumentPolicy,PatientDiagnosisPolicy,PatientAllergyPolicy}.php` (new)
+- `app/Http/Controllers/Controller.php`, `Doctor/PatientRecordController.php`,
+  `Nurse/PatientRecordController.php`, `Patient/PatientRecordController.php`,
+  `Patient/GuarantorPatientController.php`, `Settings/{ProfileController,PrivacyController}.php`,
+  `HR/AnalyticsController.php`, `Admin/AdminPatientController.php`
+- `resources/js/pages/user/records/{records-data.ts,record-detail.tsx,sections/access-log-section.tsx}`
+- `tests/Feature/Compliance/{RecordRetentionTest,RecordAccessLogTest,RecordAccessPolicyTest}.php` (new)
+- `tests/Feature/Settings/ProfileUpdateTest.php` (one assertion updated — see below)
+
+**Why:** Shipped QW-3, QW-4, QW-5, QW-6, QW-8, SC-1(a–c), SC-2 and SC-3 from §3
+of the compliance plan. Priority order was destruction before exposure before
+proof, so RET-1 went first.
+
+**Verified:** `php artisan test` — **717 passed (2790 assertions)**, exit 0, up from the
+683 / 2667 baseline taken before any change. 34 of the new tests are the three
+`tests/Feature/Compliance` files. `npm run types:check` clean;
+`npm run lint` 0 errors (5 pre-existing warnings, none in new files);
+`vendor/bin/pint` clean. Cascade change confirmed directly against
+`information_schema.REFERENTIAL_CONSTRAINTS`: the six clinical foreign keys on
+`users` now read SET NULL where they read CASCADE.
+`php artisan route:list --path=storage` now returns no routes.
+
+**Deviations from the approved plan, and why:**
+- **QW-1 was deliberately not implemented as written.** It specified making
+  account closure *refuse* for guarantors holding clinical data — a tourniquet
+  to buy time for SC-1. SC-1 landed in the same pass, so shipping the wall first
+  would have meant telling patients they may not close their account in order to
+  protect a fix that already existed. The endpoint now closes accounts safely
+  instead.
+- **SC-2 records rather than refuses out-of-relationship access.** A hard denial
+  is ND-2's decision and would fire on a doctor covering a colleague's list;
+  `PatientPolicy::view()` is one line from becoming a 403 when that decision is
+  made. Destructive writes (diagnoses, allergies) ARE hard-denied — break-glass
+  is defensible for a read and not for a delete.
+- **v1.0 finding A-9 was wrong and is corrected in v1.1.** Admins cannot read
+  SOAP notes or lab notes through `activity_log`: `ConsultationSession` opts out
+  of `RecordsActivity` deliberately and `LabTestResult` excludes `notes` and
+  `interpretation`. The original claim came from a grep that counted a comment
+  *mentioning* the trait as a use of it. SC-9 is re-scoped and de-prioritised.
+
+**Blocked / left out:**
+- **Consent (SC-4, C-1…C-6) untouched** — ND-1. The table and flow are an
+  afternoon's work; the legal text is not mine to write.
+- **Encryption at rest (SC-5, SC-6, E-1, E-4) untouched** — ND-8. Encrypting SPI
+  before settling `APP_KEY` custody converts a confidentiality risk into an
+  unrecoverable availability one.
+- **SC-1(d) `retain_until` not built** — ND-6. Nothing can be purged today, which
+  is the safe side of the gap, but there is still no enforced retention period.
+- SC-7, SC-8, SC-10, QW-7, QW-9, QW-10 not started.
+- **One existing assertion changed, not deleted:** `ProfileUpdateTest`'s
+  "user can delete their account" asserted `$user->fresh()` was null, i.e. it
+  asserted the hard delete that RET-1 identifies as the defect. It now asserts
+  the row is soft-deleted and unreachable through a normal query. Worth noting
+  that `fresh()` uses `newQueryWithoutScopes()` and looks straight past
+  SoftDeletes — the first rewrite of that assertion passed for the wrong reason
+  and had to be corrected to use `User::find()`.
+- **Not visually verified in a browser.** The new "Who has viewed this record"
+  section typechecks, lints and is asserted through Inertia props, but nobody
+  has looked at the rendered page.
+
+### 2026-09-08 — Phase 3 remediation pass 2: the three blockers (v1.2)
+**Phase:** compliance · **Status:** done
+**Changed:**
+- `config/retention.php`, `config/consent.php` (new); `config/activitylog.php`
+- `app/Concerns/ProtectsRetainedRecords.php`, `app/Exceptions/RetentionPeriodNotElapsedException.php` (new)
+- `app/Models/Consent.php`, `app/Services/ConsentService.php`, `app/Services/PatientDocumentStorage.php` (new)
+- `app/Console/Commands/{PurgeExpiredRecords,CleanRecordAccessLog,EncryptPatientDocuments}.php` (new)
+- migrations: `create_consents_table`, `encrypt_sensitive_clinical_columns`, `add_encryption_flag_to_patient_documents`
+- `app/Models/{Patient,PatientDiagnosis,PatientAllergy,PatientDocument,ConsultationSession,ConsultationPrescription,LabTestResult,LabResultParameter,Appointment,User}.php`
+- `app/Actions/Fortify/CreateNewUser.php`, `app/Providers/{AppServiceProvider,FortifyServiceProvider}.php`
+- `app/Http/Requests/BookAppointmentRequest.php`, `app/Http/Controllers/{AppointmentController,Settings/PrivacyController,Doctor/PatientRecordController,Nurse/PatientRecordController,Patient/PatientRecordController}.php`
+- `routes/settings.php`, `routes/console.php`
+- `resources/js/pages/auth/register/**` (consent checkboxes), `resources/js/pages/settings/privacy/**` (consent manager)
+- `tests/Feature/Compliance/{RetentionPeriodTest,ConsentTest,EncryptionAtRestTest,DocumentEncryptionTest}.php` (new)
+- `tests/Feature/Auth/RegistrationTest.php`, `tests/Feature/Booking/BookingConsultationTypeTest.php` (payloads updated — see below)
+
+**Why:** Asked to close ND-1, ND-6 and ND-8 rather than leave them parked. On
+re-examination the v1.0 line was drawn wrong in three of the four cases — the
+blocker was a *value* that belongs in config, not a decision that blocks the
+mechanism. Shipped SC-1(d), SC-4, SC-5, SC-6 and QW-10.
+
+**Verified:** `php artisan test` on a freshly seeded database —
+**763 passed (2959 assertions)**, exit 0. Up from 717/2790 at the end of pass 1
+and 683/2667 at the original baseline. 80 of those are `tests/Feature/Compliance`
+across seven files. `npm run types:check` clean; `npm run lint` 0 errors
+(5 pre-existing warnings, none in new files); `vendor/bin/pint --test` pass.
+Encryption confirmed by reading `patient_diagnoses.diagnosis` straight out of
+MySQL — `eyJpdiI6...` rather than a diagnosis. `php artisan schedule:list` shows
+the three new retention jobs.
+
+**Where the line actually was, in each case:**
+- **ND-6** was never blocked. The blocker was the *number*, and a number belongs
+  in config. `config/retention.php` defaults to the 15 years the project brief
+  already supplied. Built as a `forceDeleting` event guard rather than a stored
+  `retain_until` column, so a new appointment extends retention automatically
+  instead of leaving a stale date behind — and so the floor holds against any
+  caller, not just the ones that remember to check.
+- **ND-1** conflated the consent *mechanism* with the consent *text*. The
+  mechanism was always mine. The wording is now a factual description of what
+  this code does, checkable line by line against the repository, served from
+  config behind `consent.approved` — **false**, so both the registration form
+  and the settings panel display a "pending DPO review" notice. Approved copy is
+  still a DPO task, but nothing is blocked on it.
+- **ND-8** was a real risk, but mitigable rather than a reason to leave SPI in
+  plaintext. Encryption shipped with `APP_PREVIOUS_KEYS` rotation (asserted by a
+  test that rotates the key and reads an old row back) and a production boot
+  guard that refuses to start without a key. What survives is ND-8a: where the
+  key is kept and who can restore it, which no amount of code answers.
+
+**Deviations and judgement calls:**
+- **`loa_requests.remarks` deliberately NOT encrypted.** It is audited into
+  `activity_log`, and Spatie reads attributes *through* the cast — so encrypting
+  it would write the plaintext into a second table and achieve nothing but a
+  false sense of cover. Every encrypted column was checked against its model's
+  `activityLogAttributes()` for this.
+- **`lab_test_results.test_name` deliberately NOT encrypted.** LabReviewController
+  searches it with `LIKE`, and `LIKE` over ciphertext returns nothing rather than
+  erroring — it would have broken the screen silently. Its `notes` and
+  `interpretation` are encrypted.
+- **Telemedicine consent is asked at booking, not at join.** By join time the
+  patient is in a waiting room with a clinician expecting them, which is the
+  worst moment to ask a question they are free to answer no to.
+- **Document encryption is whole-file, not streaming.** `Crypt` is not a
+  streaming cipher; the 20 MB upload cap makes ~27 MB peak memory acceptable.
+  Documented in PatientDocumentStorage because raising the cap means raising
+  `memory_limit` with it.
+- **`data_processing` consent is required and not self-service withdrawable.**
+  Withdrawing it would collide head-on with the retention floor built in the
+  same pass. The panel explains that and points at the clinic rather than
+  offering a greyed-out button.
+
+**Blocked / left out:**
+- **The consent wording still needs DPO approval** before `CONSENT_TEXT_APPROVED`
+  can be set. Until then the UI says so, in both places it appears.
+- **ND-6a — minors.** A common rule starts the retention clock at the age of
+  majority rather than the last encounter. `Patient::isMinor()` and `birthdate`
+  exist, so the branch is a few lines in `retentionAnchorDate()`, but I will not
+  invent a statutory variation.
+- **ND-8a — key custody.** Code now refuses to boot without a key and supports
+  rotation; it cannot answer whether the key is backed up somewhere other than
+  the server it protects.
+- ND-2, ND-4, ND-5, ND-7, ND-9 unchanged. SC-7 (correction requests), SC-8
+  (threshold alerting), SC-9 (re-scoped, low priority), SC-10 (mandatory MFA)
+  and QW-7/QW-9 not started.
+- **Five existing tests had payloads updated, none deleted.** Three in
+  `RegistrationTest` and two in `BookingConsultationTypeTest` were asserting the
+  pre-consent contract; they now supply the consent fields. Each is asserting
+  something else entirely, and the consent behaviour has its own coverage in
+  `tests/Feature/Compliance/ConsentTest.php`. Worth noting they failed loudly
+  rather than silently, which is what a consent gate should do.
+- **Still not visually verified in a browser.** The consent checkboxes, the
+  consent manager and the record access panel all typecheck, lint and are
+  asserted through Inertia props, but nobody has looked at the rendered pages.
+- **`wellcare:documents:encrypt` reports failure on this dev database**, and
+  correctly: all 51 seeded `patient_documents` rows reference files the seeder
+  never created, so every one is skipped rather than flagged encrypted. The
+  round-trip verification working as intended, not a defect.
+
+---
+
+### 2026-09-08 — A patient may book more than once in a day
+**Phase:** — (defect, reported in use) · **Status:** done
+**Changed:**
+- `database/migrations/2026_09_08_090000_add_duration_minutes_to_appointments.php` (new)
+- `app/Services/BookingService.php`
+- `app/Models/Appointment.php`
+- `app/Http/Controllers/AppointmentController.php`
+- `resources/js/pages/user/book-appointment/sections/step-coverage.tsx`
+- `tests/Feature/Booking/PatientDailyBookingTest.php` (new, 12 tests)
+- `tests/Feature/Booking/DoubleBookingTest.php` (two tests rewritten, none deleted)
+- `WELLCARE-BUILD-PLAN.md` §5 concurrency bullet + §8 scorecard row
+
+**Why:** `bookSlot()` step 4 was a flat `exists()` — one appointment per patient
+per date, at any time, with any doctor. That rejects the most ordinary shape of a
+clinic day: a consultation in the morning and the lab work it orders after lunch.
+The front desk was entering the second visit by hand, so the portal's record of
+the day was wrong from the moment it was made. What is *actually* impossible is
+being in two rooms at once, so that is what the rule now says.
+
+Two rules replace the one:
+
+1. **Overlap.** A booking is refused when its `[start, end)` window meets another
+   of that patient's windows. Half-open on both sides, so 9:00–9:30 and
+   9:30–10:00 are back-to-back rather than in conflict — which is the whole
+   point of allowing more than one booking a day.
+2. **A daily maximum of 3** (`BookingService::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY`).
+   Several visits is care; a dozen is one account holding slots nobody else can
+   have.
+
+**Verified:**
+- `php artisan test --compact tests/Feature/Booking tests/Feature/Availability` →
+  **94 passed (304 assertions)**
+- `php artisan test --compact` (full suite) → **776 passed (2989 assertions)**,
+  807.55s, exit 0
+- `php artisan migrate` on `wellcare_db` → DONE in 31.71ms; backfill verified via
+  tinker → `[{"duration_minutes":30,"c":100}]`, i.e. all 100 existing rows
+  carry the seeded 30-minute block length
+- `npm run types:check` → clean; `vendor/bin/pint --dirty` → fixed, then clean
+
+**Decisions worth defending:**
+- **`appointments.duration_minutes` is a snapshot, not a lookup.** Overlap has no
+  answer without a per-row duration: `appointment_time` is a bare `"9:00 AM"`
+  string and visit length lived only in `availability_blocks`. Deriving it on
+  read would mean a doctor switching from 30- to 20-minute slots retroactively
+  shortens visits already booked — and the overlap check would then admit a 9:15
+  booking against a 9:00 one. Same reasoning as the name/age denormalisation the
+  table already does. Pinned by a test.
+- **`getAvailableSlotsForPatient()` is a separate method, not a `$patientId`
+  argument on `getAvailableSlots()`.** The latter is cached under
+  `slots:{doctorId}:{date}` and shared by every caller; folding one patient's
+  bookings into it would serve their gaps to the next patient who asked. The
+  doctor-level list stays cached and the per-patient subtraction happens on top.
+- **`patient_id` on `/appointments/slots` and `/appointments/doctor-availability`
+  is resolved against the caller's own roster**, never trusted. It decides what
+  is shown, so an unscoped id would let anyone probe when a stranger's
+  appointments are.
+- **The form now tells the two empty-list causes apart.** A full doctor means
+  pick another doctor; the patient's own daily maximum means pick another day.
+  Same empty grid, opposite remedy — showing the wrong one sends the patient in
+  the wrong direction.
+- **`Appointment::RELEASED_STATUSES`** replaces six literal
+  `['cancelled', 'no_show']` arrays in `BookingService`. All the "does this still
+  occupy the calendar?" queries now read one definition — the overlap rule and
+  the two caps have to agree on it or a cancellation frees the slot without
+  freeing the day.
+
+**Blocked / left out:**
+- **The daily maximum of 3 is arbitrary.** The clinic has not stated one. It is a
+  class constant beside `MIN_LEAD_HOURS`, one line to change, and the test asserts
+  the number so a change is loud.
+- **The doctor's daily cap still counts appointments, not distinct patients.** One
+  patient booking three times with the same doctor now consumes three of that
+  doctor's five. That matches what the schedule actually constrains (time), but
+  Ch. 1 says "max 5 *patients* per day" — if the panel reads that as five people,
+  `dailyBookedCount()` needs a `distinct('patient_id')` and `DailyPatientCapTest`
+  changes with it. Left as-is rather than reinterpreting the paper unasked.
+- **The 10-minute `hold_expires_at` soft hold applies to the new rules too**, as it
+  already did to the slot and doctor-cap checks: an unconfirmed booking stops
+  blocking the patient's day after 10 minutes. Consistent with the rest of the
+  service, but it does mean the overlap guard is only as durable as the hold.
+- **Not visually verified in a browser.** The two new notices in the time picker
+  typecheck, lint and are asserted through the endpoint's props, but nobody has
+  looked at the rendered page.
+
+### 2026-09-08 — Phase 9: staff onboarding, credentialing and roster governance
+**Phase:** 9 · **Status:** done
+
+**Changed:**
+- `app/Enums/Specialty.php`, `app/Enums/CredentialStatus.php`, `app/Enums/BoardStatus.php` *(new)*
+- `app/Models/StaffCredential.php` *(new)*; `app/Models/User.php` (`credential()`, `isCredentialed()`);
+  `app/Models/AvailabilityBlock.php` (approval columns, `published()` / `awaitingApproval()`)
+- `app/Services/CredentialingService.php` *(new)*; `app/Services/StaffAccountService.php`;
+  `app/Services/AvailabilityService.php`; `app/Services/BookingService.php`
+- `app/Http/Controllers/Admin/AdminStaffController.php` *(new)*;
+  `app/Http/Requests/Admin/StoreCredentialRequest.php` *(new)*;
+  `app/Http/Requests/Admin/StoreUserRequest.php`; `app/Http/Controllers/Doctor/AvailabilityController.php`
+- `app/Console/Commands/SweepCredentials.php` *(new)*; `routes/console.php`; `routes/web.php`
+- `database/migrations/2026_09_08_143116_create_staff_credentials_table.php` *(new)*;
+  `database/migrations/2026_09_08_143117_add_approval_to_availability_blocks.php` *(new)*
+- `database/seeders/StaffCredentialSeeder.php` *(new)*; `database/seeders/DatabaseSeeder.php`;
+  `database/seeders/DoctorProfileSeeder.php` (deprecation note extended)
+- `resources/js/pages/admin/staff/**` *(new — `staff.tsx`, `staff-detail.tsx`, `roster.tsx`,
+  `staff-data.ts`, 2 sections, 2 components)*;
+  `resources/js/pages/admin/layout/admin-dashboard-data.ts` (CLINIC GOVERNANCE group);
+  `resources/js/pages/doctor/availability/**` (`schedule-status.tsx` *(new)*, data, page)
+- `tests/Feature/Staff/{StaffOnboardingTest,CredentialingTest,CredentialExpiryTest,RosterApprovalTest,StaffAccessTest}.php` *(new)*;
+  `tests/Feature/Availability/DoctorAvailabilityTest.php` (updated to the new contract)
+
+**Why:** The system had five roles and no authority over any of them — nobody
+created staff, assigned a specialty, approved a schedule, or checked anyone was
+licensed. Underneath that was a silent defect: `StaffAccountService::create()`
+never wrote a `doctor_profiles` row, so **an admin-created doctor was invisible**
+— absent from `DoctorProfile::active()`, unbookable, no specialty, and a blank
+name everywhere `doctorProfile.display_name` is read, with no error anywhere.
+Verified live before the fix: role `doctor`, `doctorProfile` → `NULL`, bookable
+→ `NO`. The only writer of `doctor_profiles` was a seeder, so this would have
+surfaced the first time a real doctor was hired.
+
+The replacement models actual Philippine practice: PRC registration (3 years, on
+the holder's birthday), PTR (annual, per LGU), PhilHealth accreditation, and a
+Diplomate/Fellow certificate from a Philippine specialty board — which is what
+PhilHealth itself requires before recognising a specialist. `doctor_profiles.is_active`
+now *means* "holds a verified, unlapsed credential", with `CredentialingService`
+as its only writer, and `credentials:sweep` withdraws clearance nightly when a
+licence lapses.
+
+**Found while building, not planned:** `BookingService::getAvailableSlots()`
+never checked whether a doctor was published — it generated slots for suspended
+and uncredentialed doctors. `BookAppointmentRequest` refuses the *booking*, so
+this was an inconsistency rather than an open door, but the slot list showed
+times that could not be booked. Caught by a failing test in `CredentialExpiryTest`,
+not by review. Also fixed: `AvailabilityService::setDailyPatientCap()` called
+`update()` on a possibly-missing profile row and silently discarded the cap.
+
+
+---
+
+### 2026-09-10 — Administrative governance: the privilege model
+**Phase:** governance · **Status:** done (6 of 10 backlog items; 4 deferred)
+**Changed:** `WELLCARE-GOVERNANCE-PLAN.md` (new, the audit + plan) ·
+`app/Models/User.php` · `app/Services/StaffAccountService.php` ·
+`app/Http/Controllers/Admin/{AdminUserController,AdminPatientController,AdminArchiveController}.php` ·
+`app/Http/Controllers/HR/HmoApprovalController.php` ·
+`app/Http/Controllers/DashboardController.php` ·
+`app/Http/Requests/Admin/{StoreUserRequest,UpdateUserRequest}.php` ·
+`app/Http/Middleware/EnsureTwoFactorEnrolled.php` · `routes/web.php` ·
+`database/seeders/{RoleAndPermissionSeeder,DatabaseSeeder}.php` ·
+`database/factories/UserFactory.php` · `tests/Feature/Admin/ActivityLogTest.php` ·
+`resources/js/pages/admin/{users,layout}/*` ·
+`resources/js/pages/hr/hmo-approvals/hmo-approvals.tsx`
+**Added:** `app/Console/Commands/CreateOwnerAccount.php` ·
+`app/Http/Controllers/Owner/OwnerDashboardController.php` ·
+`app/Http/Controllers/Dpo/DpoOversightController.php` ·
+`database/seeders/GovernanceSeeder.php` ·
+`resources/js/pages/owner/*` · `resources/js/pages/dpo/*` ·
+`tests/Feature/Admin/AdminPrivilegeBoundaryTest.php` ·
+`tests/Feature/Governance/GovernanceRoleTest.php`
+
+**Why:** The compliance plan audits what happens to *patient data* and says
+almost nothing about *privilege*. Asked whether the system needs a super admin,
+the honest answer required an inventory of what `admin` actually holds — and that
+inventory turned up a live privilege-escalation path that the compliance plan's
+A-9 "Pass" masks.
+
+**The finding that mattered.** `PUT /admin/users/{user}` accepted a `password`
+for any target user with no role restriction. An administrator could reset a
+doctor's password, sign in as that doctor and read every chart in the clinic.
+`User::activityLogAttributes()` audits only `email` and `is_active`, so the
+credential change left no trace and every chart read that followed was attributed
+to the doctor. A-9 ("admin limited to demographics — Pass") was true of the
+administrator's own *screens* and false of their *reach*. This is why a super
+admin would have fixed nothing: the problem was horizontal, not vertical.
+
+**The answer to the original question.** No super administrator *above* `admin`.
+The multi-tenant justification does not exist (single branch), and a rank above
+"can do everything" is not a control. What was built instead: `admin` narrowed
+sideways, plus a deliberately tiny Tier 0 `owner` whose only jobs are appointing
+administrators and being the way back in — which retires
+`guardLastActiveAdmin()`'s own comment that "there is no console recovery UI".
+Plus a `dpo` role, which is the one role Philippine health regulation actually
+names (Joint AO 2016-0002 pairs the Data Protection Officer with the Medical
+Records Officer for record audit) and which the system did not have.
+
+**Found while building, not planned:** `record_access_log` has been written on
+every chart view, download and export since the September compliance pass, and
+**nothing anywhere read it**. An audit trail nobody can open is storage, not
+accountability. The DPO access-log screen is now its first reader.
+
+**Verified:**
+- `tests/Feature/Admin/AdminPrivilegeBoundaryTest.php` — 19 passed (68 assertions)
+- `tests/Feature/Governance/` — 24 passed (100 assertions)
+- `tests/Feature/Admin/` — 139 passed (523 assertions)
+- `npm run types:check` clean · `vendor/bin/pint --dirty` pass · `npm run lint`
+  no new errors (1 pre-existing in `session-editor.tsx`)
+- Live DB after re-seeding: 18 permissions / 7 roles; admin 14, dpo 2, owner 9;
+  `admin->mayGrantRole('admin') === false`, `owner->mayGrantRole('admin') === true`
+- `php artisan test --compact` (full suite) — **1208 passed, 2 failed (4273 assertions)**.
+  Both failures are `tests/Feature/Booking/AppointmentReminderTest` and are a
+  **pre-existing time-of-day flake unrelated to this pass**: the two same-day
+  reminder tests build an appointment at `today()` + `now()->addHours(3)`
+  formatted as `g:i A`. Run after 21:00 the addition rolls past midnight, so
+  "2:20 AM" recombined with `today()` lands ~21 hours in the PAST and no
+  same-day reminder fires. Confirmed at 2026-09-10 23:20 local. The fix is to
+  freeze the clock (`$this->travelTo(today()->setHour(9))`) in those two tests;
+  left alone here because it is outside this pass's scope.
+
+**Amended one existing test rather than deleting it.**
+`ActivityLogTest > it offers no route to edit or delete an entry` counted
+activity-log routes and expected exactly one. The count was a proxy for "no write
+route exists" and broke when a legitimate second *read* route appeared
+(`dpo.activity-log`). It now asserts the property directly — every route over
+that table is GET-only — plus the exact set of readers, which is strictly
+stronger than the count it replaced.
+
+**Blocked / left out:** GV-7 (notify a user when their role or account status
+changes), GV-8 (shorter idle timeout for privileged roles), GV-9 (force a
+password change on first login for seeded privileged accounts), GV-10 (time-boxed
+break-glass elevation with a mandatory reason) and GV-13 (tamper-evident audit
+tables) are **not built**. The owner tier is a *recovery path*, not break-glass.
+`WELLCARE-GOVERNANCE-PLAN.md` §7 carries five decisions that are the clinic's to
+make, not a developer's — chiefly who actually holds the Owner and DPO accounts.
+
+**Migration note:** no schema change, but `php artisan db:seed --class=RoleAndPermissionSeeder`
+is **required** — the admin routes are now gated on permissions that do not exist
+until it runs. Already run against local dev, along with `GovernanceSeeder`
+(`owner@wellcare.com` / `dpo@wellcare.com`, both `password123`, demo only).
+
+---
+
+### 2026-09-10 — Governance pass 2: account lifecycle, timeouts, break-glass
+**Phase:** governance · **Status:** done — backlog empty except GV-13
+**Added:** `app/Http/Middleware/EnforceIdleTimeout.php` ·
+`app/Http/Middleware/EnsurePasswordIsChanged.php` ·
+`app/Notifications/AccountChangedNotification.php` ·
+`app/Console/Commands/RecoverAdminAccess.php` · `config/security.php` ·
+`database/migrations/2026_09_10_233159_add_must_change_password_to_users_table.php` ·
+`tests/Feature/Governance/AccountLifecycleTest.php`
+**Changed:** `app/Models/User.php` · `app/Services/StaffAccountService.php` ·
+`app/Http/Controllers/Admin/AdminUserController.php` ·
+`app/Http/Controllers/Settings/SecurityController.php` ·
+`app/Http/Controllers/Dpo/DpoOversightController.php` ·
+`app/Actions/Fortify/ResetUserPassword.php` · `bootstrap/app.php` ·
+`database/seeders/{AdminSeeder,GovernanceSeeder}.php` ·
+`resources/js/pages/dpo/{dpo-data.ts,dashboard.tsx}` ·
+`tests/Feature/Booking/AppointmentReminderTest.php` ·
+`WELLCARE-GOVERNANCE-PLAN.md`
+
+**Why:** Pass 1 closed the privilege boundaries — who may reach whose account.
+This closes the operational half: whether the person is told, how long an
+unattended session stays open, whether a credential somebody else chose survives
+first contact, and how a locked-out clinic gets back in. GV-7, GV-8, GV-9 and
+GV-10. Twelve of the thirteen governance controls now pass and none is Missing.
+
+**The one that completes GV-1.** Pass 1 stopped an administrator setting a
+password on an account that already has an owner. It could not stop them setting
+the *initial* one — somebody has to. So a window existed by construction in which
+two people knew a credential. `users.must_change_password` plus
+`EnsurePasswordIsChanged` closes it at first sign-in rather than leaving it open
+for the life of the account, and the same flag covers the seeded demo logins
+outside local and testing.
+
+**Found while building, not planned:** two tests in `AppointmentReminderTest`
+were failing, and it had nothing to do with this work. They build an appointment
+at `today()` + `now()->addHours(3)` formatted `g:i A`; run after 21:00 the
+addition rolls past midnight, so "2:20 AM" recombined with today's date lands
+about twenty-one hours in the PAST. They passed in the morning and failed in the
+evening for everybody. Both now pin the clock with `travelTo`.
+
+**Scope held deliberately.** `wellcare:admin:recover` is break-glass for ACCOUNT
+access only. It does not grant an administrator access to a patient record,
+because whether that should ever be possible is GD-3 in §7 of the governance
+plan — a decision belonging to the clinic's DPO and medical director. A console
+command that quietly settled it would be a developer overruling policy.
+
+**Verified:**
+- `tests/Feature/Governance/AccountLifecycleTest.php` — 20 passed (69 assertions)
+- `tests/Feature/Booking/AppointmentReminderTest.php` — 15 passed (38 assertions),
+  run at 23:30 local, which is the condition that used to break it
+- `php artisan migrate` — `add_must_change_password_to_users_table … DONE`
+- `npm run types:check` clean · `vendor/bin/pint --dirty` fixed and passing ·
+  `npm run lint` no new errors
+
+**Blocked / left out:** GV-13 (tamper-evidence on the audit tables) only. Two new
+decisions were added to §7 by this pass — GD-6 (are the idle-timeout figures
+right, especially the clinical ones) and GD-7 (should a suspension always be
+announced to its subject).
+
+**Migration note:** `php artisan migrate` is required. Already run against local.
+
+---
+
+### 2026-09-10 — Pass 2 addendum: three regressions caught by the full suite
+**Phase:** governance · **Status:** done
+**Changed:** `app/Models/User.php` ·
+`app/Http/Requests/Settings/TwoFactorAuthenticationRequest.php` ·
+`tests/Feature/Admin/AdminUserManagementTest.php` ·
+`tests/Feature/Governance/AccountLifecycleTest.php`
+
+**Why:** The targeted test runs for pass 2 were all green. The **full** suite was
+not — three failures, all caused by the pass, two of them interactions that no
+targeted run could have surfaced. Logged in full because a change log that only
+records successes is worthless for a defense.
+
+**1. Guard test tripped by a field name.** Adding `must_change_password` to
+`User::activityLogAttributes()` broke `ActivityLogTest > it never records a
+password hash`, which scans serialised properties for the substring `password`.
+Resolved by **not auditing the flag** rather than by loosening the guard — the
+audit value was marginal (creation is already logged; the clearing change already
+moves `updated_at`) and the guard is deliberately blunt so it catches keys nobody
+has thought of yet.
+
+**2. First-login test knew about one gate, not two.**
+`AdminUserManagementTest` cleared only `two_factor_confirmed_at`; GV-9 added a
+second gate, so the account was correctly held. Test now clears both; its intent
+is unchanged.
+
+**3. A real defect — GV-8 silently made the 2FA setup expiry decorative.**
+`PENDING_SETUP_TTL_MINUTES` was 30 and the clinical idle window is also 30. The
+pending-setup marker lives in the **session**, and `expireStalePendingSetup()`
+deliberately gives a secret seen in a fresh session a full new window. So with
+the TTL at or above the idle window, the session always ends first, the marker
+dies with it, and every sign-in restarts the clock — a stale unconfirmed secret
+would have lived forever and the expiry would never have fired for any staff
+account. Not exploitable (an unconfirmed secret grants nothing) but a mechanism
+that never fires is worse than an absent one, because it reads as covered.
+Fixed by dropping the TTL to **10 minutes**, which fits inside every window, and
+adding a test that asserts the relationship so the two constants cannot drift
+apart again.
+
+**Verified:** `php artisan test --compact tests/Feature/Governance/
+tests/Feature/Admin/ tests/Feature/Auth/TwoFactorEnrolmentTest.php` — **170
+passed (700 assertions)**.
+
+**Lesson worth keeping:** two of the three were cross-module interactions between
+a new global middleware and an existing session-based mechanism. Targeted runs
+cannot see those. Run the full suite before calling a middleware change done.
+
+### 2026-09-11 — A third calendar flake, found by running the suite past midnight
+**Phase:** governance (incidental) · **Status:** done
+**Changed:** `tests/Feature/Booking/PatientStatusDerivationTest.php`
+
+**Why:** The final full-suite run crossed midnight into Friday and turned up
+`PatientStatusDerivationTest > it files a patient who has been seen before as
+returning`, failing on BookingService's per-patient/per-day conflict check. It
+had passed in the two runs earlier the same evening.
+
+`AppointmentFactory` defaults to `now()->addDays(3)` at 09:00. The test books
+"next monday" at 09:00. Those are the same slot **exactly when today is Friday**
+— verified: 2026-09-11 is a Friday, `now()->addDays(3)` and `next monday` both
+resolve to 2026-09-14. So this test failed every Friday and passed the other six
+days.
+
+Underneath the flake was a fixture that did not mean what it said: the "has been
+seen before" appointment was `completed` and dated three days in the **future**.
+Fixed by giving it an explicit past date, which is both the flake fix and the
+honest fixture.
+
+**Verified:** `php artisan test --compact tests/Feature/Booking/PatientStatusDerivationTest.php`
+— **7 passed (14 assertions)**, run on a Friday, which is the condition that broke it.
+
+**Three time-dependent flakes found in one session** — two in
+`AppointmentReminderTest` (failed every evening after 21:00) and this one (failed
+every Friday). None was caused by the governance work; all three were latent, and
+all three surfaced only because the full suite was run repeatedly at unusual
+hours. Worth a sweep for other tests that build dates from `now()` relative
+offsets and then assert against a fixed weekday or time.
+
+**Final full-suite verification, 2026-09-11:** `php artisan test --compact` —
+**1231 passed, 0 failed (4344 assertions)**, exit code 0. Three latent
+time-dependent flakes were fixed along the way (two evening-only in
+`AppointmentReminderTest`, one Friday-only in `PatientStatusDerivationTest`);
+none was caused by the governance work.
+
+---
+
+### 2026-09-11 — Manual governance walkthrough, and the three controls that said nothing
+**Phase:** Governance · **Status:** done
+
+**What this was.** `WELLCARE-GOVERNANCE-TESTPLAN.md` §1 driven by hand in Chrome
+against a live build — all fifteen controls, T-01 to T-15. The automated suite
+already proved these boundaries hold; the point of a manual pass is the property
+a suite cannot check, which the plan states as its own thesis: *"a refusal that
+only appears as a 403 is a bug report, not a control."*
+
+**Result: every boundary held. Three of them told the user nothing.** No test
+found a way past a control, and no checkbox failed because a control was
+missing. All three failures were of one kind — the server composes a correct,
+well-written explanation and the page never puts it on screen.
+
+**The three, and their causes:**
+
+- **T-08 (GV-9)** — a provisioned account was bounced to Settings on every
+  navigation with no message at all. `EnsurePasswordIsChanged` flashes the exact
+  sentence the plan expects, but `security.edit` sits behind password
+  confirmation, so the redirect chain is two hops and a flash survives one.
+  Verified live: `props.flash.error` held the text and nothing rendered it.
+- **T-13 (GV-8)** — the idle timeout signed an administrator out on schedule and
+  returned them to an ordinary login page. `withErrors(['email' => ...])` cannot
+  render there: `login-inform-panel.tsx` reads `errors` from the Inertia
+  `<Form>` render-prop, which carries only that form's own submission errors.
+  **The same bug was hiding a worse case** — `EnsureUserIsActive` used the
+  identical pattern, so a suspended nurse could not distinguish a deactivation
+  from a mistyped password.
+- **T-03 (GV-1)** — the peer-administrator buttons were correctly disabled and
+  carried the right tooltip, which no user could ever read: browsers fire no
+  mouse events on a disabled control. `.wc-btn:disabled` did not exist at all,
+  so the buttons also rendered at `opacity: 1` with `cursor: pointer` —
+  indistinguishable from working ones.
+
+**Six further observations** were logged outside the checkboxes: OB-01 disabled
+buttons indistinguishable (same root as T-03); OB-02 the owner's sidebar
+advertising seven links that 403 for that tier; OB-03 the break-glass alert
+reusing the "your access level changed" template, so the owner and DPO were told
+their *own* role had changed; OB-04 `loa_requests` seeding empty, so the HMO
+queue could not be exercised at all on a fresh database while five appointments
+sat at `pending_hmo_approval`; OB-05 owner and DPO falling through to the patient
+sidebar in Settings; OB-06 the peer-admin tooltip claiming only the owner can
+manage the account while Role and Deactivate stayed enabled beside it.
+
+**Two verdicts corrected.** T-10 and T-15 were first marked "thin" over a bare
+`403 | USER DOES NOT HAVE THE RIGHT ROLES.` page. That was wrong:
+`bootstrap/app.php` re-renders 403/404/429/500/503 through a branded Inertia
+page and excludes `local` on purpose, so Ignition's trace still reaches a
+developer. The walkthrough ran under `APP_ENV=local`, the one environment that
+sees the stock page; `tests/Feature/ErrorPageTest.php` already covered the
+branded one. No change needed.
+
+**Changed:**
+- `app/Services/ForcedSignOut.php` *(new)* — session key + the sign-out sequence
+  `EnforceIdleTimeout` and `EnsureUserIsActive` were duplicating. A final class
+  rather than a trait because `FortifyServiceProvider` needs the key, and PHP
+  cannot read a trait constant through the trait's own name.
+- `app/Notifications/BreakGlassRecoveryNotification.php` *(new)* — replaces the
+  reused `AccountChangedNotification('role')`.
+- `resources/js/pages/settings/security/sections/password-change-required-notice.tsx` *(new)*
+- `tests/Feature/Governance/GovernanceDisclosureTest.php` *(new)* — 11 tests.
+- `app/Http/Middleware/EnsurePasswordIsChanged.php`, `EnforceIdleTimeout.php`,
+  `EnsureUserIsActive.php`, `HandleInertiaRequests.php`
+- `app/Http/Controllers/Settings/SecurityController.php`,
+  `app/Providers/FortifyServiceProvider.php`,
+  `app/Console/Commands/RecoverAdminAccess.php`, `app/Models/Appointment.php`
+- `database/seeders/AppointmentSeeder.php`, `tests/Feature/Loa/LoaWorkflowTest.php`
+- `resources/css/components.css`, `resources/js/design-system/components/button.tsx`
+- `resources/js/pages/settings/security/index.tsx`,
+  `resources/js/pages/settings/settings-data.ts`,
+  `resources/js/pages/settings/layout/settings-shell.tsx`
+- `resources/js/pages/auth/login/index.tsx`,
+  `resources/js/pages/auth/login/sections/login-inform-panel.tsx`
+- `resources/js/pages/admin/layout/admin-dashboard-data.ts`,
+  `resources/js/pages/admin/layout/components/AdminAppSidebar.tsx`,
+  `resources/js/pages/admin/users/users-data.ts`,
+  `resources/js/pages/admin/users/components/user-row.tsx`,
+  `resources/js/types/auth.ts`
+
+**Why:** Not one of these was a security hole — every control refused exactly
+what it was built to refuse, and the fixes are display-layer only. They are
+worth the change because a control nobody can see costs real money: a suspended
+nurse who cannot tell suspension from a typo phones the clinic, and a newly
+appointed administrator bounced to Settings with no explanation reports the
+application as broken. GV-9's own middleware had already written the right
+sentence; it simply never reached a screen.
+
+**Verified:** `php artisan test --compact` — **1244 passed, 0 failed (4459
+assertions)**, 1461.82s, exit code 0. Up from 1231 on 2026-09-10; the 13 new
+tests are the difference and no existing test regressed. Targeted runs during
+the work: `tests/Feature/Governance/` + `AdminPrivilegeBoundaryTest` +
+`ErrorPageTest` — 79 passed; `GovernanceDisclosureTest` — 11 passed;
+`tests/Feature/Loa/LoaWorkflowTest.php` — 21 passed. Pint clean,
+ESLint clean, `tsc --noEmit` reports zero errors outside the generated
+`resources/js/actions/` tree. Every fix re-checked in the browser afterwards.
+
+**A note on the new tests.** They assert that the *sentence reaches the page*,
+not that the redirect happens. A test that asserted only the redirect is what
+let all three of these ship — `AccountLifecycleTest` covered T-08's bounce and
+T-13's sign-out correctly, and both were green the entire time the message was
+invisible.
+
+**Blocked / left out:** GV-13 (tamper-evidence on the audit tables) remains
+unbuilt — see `WELLCARE-GOVERNANCE-PLAN.md` §6.2, unchanged by this pass. The
+manual run required two LOA rows to be inserted by hand before T-04 could be
+performed at all; the seeder fix means that is no longer necessary, but the
+walkthrough's own T-04 evidence was captured against hand-inserted data.
+
+---
+
+### 2026-09-16 — Settlement for self-paid video consultations, and one z-index scale
+
+**Phase:** 3 (virtual consultation) · **Status:** done
+
+**Changed:**
+
+*New — the settlement module*
+- `config/payments.php`
+- `database/migrations/2026_09_16_214636_add_virtual_fee_to_services_table.php`
+- `database/migrations/2026_09_16_214638_create_payment_verifications_table.php`
+- `database/migrations/2026_09_16_214640_extend_appointment_notifications_type_enum_for_payments.php`
+- `app/Models/PaymentVerification.php`
+- `app/Services/PaymentVerificationService.php`, `app/Services/PaymentProofStorage.php`
+- `app/Exceptions/InvalidPaymentTransitionException.php`
+- `app/Http/Controllers/Patient/PatientPaymentController.php`
+- `app/Http/Controllers/HR/PaymentVerificationController.php`
+- `app/Http/Requests/Patient/SubmitPaymentRequest.php`
+- `app/Console/Commands/SweepUnsettledPayments.php`
+- `database/factories/PaymentVerificationFactory.php`
+- `tests/Feature/Payment/{PaymentWorkflowTest,PaymentGateTest,SweepUnsettledPaymentsTest,PaymentAccessTest}.php`
+- `resources/js/pages/user/payments/` (page, data, 2 sections, 3 components)
+- `resources/js/pages/hr/payment-verifications/` (page, data, 2 sections, 2 components)
+
+*Modified*
+- `app/Models/{Appointment,AppointmentNotification,NotificationPreference,Service}.php`
+- `app/Services/{BookingService,ConsultationSessionService}.php`
+- `app/Http/Controllers/Patient/{PatientConsultationController,PatientDashboardController}.php`
+- `app/Http/Controllers/Admin/AdminServiceController.php`,
+  `app/Http/Requests/Admin/SaveServiceRequest.php`
+- `app/Http/Middleware/HandleInertiaRequests.php`
+- `database/seeders/ServiceSeeder.php`
+- `routes/web.php`, `routes/console.php`, `.env.example`
+- `resources/js/pages/user/book-appointment/sections/{bookingdata.ts,step-coverage.tsx}`
+- `resources/js/pages/user/dashboard/{dashboard-data.ts,components/appointment-card.tsx}`
+- `resources/js/pages/user/consultations/closed.tsx`,
+  `resources/js/components/consultation-room/consultation-room-data.ts`
+- `resources/js/pages/{user,hr}/layout/` nav data + sidebars
+- `resources/js/pages/admin/services/{services-data.ts,components/service-form.tsx}`
+
+*Modified — the stacking fix*
+- `resources/css/tokens.css`, `resources/css/components.css`
+- `resources/js/pages/admin/components/admin-modal.tsx`
+
+**Why:** `appointments.coverage` has always allowed `cash` and Phase 3 added
+`consultation_type = virtual`. Nothing stopped the combination and the
+combination is incoherent — cash is handed to a cashier and there is no cashier
+on a video call. A patient could book a virtual visit as "Cash / Self-Pay",
+attend it, and leave no record that anything was owed.
+
+**No payment gateway, and none is needed.** The clinic's own GCash Business
+account, its bank account and its front-desk cashier move the money exactly as
+they already do. The application records two things about that: the patient's
+CLAIM (channel, amount, the reference off their receipt) and a staff member's
+FINDING (matched against the clinic's own statement). That is the model real
+Philippine clinics run — Providence Hospital confirms payment before releasing
+the appointment confirmation and the scanned OR; MakatiMed HealthHub takes
+GCash/Maya/online banking before the Zoom session; St. Luke's Extension Clinic
+lets the patient settle at the clinic cashier instead. DigiHealth's three-hour
+unpaid-request auto-cancel is where `payments.settlement_deadline_hours = 3`
+comes from.
+
+Gate **G5** in `ConsultationSessionService::openVirtualRoom()` is the point of
+the module: it stands where the cashier stands. It reads `verified`/`waived`
+only — a CLAIMED payment is not payment, or the reference field would be a
+password anyone could guess — and it is silent when there is no payment record,
+which is every in-person, HMO, PhilHealth and corporate visit plus every
+appointment that predates the table.
+
+`recordCounterPayment()` is the answer to the original question. Cash cannot be
+paid *at* a video consultation, but it can be paid at the branch beforehand by
+the patient or anyone acting for them. It confirms in one step because the
+cashier who took the notes and issued the OR *is* the verification.
+
+**Verified:** `php artisan test --compact` — **1332 passed, 30 failed (4940
+assertions)**, 1426.41s. Up from 1328 passed / 31 failed on the run immediately
+before, which is this pass's own typography fix plus the three dashboard tests.
+
+Targeted runs: `tests/Feature/Payment` — **66 passed (255 assertions)**;
+`tests/Unit/TypographyScaleTest.php` + `tests/Feature/Payment` — **74 passed
+(293 assertions)**. Pint clean. `tsc --noEmit` reports zero errors.
+`npm run build` succeeds in 1m 10s. ESLint unchanged at 6 problems (1 error,
+5 warnings), every one in a file this pass did not touch.
+
+**The 30 failures are NOT this pass's, and the accounting is exact.** All 30
+are `"Please select a valid service."` (27) or a `DivisionByZeroError` raised
+at `AppointmentSeeder.php:106` dividing by an empty `Service::bookableSlugs()`
+(the rest). The word "payment" appears nowhere in the failure output. They come
+from the uncommitted 2026-09-14 `create_services_table` refactor: twelve test
+files hand-roll their seeder lists and none gained `ServiceSeeder`, while the
+booking validator and the appointment seeder now both read that table.
+`DatabaseSeeder` already lists `ServiceSeeder` ahead of `AppointmentSeeder`, so
+only the tests are stale — the affected files are `Booking/{BookingConsultationType,
+BookingWindow,DailyPatientCap,DoubleBooking,PatientDailyBooking,PatientSelection,
+PatientStatusDerivation,HmoProvider,DoctorPickerRoster}Test`,
+`Loa/LoaWorkflowTest`, `Patients/PatientDetailRulesTest` and
+`Compliance/ConsentTest`. Left unfixed on purpose: that refactor is in flight
+and editing its tests mid-change risks conflicting with it. The fix is one
+`$this->seed(ServiceSeeder::class)` per file.
+
+**One failure in the first run WAS this pass's** and is fixed: the payments
+empty state coloured its icon `var(--wc-gray-400)`, which
+`tests/Unit/TypographyScaleTest.php:145` bans outright at 2.56:1 on white. Now
+`--wc-text-muted`, as `loa-list.tsx` already did. Worth recording because no
+type-check or lint rule would have caught it — only the architecture test did.
+
+**Four defects found and fixed while building, each worth its own note:**
+
+1. `unique(['appointment_id', 'deleted_at'])` — the obvious spelling, and it
+   enforces **nothing** in MySQL, where a UNIQUE index treats every NULL as
+   distinct. Two live rows both carry `deleted_at = NULL` and both are
+   accepted. Now `unique('appointment_id')`, pinned by a test that asserts the
+   violation rather than trusting the column definition.
+2. The settle form posted `amountPaid` while the validator keys its errors by
+   the rule name, `amount_paid`. The request failed correctly and **no field
+   showed a message** — the patient saw their payment refused with nothing
+   marked wrong. Fields renamed to the server's own spelling; two tests pin the
+   contract, including that `prepareForValidation()` still accepts camelCase.
+3. The HR decision dialog swallowed every `back()->withErrors()` refusal, so a
+   guard rejection read as a dead button. Now surfaced, and gated on having
+   actually submitted — the shared errors bag outlives the request, so without
+   the flag a refusal from the previous row would greet the officer on the next
+   one they opened.
+4. The staff queue had no appointment filter, so it would have accumulated
+   `pending` rows for swept bookings and settled rows for completed visits.
+   `scopeForLiveAppointments()` now excludes both.
+
+**Blocked / left out:**
+- No dashboard counters on the admin/HR/nurse landing pages (the LOA queue has
+  `pendingLoa`). Discovery is the sidebar entry plus an unmutable notification.
+- No nurse-side read-only monitor, unlike `nurse/loa-monitoring`.
+- No revenue reporting in `AnalyticsService`.
+- Page-local modal backdrops that hardcode `zIndex: 1000` were left alone: they
+  render correctly (nothing covers them) and they are page-scoped. Only the
+  shared surfaces were moved onto the token scale.

@@ -27,7 +27,13 @@ use Spatie\Permission\Models\Role;
  *   - BookingService::SERVICE_SPECIALTIES, same mismatch
  *   - DoctorProfile::scopeForSpecialties()
  *
- * Kept only for reference. It is not registered in DatabaseSeeder.
+ * As of Phase 9 there is a fourth reason not to run it: it writes
+ * `is_active => true` directly. That column now means "holds a verified,
+ * unlapsed credential" and CredentialingService is its only legitimate writer,
+ * so this would publish doctors to patients whose licences nobody has checked.
+ *
+ * Kept only for reference. It is not registered in DatabaseSeeder. The
+ * canonical specialty vocabulary is App\Enums\Specialty.
  */
 final class DoctorProfileSeeder extends Seeder
 {

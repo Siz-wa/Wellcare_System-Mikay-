@@ -3,6 +3,8 @@
 // Types only — no hardcoded patient arrays.
 // All data comes from the Inertia `patients` prop via PatientRecordController.
 
+import type { VitalsSource } from '@/lib/vitals';
+
 export type PatientStatus = 'verified' | 'pending';
 
 // ── Patient card shape (from PatientRecordController::mapPatient) ─────────────
@@ -13,7 +15,8 @@ export interface Patient {
     name: string;
     initials: string;
     email: string;
-    lastUpdate: string; // last completed visit date
+    /** Date of the last completed visit, or null when there has not been one. */
+    lastUpdate: string | null;
     docCount: number;
     appointmentCount: number;
     hasAllergy: boolean; // shows red allergy flag on card
@@ -32,6 +35,7 @@ export interface PatientProfile {
     address: string | null;
     contactNumber: string | null;
     civilStatus: string | null;
+    bloodType?: string | null;
     clientNumber: string | null;
 }
 
@@ -75,6 +79,8 @@ export interface VisitRecord {
         oxygenSaturation: string;
         weight: string;
         height: string;
+        source: VitalsSource | null;
+        sourceLabel: string | null;
     } | null;
     prescriptions: { name: string; instructions: string }[];
 }
@@ -86,6 +92,9 @@ export interface LatestVitals {
     oxygenSaturation: string;
     weight: string;
     height: string;
+    source: VitalsSource | null;
+    /** Null only for rows written before provenance was recorded. */
+    sourceLabel: string | null;
 }
 
 // ── Page meta ─────────────────────────────────────────────────────────────────

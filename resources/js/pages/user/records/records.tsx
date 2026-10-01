@@ -22,12 +22,11 @@ export default function RecordsPage({ patients }: PageData): ReactElement {
             <header style={{ marginBottom: 'var(--space-6)' }}>
                 <h1
                     style={{
-                        fontSize: 24,
+                        fontSize: 'var(--text-2xl)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-900)',
+                        color: 'var(--wc-text-primary)',
                         margin: 0,
-                        fontFamily:
-                            'var(--font-display, "Bricolage Grotesque")',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {recordsMeta.indexTitle}
@@ -35,8 +34,8 @@ export default function RecordsPage({ patients }: PageData): ReactElement {
                 <p
                     style={{
                         margin: '6px 0 0',
-                        fontSize: 14,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                         maxWidth: 640,
                     }}
                 >
@@ -80,14 +79,14 @@ function EmptyRecords(): ReactElement {
             <FolderOpen
                 size={32}
                 strokeWidth={1.5}
-                style={{ color: 'var(--wc-gray-400)' }}
+                style={{ color: 'var(--wc-text-muted)' }}
             />
             <h2
                 style={{
                     margin: 'var(--space-4) 0 0',
-                    fontSize: 17,
+                    fontSize: 'var(--text-base)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-900)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {emptyPatients.title}
@@ -95,8 +94,8 @@ function EmptyRecords(): ReactElement {
             <p
                 style={{
                     margin: '6px auto 0',
-                    fontSize: 14,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-muted)',
                     maxWidth: 420,
                 }}
             >
@@ -111,7 +110,7 @@ function EmptyRecords(): ReactElement {
                     borderRadius: 8,
                     background: 'var(--wc-blue-600)',
                     color: '#fff',
-                    fontSize: 14,
+                    fontSize: 'var(--text-sm)',
                     fontWeight: 600,
                     textDecoration: 'none',
                 }}

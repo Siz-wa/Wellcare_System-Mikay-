@@ -35,11 +35,17 @@ return [
             'key' => env('REVERB_APP_KEY'),
             'secret' => env('REVERB_APP_SECRET'),
             'app_id' => env('REVERB_APP_ID'),
+            // Where THIS server posts events. Separate from REVERB_HOST, which is
+            // the public address browsers dial (config/reverb.php). They used to
+            // be the same value, so whenever the public tunnel rotated or went
+            // down, every server-side broadcast failed with "cURL error 6: Could
+            // not resolve host". Reverb runs beside the app, so the default is
+            // loopback; the REVERB_INTERNAL_* values override it where needed.
             'options' => [
-                'host' => env('REVERB_HOST'),
-                'port' => env('REVERB_PORT', 443),
-                'scheme' => env('REVERB_SCHEME', 'https'),
-                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                'host' => env('REVERB_INTERNAL_HOST', '127.0.0.1'),
+                'port' => env('REVERB_INTERNAL_PORT', env('REVERB_SERVER_PORT', 8080)),
+                'scheme' => env('REVERB_INTERNAL_SCHEME', 'http'),
+                'useTLS' => env('REVERB_INTERNAL_SCHEME', 'http') === 'https',
             ],
             'client_options' => [
                 // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html

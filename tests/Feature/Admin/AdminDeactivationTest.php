@@ -70,6 +70,25 @@ it('refuses a login from a deactivated account', function () {
     expect($user->fresh()->is_active)->toBeFalse();
 });
 
+it('tells the account holder, and only them, that the account is deactivated', function () {
+    User::factory()->deactivated()->role('user')->create([
+        'email' => 'suspended@wellcare.com',
+        'password' => 'Str0ng-Passw0rd!',
+    ]);
+
+    // Right password: told what actually happened.
+    $this->post('/login', ['email' => 'suspended@wellcare.com', 'password' => 'Str0ng-Passw0rd!'])
+        ->assertSessionHasErrors(['email' => 'This account has been deactivated. Please contact the clinic if you think this is a mistake.']);
+
+    // Wrong password: the same generic answer as any unknown address.
+    $wrong = $this->post('/login', ['email' => 'suspended@wellcare.com', 'password' => 'guess']);
+    $unknown = $this->post('/login', ['email' => 'nobody@wellcare.com', 'password' => 'guess']);
+
+    expect($wrong->getSession()->get('errors')->first('email'))
+        ->toBe($unknown->getSession()->get('errors')->first('email'))
+        ->not->toContain('deactivated');
+});
+
 it('still lets an active account log in', function () {
     User::factory()->role('user')->create([
         'email' => 'fine@wellcare.com',

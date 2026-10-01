@@ -30,10 +30,27 @@ return [
 
     'disks' => [
 
+        /*
+         * Patient documents live here: storage/app/private/patient-documents/.
+         *
+         * `serve` is FALSE deliberately, and must stay false. Setting it true
+         * makes FilesystemServiceProvider register two framework routes over
+         * this disk's root — `GET storage/{path}` and `PUT storage/{path}` —
+         * i.e. a read and a write endpoint pointed straight at the directory
+         * holding lab scans and imaging. Both are signature-gated while the
+         * disk stays private, so it was not an open door, but a signed URL is
+         * bearer-grade: valid for whoever holds it, with no per-user check and
+         * no way to tell afterwards who used it.
+         *
+         * Nothing needs those routes. Every download in this application is
+         * streamed by a controller that performs its own authorization first —
+         * Doctor\, Nurse\ and Patient\PatientRecordController — which is both
+         * the stricter path and the auditable one.
+         */
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

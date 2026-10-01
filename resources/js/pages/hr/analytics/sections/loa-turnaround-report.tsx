@@ -39,8 +39,8 @@ export function LoaTurnaroundReport({
             <p
                 style={{
                     margin: '0 0 var(--space-6)',
-                    fontSize: 11,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 Decision time averages {data.stats.decisionSample} request
@@ -88,7 +88,7 @@ export function LoaTurnaroundReport({
                         margin: '0 0 var(--space-4)',
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-800)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {chartTitles.loaProviders}

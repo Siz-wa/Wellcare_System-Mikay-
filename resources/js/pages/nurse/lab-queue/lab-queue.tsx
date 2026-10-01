@@ -44,6 +44,7 @@ export default function LabQueuePage({
         parameters: ParameterDraft[];
         severity: LabSeverity;
         notes: string;
+        attachment: File | null;
     }): void {
         if (!selected) {
             return;
@@ -53,6 +54,7 @@ export default function LabQueuePage({
 
         router.post(`/nurse/lab-queue/${selected.id}/record`, payload, {
             preserveScroll: true,
+            forceFormData: payload.attachment !== null,
             onSuccess: () => {
                 setSelected(null);
                 setErrors({});
@@ -73,8 +75,8 @@ export default function LabQueuePage({
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.pageTitle}
@@ -83,7 +85,7 @@ export default function LabQueuePage({
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.pageSubtitle}

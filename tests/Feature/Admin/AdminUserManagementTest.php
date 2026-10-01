@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Models\User;
+use App\Notifications\StaffInvitationNotification;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 
 /**
  * Figure 4's "Add New User", "Manage User Acc" and "Manage User/Roles" flows.
@@ -58,14 +61,41 @@ it('marks an admin-created account verified so it can reach its own dashboard', 
     expect($user->hasVerifiedEmail())->toBeTrue();
 });
 
-it('lets a newly created account sign in and land on its role dashboard', function () {
+it('sends a newly created staff account to 2FA enrolment before its dashboard', function () {
     $this->actingAs($this->admin)
         ->post('/admin/users', validAccountPayload(['role' => 'doctor']));
 
     $doctor = User::where('email', 'grace.alonzo@wellcare.com')->first();
 
+    // The routing decision itself is unchanged — this account's home really is
+    // the appointment list.
     expect(DashboardController::routeForUser($doctor))->toBe('doctor.appointments');
 
+    // But X-01 puts enrolment in front of it. A staff account created five
+    // seconds ago has no second factor, and staff accounts reach other people's
+    // charts, so it enrols before it works. This is the intended first-login
+    // experience for every new clinician, not an obstacle to route around.
+    $this->actingAs($doctor)->get('/dashboard')->assertRedirect(route('security.edit'));
+});
+
+it('lets a newly created account land on its role dashboard once enrolled', function () {
+    $this->actingAs($this->admin)
+        ->post('/admin/users', validAccountPayload(['role' => 'doctor']));
+
+    $doctor = User::where('email', 'grace.alonzo@wellcare.com')->first();
+
+    // Both first-login gates cleared, not just one. GV-9 added the second:
+    // an admin-created account carries `must_change_password`, because the
+    // administrator typed that first password and two people therefore know it.
+    // Clearing only the 2FA flag leaves the account correctly held at
+    // `security.edit` by the other gate, which is not what this test is about.
+    $doctor->forceFill([
+        'two_factor_confirmed_at' => now(),
+        'must_change_password' => false,
+    ])->save();
+
+    // The other half of the test above: the account is genuinely usable, and
+    // the gates are steps on the way rather than a wall.
     $this->actingAs($doctor)->get('/dashboard')->assertRedirect(route('doctor.appointments'));
 });
 
@@ -242,4 +272,35 @@ it('never sends a password hash or two-factor secret to the account list', funct
     expect($response->getContent())
         ->not->toContain('two_factor_secret')
         ->not->toContain('$2y$');   // every bcrypt hash starts with this
+});
+
+it('invites a new staff member to set their own password', function () {
+    Notification::fake();
+
+    $this->actingAs($this->admin)
+        ->post('/admin/users', validAccountPayload([
+            'password' => '',
+            'password_confirmation' => '',
+            'send_invite' => true,
+        ]))
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('success', fn (string $message) => str_contains($message, 'invitation'));
+
+    $user = User::where('email', 'grace.alonzo@wellcare.com')->firstOrFail();
+
+    Notification::assertSentTo(
+        $user,
+        StaffInvitationNotification::class,
+        fn ($notification) => Password::broker()->tokenExists($user, $notification->token),
+    );
+
+    // The administrator never knew a password, so there is nothing to force a change of.
+    expect($user->must_change_password)->toBeFalsy()
+        ->and($user->hasRole('nurse'))->toBeTrue();
+});
+
+it('refuses a typed password alongside an invitation', function () {
+    $this->actingAs($this->admin)
+        ->post('/admin/users', validAccountPayload(['send_invite' => true]))
+        ->assertSessionHasErrors('password');
 });

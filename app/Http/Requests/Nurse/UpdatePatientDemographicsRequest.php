@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Nurse;
 
+use App\Concerns\NormalizesPhoneNumbers;
+use App\Models\Patient;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,6 +21,8 @@ use Illuminate\Validation\Rule;
  */
 class UpdatePatientDemographicsRequest extends FormRequest
 {
+    use NormalizesPhoneNumbers;
+
     public function authorize(): bool
     {
         return true;
@@ -29,7 +33,9 @@ class UpdatePatientDemographicsRequest extends FormRequest
         $this->merge([
             'first_name' => $this->input('firstName', $this->input('first_name')),
             'last_name' => $this->input('lastName', $this->input('last_name')),
-            'contact_number' => $this->input('contactNumber', $this->input('contact_number')),
+            'contact_number' => $this->normalizePhoneNumber(
+                $this->input('contactNumber', $this->input('contact_number'))
+            ),
             'civil_status' => $this->input('civilStatus', $this->input('civil_status')),
         ]);
     }
@@ -43,7 +49,7 @@ class UpdatePatientDemographicsRequest extends FormRequest
             'first_name' => ['required', 'string', 'min:2', 'max:100'],
             'last_name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
-            'contact_number' => ['required', 'string', 'max:20'],
+            'contact_number' => $this->phoneRules(required: true),
             'address' => ['nullable', 'string', 'max:500'],
             // `patients.gender` is enum('male','female','other') — NOT the
             // 'M'/'F' pair used on the user profile tables. Getting this wrong
@@ -51,7 +57,7 @@ class UpdatePatientDemographicsRequest extends FormRequest
             // value to '' on write.
             'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
             'birthdate' => ['nullable', 'date', 'before:today'],
-            'civil_status' => ['nullable', Rule::in(['single', 'married', 'widowed'])],
+            'civil_status' => ['nullable', Rule::in(Patient::CIVIL_STATUSES)],
             'age' => ['nullable', 'integer', 'min:0', 'max:130'],
         ];
     }
@@ -66,6 +72,7 @@ class UpdatePatientDemographicsRequest extends FormRequest
             'last_name.required' => 'Please enter the patient\'s last name.',
             'contact_number.required' => 'A contact number is required — it is part of how patient records are matched.',
             'birthdate.before' => 'Birthdate must be in the past.',
+            ...$this->phoneMessages(),
         ];
     }
 }

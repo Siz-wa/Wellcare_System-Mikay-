@@ -1,6 +1,7 @@
 // resources/js/pages/auth/register/hooks/use-register-form.ts
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { isUnnamedHmoProvider } from '@/lib/hmo-providers';
 import { onboardingSteps } from '@/pages/auth/register/sections/register-data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,8 +25,16 @@ export interface RegisterFields {
     height: string;
     weight: string;
     blood_pressure: string;
+    blood_type: string;
+    known_allergies: string;
     hmo: string;
     classification: string;
+    // Step 3 — consent. SC-4 / C-1 in WELLCARE-COMPLIANCE-PLAN.md.
+    // One field per purpose, never a single "I agree to everything" flag: a
+    // lawful basis has to be specific, and one tick covering both examination
+    // and record-keeping is not specific about either.
+    consent_data_processing: boolean;
+    consent_treatment: boolean;
 }
 
 const INITIAL_FIELDS: RegisterFields = {
@@ -43,8 +52,12 @@ const INITIAL_FIELDS: RegisterFields = {
     height: '',
     weight: '',
     blood_pressure: '',
+    blood_type: '',
+    known_allergies: '',
     hmo: '',
     classification: 'new',
+    consent_data_processing: false,
+    consent_treatment: false,
 };
 
 // ─── Step field map — used to route server errors back to the right step ──────
@@ -64,7 +77,17 @@ export const STEP_FIELDS: Record<number, (keyof RegisterFields)[]> = {
         'gender',
         'civil_status',
     ],
-    3: ['height', 'weight', 'blood_pressure', 'hmo', 'classification'],
+    3: [
+        'height',
+        'weight',
+        'blood_pressure',
+        'blood_type',
+        'known_allergies',
+        'hmo',
+        'classification',
+        'consent_data_processing',
+        'consent_treatment',
+    ],
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -139,10 +162,16 @@ function validateStep2(f: RegisterFields): StepErrors {
         }
     }
 
+    // Identical to NormalizesPhoneNumbers::PH_MOBILE_REGEX. The old rule here
+    // accepted `(02) 8123 4567`, which the server then refused — so the person
+    // finished all three steps and both consent boxes before being told. A client
+    // check looser than the server's is worse than none: it promises the value
+    // is fine.
     if (!f.contact_number.trim()) {
         e.contact_number = 'Contact number is required.';
-    } else if (!/^[0-9+\-\s()]{7,20}$/.test(f.contact_number)) {
-        e.contact_number = 'Please enter a valid contact number.';
+    } else if (!/^09\d{9}$/.test(f.contact_number)) {
+        e.contact_number =
+            'Please enter a valid PH mobile number (e.g. 09171234567).';
     }
 
     if (!f.gender) {
@@ -179,8 +208,26 @@ function validateStep3(f: RegisterFields): StepErrors {
         e.blood_pressure = 'BP must be in format 120/80.';
     }
 
+    // The HMO field is optional, but "Other" with nothing typed after it is not
+    // an answer to it — see isUnnamedHmoProvider.
+    if (isUnnamedHmoProvider(f.hmo)) {
+        e.hmo = 'Please type the name of your HMO provider.';
+    }
+
     if (!f.classification) {
         e.classification = 'Please select a patient classification.';
+    }
+
+    // SC-4. Blocked client-side as well as server-side so the person is told
+    // at the checkbox rather than after a round trip that loses the form.
+    if (!f.consent_data_processing) {
+        e.consent_data_processing =
+            'Please agree to how your health information is handled.';
+    }
+
+    if (!f.consent_treatment) {
+        e.consent_treatment =
+            'Please confirm your consent to examination and treatment.';
     }
 
     return e;
@@ -198,6 +245,32 @@ export function useRegisterForm(onStepChange: (step: number) => void) {
     const set =
         (key: keyof RegisterFields) => (e: ChangeEvent<HTMLInputElement>) => {
             setFields((prev) => ({ ...prev, [key]: e.target.value }));
+            setClientErrors((prev) => ({ ...prev, [key]: undefined }));
+        };
+
+    /**
+     * Controlled input handler that runs the value through a sanitizer first,
+     * so a character that has no business in the field never reaches state.
+     *
+     * This covers pasting as well as typing: React fires onChange for a paste
+     * into a controlled input, which is why these fields carry no `maxLength`
+     * — the attribute would truncate `+63 917 123 4567` to eleven characters
+     * before the sanitizer ever saw the country code. The sanitizer does the
+     * capping instead.
+     */
+    const setSanitized =
+        (key: keyof RegisterFields, sanitize: (value: string) => string) =>
+        (e: ChangeEvent<HTMLInputElement>) => {
+            const value = sanitize(e.target.value);
+
+            setFields((prev) => ({ ...prev, [key]: value }));
+            setClientErrors((prev) => ({ ...prev, [key]: undefined }));
+        };
+
+    // Checkbox handler — consent fields are booleans, not strings.
+    const setChecked =
+        (key: keyof RegisterFields) => (e: ChangeEvent<HTMLInputElement>) => {
+            setFields((prev) => ({ ...prev, [key]: e.target.checked }));
             setClientErrors((prev) => ({ ...prev, [key]: undefined }));
         };
 
@@ -261,7 +334,9 @@ export function useRegisterForm(onStepChange: (step: number) => void) {
         fields,
         clientErrors,
         set,
+        setSanitized,
         setRadio,
+        setChecked,
         handleNext,
         handleBack,
         handleSubmitValidation,

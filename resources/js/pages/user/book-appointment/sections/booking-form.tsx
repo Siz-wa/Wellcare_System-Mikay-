@@ -11,9 +11,13 @@ import { useStepValidators } from '@/hooks/use-step-validators';
 import { useInView } from '@/hooks/useInView';
 import { BOOKING_FORM_DEFAULTS } from '@/pages/user/book-appointment/sections/bookingdata';
 import type {
+    BookingFormData,
+    BookingPrefill,
     BookingWindow,
+    ConsentDocument,
     DoctorOption,
     PatientOption,
+    ServiceDefinition,
     StepId,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import { store } from '@/routes/appointments';
@@ -32,16 +36,48 @@ interface BookingFormProps {
     doctors: DoctorOption[];
     /** The person this appointment is for, chosen at the gate */
     patient: PatientOption;
+    /** Service / consultation type the deep link asked for, if any */
+    prefill: BookingPrefill;
     /** Bookable date range, computed server-side */
     bookingWindow: BookingWindow;
+    /** SC-4 / C-5. Wording for the tick-box a video consultation requires. */
+    telemedicineConsent: ConsentDocument;
+    /** The bookable catalogue, served from the `services` table. */
+    services: ServiceDefinition[];
     /** Reopens the gate */
     onChangePatient: () => void;
+}
+
+/**
+ * BookAppointmentRequest validates snake_case keys, so every error it returns
+ * is keyed `consent_telemedicine`, `appointment_date`, `hmo_id` — while this
+ * form's fields are camelCase. Rendering `errors.consultationType` against a
+ * bag holding `consultation_type` matches nothing, which is how a rejected
+ * booking could look like a button that simply did not work.
+ *
+ * Converting the whole bag once, here, means every step reads server errors
+ * under the same names it reads its own.
+ */
+function toCamelCaseKeys(
+    errors: Record<string, string>,
+): Partial<Record<keyof BookingFormData, string>> {
+    const out: Record<string, string> = {};
+
+    for (const [key, message] of Object.entries(errors)) {
+        out[key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] =
+            message;
+    }
+
+    return out as Partial<Record<keyof BookingFormData, string>>;
 }
 
 export default function BookingForm({
     doctors,
     patient,
+    prefill,
     bookingWindow,
+    telemedicineConsent,
+    services,
     onChangePatient,
 }: BookingFormProps): ReactElement {
     const { ref, inView } = useInView();
@@ -69,10 +105,20 @@ export default function BookingForm({
     } = useForm({
         ...BOOKING_FORM_DEFAULTS,
         patientId: patient.id,
-        coverage: patient.isMinor ? 'cash' : (patient.defaultCoverage ?? ''),
-        hmo: patient.isMinor ? '' : (patient.hmoProvider ?? ''),
-        hmoId: patient.isMinor ? '' : (patient.hmoId ?? ''),
+        // From "Book this service" on the public services page. Seeded here
+        // rather than set from an effect so the first paint already shows the
+        // choice the patient made on the previous page; step-appointment
+        // clears it again if this patient is not eligible for it.
+        service: prefill?.service ?? BOOKING_FORM_DEFAULTS.service,
+        consultationType:
+            prefill?.consultationType ?? BOOKING_FORM_DEFAULTS.consultationType,
+        doctorId: prefill?.doctorId ?? BOOKING_FORM_DEFAULTS.doctorId,
+        coverage: patient.defaultCoverage ?? '',
+        hmo: patient.hmoProvider ?? '',
+        hmoId: patient.hmoId ?? '',
     });
+
+    const errors = toCamelCaseKeys(serverErrors);
 
     const [attempted1, setAttempted1] = useState(false);
     const [attempted2, setAttempted2] = useState(false);
@@ -80,6 +126,7 @@ export default function BookingForm({
     const { step1Valid, step2Valid, errors1, errors2 } = useStepValidators(
         data,
         bookingWindow,
+        services,
     );
 
     // ── Navigation handlers ────────────────────────────────────────────────────
@@ -134,7 +181,10 @@ export default function BookingForm({
                 paddingTop: 'var(--space-4)',
             }}
         >
-            <div className="wc-container" style={{ maxWidth: 860 }}>
+            {/* `px-0` deliberately: .wc-container pads itself for the public
+                pages, but this now renders inside the patient shell's <main>,
+                which already has a gutter. Stacked they took 40px a side. */}
+            <div className="wc-container max-w-[860px] px-0">
                 <PatientSummaryCard
                     patient={patient}
                     onChange={onChangePatient}
@@ -158,6 +208,8 @@ export default function BookingForm({
                                 setData={setData}
                                 patient={patient}
                                 bookingWindow={bookingWindow}
+                                telemedicineConsent={telemedicineConsent}
+                                services={services}
                                 valid={step1Valid}
                                 onNext={handleNext1}
                             />
@@ -173,6 +225,7 @@ export default function BookingForm({
                                 onNext={handleNext2}
                                 onBack={() => goTo(1)}
                                 doctors={doctors}
+                                services={services}
                             />
                         )}
 
@@ -180,7 +233,7 @@ export default function BookingForm({
                             <form onSubmit={handleSubmit} noValidate>
                                 <StepReview
                                     data={data}
-                                    errors={serverErrors}
+                                    errors={errors}
                                     setData={setData}
                                     patient={patient}
                                     isProcessing={processing}
@@ -188,6 +241,7 @@ export default function BookingForm({
                                     onGoToStep={(s: StepId) => goTo(s)}
                                     onChangePatient={onChangePatient}
                                     doctors={doctors}
+                                    services={services}
                                 />
                             </form>
                         )}

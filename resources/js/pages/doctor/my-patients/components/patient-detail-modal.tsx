@@ -67,9 +67,9 @@ function VitalsCard({
             <p
                 style={{
                     margin: 0,
-                    fontSize: '10px',
+                    fontSize: 'var(--text-xs)',
                     fontWeight: 700,
-                    color: 'var(--wc-gray-400)',
+                    color: 'var(--wc-text-muted)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                 }}
@@ -79,16 +79,16 @@ function VitalsCard({
             <p
                 style={{
                     margin: '4px 0 0 0',
-                    fontSize: '15px',
+                    fontSize: 'var(--text-base)',
                     fontWeight: 700,
-                    color: 'var(--wc-dark)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {value}{' '}
                 <span
                     style={{
-                        fontSize: '10px',
-                        color: 'var(--wc-gray-400)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                         fontWeight: 500,
                     }}
                 >
@@ -110,17 +110,12 @@ export function PatientDetailModal({
 
     return (
         <div
+            className="fixed inset-0 flex items-center justify-center p-4 sm:p-6"
             style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
                 backgroundColor: 'rgba(15, 23, 42, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
+                // Was a bare 1000 — below --z-nav (5000), so the shell's
+                // sidebar and topbar painted over this dialog.
+                zIndex: 'var(--z-modal)',
                 backdropFilter: 'blur(6px)',
             }}
             onClick={onClose}
@@ -189,7 +184,7 @@ export function PatientDetailModal({
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '24px',
+                                fontSize: 'var(--text-2xl)',
                                 fontWeight: 700,
                                 color: 'white',
                             }}
@@ -200,9 +195,9 @@ export function PatientDetailModal({
                             <h2
                                 style={{
                                     margin: 0,
-                                    fontSize: '20px',
+                                    fontSize: 'var(--text-lg)',
                                     fontWeight: 800,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                     letterSpacing: '-0.02em',
                                 }}
                             >
@@ -211,8 +206,8 @@ export function PatientDetailModal({
                             <p
                                 style={{
                                     margin: '2px 0 0',
-                                    color: 'var(--wc-gray-400)',
-                                    fontSize: '13px',
+                                    color: 'var(--wc-text-muted)',
+                                    fontSize: 'var(--text-sm)',
                                     fontWeight: 500,
                                 }}
                             >
@@ -231,9 +226,9 @@ export function PatientDetailModal({
                         <h3
                             style={{
                                 margin: '0 0 20px 0',
-                                fontSize: '11px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 800,
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.06em',
                             }}
@@ -261,8 +256,8 @@ export function PatientDetailModal({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '10px',
-                                            color: 'var(--wc-gray-400)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 700,
                                         }}
                                     >
@@ -271,9 +266,9 @@ export function PatientDetailModal({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '13px',
+                                            fontSize: 'var(--text-sm)',
                                             fontWeight: 600,
-                                            color: 'var(--wc-dark)',
+                                            color: 'var(--wc-text-primary)',
                                         }}
                                     >
                                         {patient.birthDate}
@@ -294,8 +289,8 @@ export function PatientDetailModal({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '10px',
-                                            color: 'var(--wc-gray-400)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 700,
                                         }}
                                     >
@@ -304,9 +299,9 @@ export function PatientDetailModal({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '13px',
+                                            fontSize: 'var(--text-sm)',
                                             fontWeight: 600,
-                                            color: 'var(--wc-dark)',
+                                            color: 'var(--wc-text-primary)',
                                         }}
                                     >
                                         {patient.email}
@@ -326,22 +321,16 @@ export function PatientDetailModal({
                         <h3
                             style={{
                                 margin: '0 0 20px 0',
-                                fontSize: '11px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 800,
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.06em',
                             }}
                         >
                             Latest Vitals
                         </h3>
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 1fr',
-                                gap: '12px',
-                            }}
-                        >
+                        <div className="grid grid-cols-2 gap-3">
                             <VitalsCard
                                 icon={<IconBell />}
                                 label="Pulse"
@@ -388,9 +377,9 @@ export function PatientDetailModal({
                         <h3
                             style={{
                                 margin: '0 0 20px 0',
-                                fontSize: '11px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 800,
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.06em',
                             }}
@@ -433,9 +422,9 @@ export function PatientDetailModal({
                                     <p
                                         style={{
                                             margin: 0,
-                                            fontSize: '14px',
+                                            fontSize: 'var(--text-sm)',
                                             fontWeight: 700,
-                                            color: 'var(--wc-dark)',
+                                            color: 'var(--wc-text-primary)',
                                         }}
                                     >
                                         PhilHealth Premium
@@ -443,8 +432,8 @@ export function PatientDetailModal({
                                     <p
                                         style={{
                                             margin: '2px 0 0 0',
-                                            fontSize: '12px',
-                                            color: 'var(--wc-gray-400)',
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 500,
                                         }}
                                     >
@@ -473,7 +462,7 @@ export function PatientDetailModal({
                                 />
                                 <span
                                     style={{
-                                        fontSize: '11px',
+                                        fontSize: 'var(--text-xs)',
                                         fontWeight: 700,
                                         color: '#15803d',
                                         textTransform: 'uppercase',
@@ -504,9 +493,9 @@ export function PatientDetailModal({
                             <h3
                                 style={{
                                     margin: 0,
-                                    fontSize: '11px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 800,
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.06em',
                                 }}
@@ -517,7 +506,7 @@ export function PatientDetailModal({
                                 style={{
                                     background: 'none',
                                     border: 'none',
-                                    fontSize: '12px',
+                                    fontSize: 'var(--text-xs)',
                                     color: 'var(--wc-blue-600)',
                                     fontWeight: 700,
                                     cursor: 'pointer',
@@ -545,9 +534,9 @@ export function PatientDetailModal({
                                 <p
                                     style={{
                                         margin: 0,
-                                        fontSize: '14px',
+                                        fontSize: 'var(--text-sm)',
                                         fontWeight: 700,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     Hypertension Diagnosis
@@ -555,8 +544,8 @@ export function PatientDetailModal({
                                 <p
                                     style={{
                                         margin: '4px 0 0 0',
-                                        fontSize: '12px',
-                                        color: 'var(--wc-gray-400)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--wc-text-muted)',
                                         fontWeight: 500,
                                         lineHeight: 1.5,
                                     }}
@@ -583,7 +572,7 @@ export function PatientDetailModal({
                                 padding: '0 28px',
                                 borderRadius: '14px',
                                 background: 'var(--wc-gray-50)',
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                                 fontWeight: 700,
                                 border: '1px solid var(--wc-gray-100)',
                                 cursor: 'pointer',

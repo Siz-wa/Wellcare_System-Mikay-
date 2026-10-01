@@ -1,6 +1,7 @@
 // resources/js/pages/user/home/sections/DoctorsSection.tsx
 
 import { Link } from '@inertiajs/react';
+import { useCanBook } from '@/hooks/use-can-book';
 import { useInView } from '@/hooks/useInView';
 import { doctorsData } from '@/pages/generals/home/sections/homedata';
 import { doctors as doctorsRoute } from '@/routes';
@@ -8,6 +9,7 @@ import { index as bookIndex } from '@/routes/appointments';
 
 export default function DoctorsSection() {
     const { ref, inView } = useInView();
+    const canBook = useCanBook();
     const { pill, heading, desc, doctors } = doctorsData;
 
     return (
@@ -69,13 +71,16 @@ export default function DoctorsSection() {
                                     <span className="wc-badge wc-badge-primary">
                                         Available
                                     </span>
-                                    {/* ✅ internal link → <Link> + Wayfinder */}
-                                    <Link
-                                        href={bookIndex.url()}
-                                        className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill"
-                                    >
-                                        Book
-                                    </Link>
+                                    {/* Patients and guests only — the
+                                        appointment routes are gated role:user. */}
+                                    {canBook && (
+                                        <Link
+                                            href={bookIndex.url()}
+                                            className="wc-btn wc-btn-outline wc-btn-sm wc-btn-pill"
+                                        >
+                                            Book
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>

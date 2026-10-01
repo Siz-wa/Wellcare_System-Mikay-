@@ -60,16 +60,16 @@ export function AllergiesSection({
                             >
                                 <span
                                     style={{
-                                        fontSize: 15,
+                                        fontSize: 'var(--text-base)',
                                         fontWeight: 600,
-                                        color: 'var(--wc-gray-900)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {allergy.allergen}
                                 </span>
                                 <span
                                     style={{
-                                        fontSize: 11,
+                                        fontSize: 'var(--text-xs)',
                                         fontWeight: 700,
                                         textTransform: 'uppercase',
                                         letterSpacing: '.05em',
@@ -87,8 +87,8 @@ export function AllergiesSection({
                                 <p
                                     style={{
                                         margin: '6px 0 0',
-                                        fontSize: 13,
-                                        color: 'var(--wc-gray-700)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-secondary)',
                                     }}
                                 >
                                     {labels.reaction}: {allergy.reaction}
@@ -99,8 +99,8 @@ export function AllergiesSection({
                                 <p
                                     style={{
                                         margin: '4px 0 0',
-                                        fontSize: 13,
-                                        color: 'var(--wc-gray-600)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-secondary)',
                                     }}
                                 >
                                     {allergy.notes}

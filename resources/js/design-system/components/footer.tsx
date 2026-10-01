@@ -187,7 +187,7 @@ export default function Footer() {
                                 </span>
                                 {/* tel: protocol — <a> is correct, not <Link> */}
                                 <a
-                                    href="tel:+63464167068"
+                                    href="tel:+63464505116"
                                     className="wc-footer__link"
                                 >
                                     Tel# (046) 450-5116/424-9312 <br />{' '}

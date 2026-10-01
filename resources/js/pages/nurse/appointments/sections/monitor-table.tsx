@@ -16,17 +16,17 @@ interface MonitorTableProps {
 const CELL: React.CSSProperties = {
     padding: 'var(--space-4) var(--space-3)',
     fontSize: 'var(--text-sm)',
-    color: 'var(--wc-gray-700)',
+    color: 'var(--wc-text-secondary)',
     verticalAlign: 'middle',
 };
 
 const HEAD: React.CSSProperties = {
     padding: 'var(--space-3)',
     textAlign: 'left',
-    fontSize: '10px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     letterSpacing: '0.12em',
-    color: 'var(--wc-gray-500)',
+    color: 'var(--wc-text-muted)',
     textTransform: 'uppercase',
     whiteSpace: 'nowrap',
 };
@@ -56,8 +56,8 @@ export function MonitorTable({
                         margin: 0,
                         fontSize: 'var(--text-base)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.tableTitle}
@@ -66,7 +66,7 @@ export function MonitorTable({
                     style={{
                         margin: '4px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.readOnlyNote}
@@ -80,7 +80,7 @@ export function MonitorTable({
                         padding: 'var(--space-8) var(--space-5)',
                         textAlign: 'center',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.empty}
@@ -156,7 +156,7 @@ export function MonitorTable({
                                                     justifyContent: 'center',
                                                     background: '#eff6ff',
                                                     color: 'var(--wc-blue-600)',
-                                                    fontSize: '11px',
+                                                    fontSize: 'var(--text-xs)',
                                                     fontWeight: 700,
                                                 }}
                                             >
@@ -167,7 +167,7 @@ export function MonitorTable({
                                                     style={{
                                                         margin: 0,
                                                         fontWeight: 600,
-                                                        color: 'var(--wc-dark)',
+                                                        color: 'var(--wc-text-primary)',
                                                     }}
                                                 >
                                                     {appointment.patient}
@@ -178,7 +178,8 @@ export function MonitorTable({
                                                             appointment.recordUrl
                                                         }
                                                         style={{
-                                                            fontSize: '11px',
+                                                            fontSize:
+                                                                'var(--text-xs)',
                                                             fontWeight: 600,
                                                             color: 'var(--wc-blue-600)',
                                                             textDecoration:
@@ -190,8 +191,9 @@ export function MonitorTable({
                                                 ) : (
                                                     <span
                                                         style={{
-                                                            fontSize: '11px',
-                                                            color: 'var(--wc-gray-400)',
+                                                            fontSize:
+                                                                'var(--text-xs)',
+                                                            color: 'var(--wc-text-muted)',
                                                         }}
                                                     >
                                                         {meta.noRecordLabel}
@@ -217,7 +219,7 @@ export function MonitorTable({
                                         style={{
                                             ...CELL,
                                             textTransform: 'uppercase',
-                                            fontSize: '11px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 600,
                                         }}
                                     >

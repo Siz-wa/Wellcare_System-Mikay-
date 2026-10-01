@@ -30,7 +30,7 @@ export default function AccreditationsSection() {
                     </h2>
                     <p
                         className="text-lg leading-relaxed"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         {desc}
                     </p>
@@ -58,7 +58,7 @@ export default function AccreditationsSection() {
                                 <h3 className="mb-3 text-base">{item.title}</h3>
                                 <p
                                     className="m-0 text-sm leading-relaxed"
-                                    style={{ color: 'var(--wc-gray-500)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {item.desc}
                                 </p>

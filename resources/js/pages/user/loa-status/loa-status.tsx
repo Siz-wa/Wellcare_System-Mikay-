@@ -30,12 +30,11 @@ export default function LoaStatusPage({
             <header style={{ marginBottom: 'var(--space-6)' }}>
                 <h1
                     style={{
-                        fontSize: 24,
+                        fontSize: 'var(--text-2xl)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-900)',
+                        color: 'var(--wc-text-primary)',
                         margin: 0,
-                        fontFamily:
-                            'var(--font-display, "Bricolage Grotesque")',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {loaStatusMeta.title}
@@ -43,8 +42,8 @@ export default function LoaStatusPage({
                 <p
                     style={{
                         margin: '6px 0 0',
-                        fontSize: 14,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                         maxWidth: 640,
                     }}
                 >

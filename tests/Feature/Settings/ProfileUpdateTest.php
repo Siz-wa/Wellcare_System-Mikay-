@@ -87,7 +87,7 @@ test('email verification status is unchanged when the email address is unchanged
     expect($user->refresh()->email_verified_at)->not->toBeNull();
 });
 
-test('user can delete their account', function () {
+test('user can close their account', function () {
     $user = User::factory()->create();
 
     $response = $this
@@ -101,7 +101,23 @@ test('user can delete their account', function () {
         ->assertRedirect(route('home'));
 
     $this->assertGuest();
-    expect($user->fresh())->toBeNull();
+
+    // This assertion used to read `expect($user->fresh())->toBeNull()`, because
+    // the endpoint performed a hard DELETE. That was the defect, not the
+    // contract: six ON DELETE CASCADE keys carried it into the account holder's
+    // allergies, diagnoses and documents (compliance plan §2.6, RET-1). The row
+    // is now retired rather than removed.
+    //
+    // Asserted through a normal query, NOT through `fresh()`: that helper uses
+    // newQueryWithoutScopes() and so looks straight past SoftDeletes, which
+    // would make this pass whether the scope worked or not. A plain find() is
+    // what the application actually does — it is the thing that has to come
+    // back empty for a closed account to be unable to sign in.
+    expect(User::find($user->id))->toBeNull();
+    $this->assertSoftDeleted('users', ['id' => $user->id]);
+
+    // The full retention behaviour — records surviving, credentials destroyed,
+    // sessions dropped — is covered in tests/Feature/Compliance.
 });
 
 test('correct password must be provided to delete account', function () {

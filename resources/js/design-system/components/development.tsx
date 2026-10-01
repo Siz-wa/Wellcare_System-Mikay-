@@ -322,7 +322,7 @@ export default function UnderConstruction({
                     {/* Description */}
                     <p
                         className="mb-6 text-lg leading-relaxed"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         {description ??
                             "This page is currently being built. Check back soon — we're working on it!"}

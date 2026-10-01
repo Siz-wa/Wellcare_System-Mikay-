@@ -5,6 +5,6 @@ export const ctaData = {
     desc: 'Schedule your consultation or diagnostic appointment today. Same-day slots available.',
     ctas: {
         primary: { label: 'Book an Appointment', href: '/book' },
-        secondary: { label: 'Call Us Now', href: 'tel:+6328888-9355' },
+        secondary: { label: 'Call Us Now', href: 'tel:+63464505116' },
     },
 };

@@ -52,7 +52,41 @@ export const doctorsCtaData = {
         primary: { label: 'Book an Appointment', href: '/book' },
         secondary: {
             label: 'Try Telemedicine',
-            href: '/book?service=telemedicine',
+            href: '/book?type=virtual',
         },
     },
+};
+
+// ─── Individual doctor profile ────────────────────────────────────────────────
+//
+// The copy on this page is doing legal work, not decorative work.
+//
+// `verifyNote` is why the PRC number is published at all: it is the one thing
+// on the page a patient can check without the clinic's help, on PRC's own
+// verification portal. Printing a licence number and NOT saying it can be
+// verified would make it decoration.
+//
+// `ethicsNote` says what the page deliberately does not carry. Under the PRC
+// Board of Medicine and PMA Code of Ethics a physician may publish their name,
+// field of specialty, office hours and affiliation — but not claims of personal
+// superiority, certificates, diplomas or postgraduate training, and may not
+// solicit patients by advertisement. So there are no ratings, no testimonials
+// and no rankings here, and that is a rule rather than an omission.
+export const doctorProfileCopy = {
+    backLabel: 'All doctors',
+    credentialsTitle: 'Credentials',
+    prcLabel: 'PRC registration',
+    boardLabel: 'Specialty board',
+    verifiedLabel: 'Verified by the clinic',
+    verifyNote:
+        'You can check this registration yourself on the Professional Regulation Commission’s online verification portal.',
+    scheduleTitle: 'Clinic hours',
+    scheduleEmpty:
+        'No regular clinic hours are published. Available dates appear when you book.',
+    aboutTitle: 'Practice',
+    languagesLabel: 'Languages',
+    sinceLabel: 'Practising since',
+    bookLabel: 'Book an appointment',
+    ethicsNote:
+        'WellCare lists its physicians by name, field of specialty, credentials and clinic hours. We do not publish ratings, testimonials or comparisons between doctors.',
 };

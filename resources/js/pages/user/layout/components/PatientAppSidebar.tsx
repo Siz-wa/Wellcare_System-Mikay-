@@ -15,18 +15,22 @@ import {
     LogOut,
     ChevronRight,
     Video,
+    Wallet,
+    MoreHorizontal,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { navGroups } from '@/pages/user/layout/patient-dashboard-data';
-import type { NavItem } from '@/pages/user/layout/patient-dashboard-data';
+import type {
+    IconKey,
+    NavItem,
+} from '@/pages/user/layout/patient-dashboard-data';
 
 const BRAND = '#0056b3';
 const BRAND_BG = '#eff6ff';
 const ACTIVE_SHADOW =
     '0 4px 14px -2px rgba(0,86,179,0.35), 0 2px 6px -1px rgba(0,86,179,0.2)';
 
-type IconKey = NavItem['iconKey'];
 const ICON_MAP: Record<IconKey, ReactElement> = {
     dashboard: <LayoutDashboard size={17} strokeWidth={1.8} />,
     schedule: <CalendarCheck2 size={17} strokeWidth={1.8} />,
@@ -36,6 +40,10 @@ const ICON_MAP: Record<IconKey, ReactElement> = {
     records: <FolderOpen size={17} strokeWidth={1.8} />,
     settings: <Settings size={17} strokeWidth={1.8} />,
     video: <Video size={17} strokeWidth={1.8} />,
+    payments: <Wallet size={17} strokeWidth={1.8} />,
+    // Only the bottom tab bar renders this one, but the map is keyed by the
+    // shared IconKey union so it has to be exhaustive.
+    more: <MoreHorizontal size={17} strokeWidth={1.8} />,
 };
 
 export function SidebarLogo(): ReactElement {
@@ -88,7 +96,7 @@ export function SidebarLogo(): ReactElement {
                 <p
                     style={{
                         margin: 0,
-                        fontSize: '1.05rem',
+                        fontSize: 'var(--text-base)',
                         fontWeight: 800,
                         color: '#1e293b',
                         fontFamily: 'var(--font-display)',
@@ -100,7 +108,7 @@ export function SidebarLogo(): ReactElement {
                 <p
                     style={{
                         margin: 0,
-                        fontSize: '0.625rem',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 800,
                         color: BRAND,
                         fontFamily: 'var(--font-display)',
@@ -222,8 +230,8 @@ export function PatientAppSidebar({
         <aside
             style={{
                 width: 260,
-                minHeight: '100vh',
-                height: '100vh',
+                minHeight: '100dvh',
+                height: '100dvh',
                 position: 'sticky',
                 top: 0,
                 flexShrink: 0,
@@ -260,7 +268,7 @@ export function PatientAppSidebar({
                             style={{
                                 margin: '0 0 6px',
                                 padding: '0 4px',
-                                fontSize: '10px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 color: '#94a3b8',
                                 textTransform: 'uppercase',

@@ -3,6 +3,7 @@
 import { Head, Form } from '@inertiajs/react';
 import { Link } from '@inertiajs/react';
 import { WellcareLogo } from '@/design-system/components/navbar';
+import { cn } from '@/lib/utils';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
@@ -61,7 +62,7 @@ const ArrowLeftIcon = () => (
 export default function ForgotPassword({ status }: ForgotPasswordProps) {
     return (
         <>
-            <Head title="Forgot Password — Wellcare" />
+            <Head title="Forgot Password" />
 
             <div className="relative flex min-h-screen items-center justify-center bg-brand-accent px-6 py-12 font-sans">
                 {/* Background blobs — decorative */}
@@ -131,12 +132,17 @@ export default function ForgotPassword({ status }: ForgotPasswordProps) {
                                         autoComplete="off"
                                         autoFocus
                                         placeholder="email@example.com"
-                                        className={`wc-input${errors.email ? 'wc-input-error' : ''}`}
+                                        className={cn(
+                                            'wc-input',
+                                            errors.email && 'wc-input-error',
+                                        )}
                                     />
                                     {errors.email && (
                                         <span
                                             className="mt-1 text-xs"
-                                            style={{ color: 'var(--wc-error)' }}
+                                            style={{
+                                                color: 'var(--wc-text-error)',
+                                            }}
                                         >
                                             {errors.email}
                                         </span>

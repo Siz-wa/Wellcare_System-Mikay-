@@ -3,7 +3,7 @@
 // All static copy for "My Patients".
 
 export const patientsMeta = {
-    title: 'My Patients',
+    title: 'My Family',
     subtitle:
         'Everyone you book appointments for. Their details are stored here, so booking a visit only ever asks for a date and a time.',
     addCta: 'Add a patient',
@@ -13,6 +13,9 @@ export const patientsMeta = {
     },
     archive: {
         label: 'Archive',
+        title: 'Archive this patient?',
+        action: 'Archive patient',
+        dismiss: 'Keep them',
         confirm:
             'Archive this patient? Their medical record and appointment history are kept — they just stop appearing when you book.',
     },

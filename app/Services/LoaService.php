@@ -66,6 +66,17 @@ class LoaService
     ): LoaRequest {
         $this->guardDecidable($loa);
 
+        // Approving coverage for a visit whose date has gone puts a booking
+        // back in the doctor's queue for a day that is over. Rejecting frees
+        // the patient to book again, which is the useful outcome.
+        $date = $loa->appointment?->appointment_date;
+
+        if ($date !== null && $date->isBefore(today())) {
+            throw new InvalidLoaTransitionException(
+                'This appointment date has passed. Reject the request instead so the patient can book a new date.'
+            );
+        }
+
         // Two tables move together. A half-applied approval would leave the
         // appointment stuck at pending_hmo_approval with an approved LOA
         // against it, which reads as a system error on every surface.

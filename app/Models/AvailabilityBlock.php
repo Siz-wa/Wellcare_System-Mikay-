@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -37,6 +38,13 @@ final class AvailabilityBlock extends Model
         'end_time',
         'slot_duration_minutes',
         'is_available',         // false = Out of Office block
+
+        // ── Roster approval (Phase 9) ────────────────────────────────────────
+        'approval_status',      // draft | pending | published
+        'submitted_at',
+        'approved_by',          // FK → users.id, the administrator who published
+        'approved_at',
+        'review_remarks',
     ];
 
     protected $casts = [
@@ -44,7 +52,20 @@ final class AvailabilityBlock extends Model
         'slot_duration_minutes' => 'integer',
         'is_available' => 'boolean',
         'specific_date' => 'date',
+        'submitted_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
+
+    // ── Roster approval states ────────────────────────────────────────────────
+
+    /** Being edited by the doctor; never generates slots. */
+    public const APPROVAL_DRAFT = 'draft';
+
+    /** Submitted, awaiting an administrator. Never generates slots. */
+    public const APPROVAL_PENDING = 'pending';
+
+    /** Agreed by the clinic. The ONLY state that generates bookable slots. */
+    public const APPROVAL_PUBLISHED = 'published';
 
     // ── Day-of-week conversion ────────────────────────────────────────────────
 
@@ -75,5 +96,34 @@ final class AvailabilityBlock extends Model
     public function doctor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'doctor_id');
+    }
+
+    /** The administrator who published this block. */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    /**
+     * Blocks the clinic has agreed to.
+     *
+     * ⚠️ EVERY slot-generating read must go through this scope. BookingService
+     * reads availability in two separate places — getAvailabilityBlocksForDate()
+     * and the day-of-week lookup used by slot generation — and omitting the
+     * scope in either one silently publishes hours no administrator approved.
+     * That is a leak with no visible symptom, so it is asserted directly in
+     * RosterApprovalTest rather than left to review.
+     */
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('approval_status', self::APPROVAL_PUBLISHED);
+    }
+
+    /** Awaiting an administrator's decision — the roster queue. */
+    public function scopeAwaitingApproval(Builder $query): Builder
+    {
+        return $query->where('approval_status', self::APPROVAL_PENDING);
     }
 }

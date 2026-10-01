@@ -191,10 +191,30 @@ it('labels a system action rather than leaving the causer blank', function () {
 
 it('offers no route to edit or delete an entry', function () {
     // An audit trail an administrator can rewrite is not an audit trail.
-    $routes = collect(Route::getRoutes())
-        ->map(fn ($route) => $route->uri())
-        ->filter(fn (string $uri) => str_contains($uri, 'activity-log'));
+    //
+    // This used to assert there was exactly ONE activity-log route, which was a
+    // proxy for the real property and broke the moment a second legitimate
+    // READ route appeared (`dpo.activity-log`, GV-5). The count was never what
+    // mattered: a second GET is fine, and a single POST would not have been.
+    // So the assertion is now the property itself — every route over this table
+    // is read-only — which is both stronger and survives another reader being
+    // added.
+    $writeRoutes = collect(Route::getRoutes())
+        ->filter(fn ($route) => str_contains($route->uri(), 'activity-log'))
+        ->reject(fn ($route) => $route->methods() === ['GET', 'HEAD'])
+        ->map(fn ($route) => $route->methods()[0].' '.$route->uri())
+        ->values();
 
-    expect($routes)->toHaveCount(1)
-        ->and($routes->first())->toBe('admin/activity-log');
+    expect($writeRoutes)->toBeEmpty();
+
+    // …and the readers are the two roles that are supposed to have one: the
+    // administrator, and the DPO whose independence from them is the point.
+    $readers = collect(Route::getRoutes())
+        ->filter(fn ($route) => str_contains($route->uri(), 'activity-log'))
+        ->map(fn ($route) => $route->uri())
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($readers)->toBe(['admin/activity-log', 'dpo/activity-log']);
 });

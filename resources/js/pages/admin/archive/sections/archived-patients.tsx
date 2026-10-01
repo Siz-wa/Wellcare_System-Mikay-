@@ -3,6 +3,7 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { Alert, Button, Card, CardBody, CardHeader } from '@/design-system';
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import {
     archiveCopy,
     patientColumns,
@@ -20,8 +21,17 @@ interface ArchivedPatientsProps {
 export function ArchivedPatients({
     rows,
 }: ArchivedPatientsProps): ReactElement {
-    const restore = (id: number) => {
-        if (!window.confirm(archiveCopy.restorePatientConfirm)) {
+    const { confirm, dialog } = useConfirmDialog();
+
+    const restore = async (id: number) => {
+        if (
+            !(await confirm({
+                title: 'Restore this patient?',
+                description: archiveCopy.restorePatientConfirm,
+                confirmLabel: 'Restore patient',
+                destructive: false,
+            }))
+        ) {
             return;
         }
 
@@ -33,60 +43,65 @@ export function ArchivedPatients({
     };
 
     return (
-        <Card>
-            <CardHeader>{archiveCopy.patientsTitle}</CardHeader>
-            <CardBody>
-                {rows.length > 0 && (
-                    <div style={{ marginBottom: 'var(--space-4)' }}>
-                        <Alert variant="info">{archiveCopy.cascadeNote}</Alert>
-                    </div>
-                )}
+        <>
+            {dialog}
+            <Card>
+                <CardHeader>{archiveCopy.patientsTitle}</CardHeader>
+                <CardBody>
+                    {rows.length > 0 && (
+                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                            <Alert variant="info">
+                                {archiveCopy.cascadeNote}
+                            </Alert>
+                        </div>
+                    )}
 
-                <AdminTable
-                    columns={patientColumns}
-                    isEmpty={rows.length === 0}
-                    emptyMessage={archiveCopy.patientsEmpty}
-                >
-                    {rows.map((row) => (
-                        <tr key={row.id}>
-                            <AdminTableCell>
-                                <div style={{ fontWeight: 600 }}>
-                                    {row.name}
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 12,
-                                        color: 'var(--wc-gray-500)',
-                                    }}
-                                >
-                                    {row.email}
-                                </div>
-                            </AdminTableCell>
-                            <AdminTableCell nowrap>
-                                {row.clinicId ?? '—'}
-                            </AdminTableCell>
-                            <AdminTableCell nowrap>
-                                {row.contactNumber ?? '—'}
-                            </AdminTableCell>
-                            <AdminTableCell nowrap>
-                                {row.guarantor ?? '—'}
-                            </AdminTableCell>
-                            <AdminTableCell nowrap>
-                                {row.archivedAt ?? '—'}
-                            </AdminTableCell>
-                            <AdminTableCell nowrap>
-                                <Button
-                                    size="xs"
-                                    variant="outline"
-                                    onClick={() => restore(row.id)}
-                                >
-                                    {archiveCopy.restore}
-                                </Button>
-                            </AdminTableCell>
-                        </tr>
-                    ))}
-                </AdminTable>
-            </CardBody>
-        </Card>
+                    <AdminTable
+                        columns={patientColumns}
+                        isEmpty={rows.length === 0}
+                        emptyMessage={archiveCopy.patientsEmpty}
+                    >
+                        {rows.map((row) => (
+                            <tr key={row.id}>
+                                <AdminTableCell>
+                                    <div style={{ fontWeight: 600 }}>
+                                        {row.name}
+                                    </div>
+                                    <div
+                                        style={{
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
+                                        }}
+                                    >
+                                        {row.email}
+                                    </div>
+                                </AdminTableCell>
+                                <AdminTableCell nowrap>
+                                    {row.clinicId ?? '—'}
+                                </AdminTableCell>
+                                <AdminTableCell nowrap>
+                                    {row.contactNumber ?? '—'}
+                                </AdminTableCell>
+                                <AdminTableCell nowrap>
+                                    {row.guarantor ?? '—'}
+                                </AdminTableCell>
+                                <AdminTableCell nowrap>
+                                    {row.archivedAt ?? '—'}
+                                </AdminTableCell>
+                                <AdminTableCell nowrap>
+                                    <Button
+                                        size="xs"
+                                        variant="outline"
+                                        onClick={() => restore(row.id)}
+                                    >
+                                        {archiveCopy.restore}
+                                    </Button>
+                                </AdminTableCell>
+                            </tr>
+                        ))}
+                    </AdminTable>
+                </CardBody>
+            </Card>
+        </>
     );
 }

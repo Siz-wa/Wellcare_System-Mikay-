@@ -64,17 +64,17 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                             >
                                 <span
                                     style={{
-                                        fontSize: 15,
+                                        fontSize: 'var(--text-base)',
                                         fontWeight: 600,
-                                        color: 'var(--wc-gray-900)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {visit.service}
                                 </span>
                                 <span
                                     style={{
-                                        fontSize: 13,
-                                        color: 'var(--wc-gray-500)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {visit.date} · {visit.time}
@@ -85,8 +85,8 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                 <p
                                     style={{
                                         margin: '4px 0 0',
-                                        fontSize: 13,
-                                        color: 'var(--wc-gray-500)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {labels.seenBy} {visit.doctor}
@@ -106,6 +106,22 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                             {vitals.length > 0 && (
                                 <div style={{ marginTop: 'var(--space-3)' }}>
                                     <FieldLabel>{labels.vitals}</FieldLabel>
+                                    {/* Patients read their own chart here. If
+                                        they gave these numbers themselves on a
+                                        video call, the record should say so
+                                        rather than read back as a clinic
+                                        measurement. */}
+                                    {visit.vitals?.sourceLabel && (
+                                        <p
+                                            style={{
+                                                margin: '2px 0 0',
+                                                fontSize: 'var(--text-xs)',
+                                                color: 'var(--wc-text-muted)',
+                                            }}
+                                        >
+                                            {visit.vitals.sourceLabel}
+                                        </p>
+                                    )}
                                     <div
                                         style={{
                                             display: 'flex',
@@ -118,8 +134,8 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                             <span
                                                 key={key}
                                                 style={{
-                                                    fontSize: 12,
-                                                    color: 'var(--wc-gray-700)',
+                                                    fontSize: 'var(--text-xs)',
+                                                    color: 'var(--wc-text-secondary)',
                                                     background:
                                                         'var(--wc-gray-100)',
                                                     borderRadius: 6,
@@ -142,8 +158,8 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                         style={{
                                             margin: '4px 0 0',
                                             paddingLeft: 18,
-                                            fontSize: 13,
-                                            color: 'var(--wc-gray-700)',
+                                            fontSize: 'var(--text-sm)',
+                                            color: 'var(--wc-text-secondary)',
                                         }}
                                     >
                                         {visit.prescriptions.map((rx, i) => (
@@ -167,11 +183,11 @@ function FieldLabel({ children }: { children: string }): ReactElement {
     return (
         <span
             style={{
-                fontSize: 11,
+                fontSize: 'var(--text-xs)',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '.05em',
-                color: 'var(--wc-gray-500)',
+                color: 'var(--wc-text-muted)',
             }}
         >
             {children}
@@ -186,8 +202,8 @@ function Block({ label, text }: { label: string; text: string }): ReactElement {
             <p
                 style={{
                     margin: '4px 0 0',
-                    fontSize: 13,
-                    color: 'var(--wc-gray-700)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-secondary)',
                     whiteSpace: 'pre-wrap',
                 }}
             >

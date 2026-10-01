@@ -43,8 +43,8 @@ export function UpcomingList({
                         margin: 0,
                         fontSize: 'var(--text-base)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.upcomingTitle}
@@ -69,7 +69,7 @@ export function UpcomingList({
                         padding: 'var(--space-8) var(--space-5)',
                         textAlign: 'center',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.upcomingEmpty}
@@ -114,7 +114,7 @@ export function UpcomingList({
                                         margin: 0,
                                         fontSize: 'var(--text-sm)',
                                         fontWeight: 600,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {appointment.patient}
@@ -123,7 +123,7 @@ export function UpcomingList({
                                     style={{
                                         margin: '2px 0 0',
                                         fontSize: 'var(--text-xs)',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {appointment.service}
@@ -137,7 +137,7 @@ export function UpcomingList({
                                 style={{
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                     whiteSpace: 'nowrap',
                                 }}
                             >

@@ -7,22 +7,39 @@ import type { ReactElement } from 'react';
 import { IconXSmall, IconCheck } from '../../icons';
 import { consultationsMeta } from '../consultations-data';
 import type { Medication } from '../consultations-data';
+interface MedicationDraft {
+    name: string;
+    instructions: string;
+}
+
 interface PrescriptionProps {
     medications: Medication[];
+    /**
+     * The add row's contents, owned by the editor so a medicine typed but not
+     * yet confirmed still goes up with Save or Finalize.
+     */
+    draft: MedicationDraft;
+    onDraftChange: (draft: MedicationDraft) => void;
     onAdd: (med: Medication) => void;
     onRemove: (id: string) => void;
 }
 
 export function Prescription({
     medications,
+    draft,
+    onDraftChange,
     onAdd,
     onRemove,
 }: PrescriptionProps): ReactElement {
     const meta = consultationsMeta;
 
-    const [showForm, setShowForm] = useState(false);
-    const [newName, setNewName] = useState('');
-    const [newInstr, setNewInstr] = useState('');
+    const [showForm, setShowForm] = useState(draft.name !== '');
+    const newName = draft.name;
+    const newInstr = draft.instructions;
+    const setNewName = (name: string): void =>
+        onDraftChange({ ...draft, name });
+    const setNewInstr = (instructions: string): void =>
+        onDraftChange({ ...draft, instructions });
 
     function handleAdd(): void {
         if (!newName.trim()) {
@@ -34,14 +51,12 @@ export function Prescription({
             name: newName.trim(),
             instructions: newInstr.trim(),
         });
-        setNewName('');
-        setNewInstr('');
+        onDraftChange({ name: '', instructions: '' });
         setShowForm(false);
     }
 
     function handleCancel(): void {
-        setNewName('');
-        setNewInstr('');
+        onDraftChange({ name: '', instructions: '' });
         setShowForm(false);
     }
 
@@ -74,7 +89,7 @@ export function Prescription({
                             margin: 0,
                             fontSize: 'var(--text-sm)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {meta.medicationListTitle}
@@ -115,7 +130,7 @@ export function Prescription({
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                     lineHeight: 1.3,
                                 }}
                             >
@@ -125,7 +140,7 @@ export function Prescription({
                                 style={{
                                     margin: 0,
                                     fontSize: 'var(--text-xs)',
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     lineHeight: 1.3,
                                 }}
                             >
@@ -218,7 +233,7 @@ export function Prescription({
                                     borderRadius: 'var(--radius-full)',
                                     border: '1px solid var(--wc-gray-200)',
                                     background: 'var(--wc-white)',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     fontSize: 'var(--text-xs)',
                                     fontWeight: 600,
                                     cursor: 'pointer',
@@ -242,7 +257,7 @@ export function Prescription({
                             style={{
                                 margin: 0,
                                 fontSize: 'var(--text-sm)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             No medications added yet.

@@ -4,6 +4,8 @@ use App\Models\Appointment;
 use App\Models\AvailabilityBlock;
 use App\Models\DoctorProfile;
 use App\Models\Patient;
+use App\Models\User;
+use App\Services\AvailabilityService;
 use App\Services\BookingService;
 use Carbon\Carbon;
 
@@ -17,7 +19,31 @@ use Carbon\Carbon;
  */
 beforeEach(function () {
     $this->doctor = userWithRole('doctor');
+    $this->admin = userWithRole('admin');
+
+    // Phase 9: a doctor with no doctor_profiles row is not published, and an
+    // unpublished doctor generates no slots however their hours are set. That
+    // is the credentialing gate doing its job, so the fixture is a doctor who
+    // has already been cleared — otherwise every slot assertion below would be
+    // testing the gate rather than the schedule.
+    DoctorProfile::create([
+        'user_id' => $this->doctor->id,
+        'display_name' => 'Dr. Test',
+        'specialty' => 'general',
+        'is_active' => true,
+    ]);
 });
+
+/**
+ * Phase 9: a doctor's weekly hours are a PROPOSAL. They generate no slots until
+ * an administrator publishes them, so any test asserting on bookable slots has
+ * to approve the roster first — that is the behaviour now, not a workaround.
+ * RosterApprovalTest asserts the unapproved half directly.
+ */
+function publishRoster(User $doctor, User $admin): void
+{
+    app(AvailabilityService::class)->publishSchedule($doctor->id, $admin);
+}
 
 it('stores weekly hours in the MySQL DAYOFWEEK convention', function () {
     $this->actingAs($this->doctor)
@@ -85,7 +111,13 @@ it('makes slots bookable on the day the doctor opened', function () {
         ])
         ->assertRedirect();
 
-    // Fresh slots without waiting out the 60s cache proves the write busted it.
+    // The hours are proposed, not live: still nothing bookable.
+    expect(app(BookingService::class)->getAvailableSlots($this->doctor->id, $monday->toDateString()))
+        ->toBeEmpty();
+
+    publishRoster($this->doctor, $this->admin);
+
+    // Fresh slots without waiting out the 60s cache proves the publish busted it.
     $slots = app(BookingService::class)->getAvailableSlots($this->doctor->id, $monday->toDateString());
 
     expect($slots)->not->toBeEmpty()
@@ -98,6 +130,7 @@ it('clears a weekday that the doctor removed from the schedule', function () {
     $this->actingAs($this->doctor)->put('/doctor/availability/weekly', [
         'days' => [['iso_day' => 1, 'start_time' => '09:00', 'end_time' => '11:00', 'slot_duration_minutes' => 30]],
     ]);
+    publishRoster($this->doctor, $this->admin);
 
     expect(app(BookingService::class)->getAvailableSlots($this->doctor->id, $monday->toDateString()))
         ->not->toBeEmpty();
@@ -107,6 +140,7 @@ it('clears a weekday that the doctor removed from the schedule', function () {
     $this->actingAs($this->doctor)->put('/doctor/availability/weekly', [
         'days' => [['iso_day' => 2, 'start_time' => '09:00', 'end_time' => '11:00', 'slot_duration_minutes' => 30]],
     ]);
+    publishRoster($this->doctor, $this->admin);
 
     expect(app(BookingService::class)->getAvailableSlots($this->doctor->id, $monday->toDateString()))
         ->toBeEmpty();
@@ -149,6 +183,8 @@ it('restores the weekday when the time off entry is removed', function () {
     $this->actingAs($this->doctor)->put('/doctor/availability/weekly', [
         'days' => [['iso_day' => 1, 'start_time' => '09:00', 'end_time' => '11:00', 'slot_duration_minutes' => 30]],
     ]);
+    publishRoster($this->doctor, $this->admin);
+
     $this->actingAs($this->doctor)->post('/doctor/availability/time-off', [
         'date' => $monday->toDateString(),
     ]);
@@ -190,6 +226,12 @@ it('rejects the same weekday listed twice', function () {
 
 it('stops a doctor deleting another doctors availability', function () {
     $otherDoctor = userWithRole('doctor');
+    DoctorProfile::create([
+        'user_id' => $otherDoctor->id,
+        'display_name' => 'Dr. Other',
+        'specialty' => 'general',
+        'is_active' => true,
+    ]);
 
     $this->actingAs($otherDoctor)->put('/doctor/availability/weekly', [
         'days' => [['iso_day' => 1, 'start_time' => '09:00', 'end_time' => '11:00', 'slot_duration_minutes' => 30]],
@@ -205,13 +247,6 @@ it('stops a doctor deleting another doctors availability', function () {
 });
 
 it('saves the daily patient cap alongside the hours', function () {
-    DoctorProfile::create([
-        'user_id' => $this->doctor->id,
-        'display_name' => 'Dr. Test',
-        'specialty' => 'general',
-        'is_active' => true,
-    ]);
-
     $this->actingAs($this->doctor)
         ->put('/doctor/availability/weekly', [
             'daily_cap' => 3,
@@ -220,6 +255,8 @@ it('saves the daily patient cap alongside the hours', function () {
         ->assertRedirect();
 
     expect(app(BookingService::class)->dailyCapFor($this->doctor->id))->toBe(3);
+
+    publishRoster($this->doctor, $this->admin);
 
     // A lowered cap must close the day right away, not after the 60s slot cache
     // expires — hence bustDoctorSlotCache() on the write.

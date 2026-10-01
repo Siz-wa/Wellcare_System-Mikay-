@@ -63,7 +63,7 @@ export default function VerifyEmail({ status }: VerifyEmailProps) {
 
     return (
         <>
-            <Head title="Verify Email — Wellcare" />
+            <Head title="Verify Email" />
 
             <div className="relative flex min-h-screen items-center justify-center bg-brand-accent px-6 py-12 font-sans">
                 {/* Background blobs — decorative */}
@@ -133,7 +133,7 @@ export default function VerifyEmail({ status }: VerifyEmailProps) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="inline-flex cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-3 py-2 text-sm text-gray-500 transition-colors hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-60"
+                                className="inline-flex cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-3 py-2 text-sm text-ink-muted transition-colors hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 <LogOutIcon />
                                 Log out

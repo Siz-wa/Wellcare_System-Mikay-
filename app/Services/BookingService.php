@@ -6,6 +6,7 @@ use App\Exceptions\SlotUnavailableException;
 use App\Models\Appointment;
 use App\Models\AvailabilityBlock;
 use App\Models\DoctorProfile;
+use App\Models\LoaRequest;
 use App\Models\Patient;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -30,6 +31,40 @@ class BookingService
     private const HOLD_MINUTES = 10;
 
     /**
+     * How many appointments one patient may hold on a single date.
+     *
+     * The rule this replaces was "one, ever" — a flat per-patient, per-day
+     * conflict check. It made a normal clinic day impossible to book: a
+     * consultation at 9 and the lab work it orders at 11 is one visit to the
+     * building, not two competing bookings, and the front desk was entering the
+     * second by hand because the portal refused it.
+     *
+     * What is genuinely impossible is being in two rooms at once, so overlap is
+     * now what bookSlot() rejects. This cap is the separate, blunter guard that
+     * remains: several visits a day is care, a dozen is one account holding
+     * slots that other patients cannot then have.
+     */
+    public const MAX_APPOINTMENTS_PER_PATIENT_PER_DAY = 3;
+
+    /**
+     * States an appointment can still be moved from.
+     *
+     * Mirrors cancelAppointment()'s guard: once someone has checked in, the
+     * visit is happening and moving it is a cancellation followed by a new
+     * booking, which is a different decision with different consequences.
+     *
+     * @var array<int, string>
+     */
+    public const RESCHEDULABLE_STATUSES = ['pending_hmo_approval', 'requested', 'confirmed'];
+
+    /**
+     * Slot length assumed when nothing better is known — a doctor whose blocks
+     * for the date have since been deleted, or a legacy row predating
+     * `appointments.duration_minutes`. Matches the availability_blocks default.
+     */
+    public const FALLBACK_SLOT_MINUTES = 30;
+
+    /**
      * Which doctor_profiles.specialty values can serve a given service.
      * null = any doctor. Mirrors SERVICE_TO_SPECIALTIES in bookingdata.ts.
      */
@@ -45,7 +80,10 @@ class BookingService
         'physical-therapy' => null,
     ];
 
-    public function __construct(private LoaService $loaRequests) {}
+    public function __construct(
+        private LoaService $loaRequests,
+        private PaymentVerificationService $payments,
+    ) {}
 
     public function getAvailableSlots(int $doctorId, string $date): array
     {
@@ -56,6 +94,20 @@ class BookingService
         // it is only a display concern here anyway. bookSlot() re-checks under
         // a lock, which is the authoritative enforcement.
         return Cache::remember($cacheKey, 60, function () use ($doctorId, $date) {
+            // A doctor who is not published offers no slots at all — whatever
+            // their availability blocks say.
+            //
+            // Phase 9: `is_active` now means "holds a verified, unlapsed
+            // credential", so this is the difference between a suspended doctor
+            // silently advertising hours and disappearing as they should.
+            // BookAppointmentRequest already refuses to book an inactive doctor,
+            // so this is defence in depth rather than the only gate — but
+            // without it the slot list contradicts the booking rule, and a
+            // patient is shown times that cannot be booked.
+            if (! $this->isPublished($doctorId)) {
+                return [];
+            }
+
             $carbon = Carbon::parse($date);
             $blocks = $this->getAvailabilityBlocksForDate($doctorId, $carbon);
             if ($blocks->isEmpty()) {
@@ -76,12 +128,103 @@ class BookingService
     }
 
     /**
+     * The slots this doctor has open on a date, minus the ones this patient
+     * cannot physically attend.
+     *
+     * Deliberately a separate method rather than a `$patientId` argument on
+     * getAvailableSlots(): that result is cached under "slots:{doctor}:{date}"
+     * and shared by every caller, so folding one patient's bookings into it
+     * would serve their gaps to the next patient who asked. The doctor-level
+     * list stays cached; the per-patient subtraction happens on top of it.
+     *
+     * This is what keeps the booking form honest. bookSlot() is still the
+     * authority — it re-checks under a lock — but a patient should not be
+     * offered a time the server is about to refuse.
+     *
+     * @return array<int, string>
+     */
+    public function getAvailableSlotsForPatient(int $doctorId, string $date, ?int $patientId): array
+    {
+        $slots = $this->getAvailableSlots($doctorId, $date);
+
+        if ($patientId === null || $slots === []) {
+            return $slots;
+        }
+
+        $booked = $this->patientAppointmentsOn($patientId, $date);
+
+        // At their daily maximum: nothing on this date is bookable for them,
+        // however much the doctor still has free.
+        if ($booked->count() >= self::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY) {
+            return [];
+        }
+
+        if ($booked->isEmpty()) {
+            return $slots;
+        }
+
+        $duration = $this->slotDurationFor($doctorId, $date);
+
+        return array_values(array_filter($slots, function (string $slot) use ($booked, $date, $duration) {
+            [$start, $end] = $this->windowFor($date, $slot, $duration);
+
+            return $booked->every(fn (Appointment $booking) => ! $booking->overlaps($start, $end));
+        }));
+    }
+
+    /**
+     * How many more appointments this patient may hold on a date.
+     * Never negative, for the same reason remainingDailyCapacity() is not.
+     */
+    public function remainingPatientCapacity(int $patientId, string $date): int
+    {
+        return max(0, self::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY
+            - $this->patientAppointmentsOn($patientId, $date)->count());
+    }
+
+    /**
+     * How long one appointment with this doctor lasts on this date.
+     *
+     * Read off the availability block that generates the slot, so a doctor
+     * running 20-minute clinics is measured in 20-minute visits. Where a date
+     * is covered by blocks of differing lengths the shortest wins: it is the
+     * only choice that cannot overstate how long the patient is occupied, and
+     * overstating is what would wrongly reject a legitimate second booking.
+     */
+    public function slotDurationFor(?int $doctorId, string $date): int
+    {
+        if ($doctorId === null) {
+            return self::FALLBACK_SLOT_MINUTES;
+        }
+
+        $blocks = $this->getAvailabilityBlocksForDate($doctorId, Carbon::parse($date));
+
+        return (int) ($blocks->min('slot_duration_minutes') ?: self::FALLBACK_SLOT_MINUTES);
+    }
+
+    /**
      * How many patients this doctor still has room for on a date.
      * Never negative — an over-booked day reads as zero, not as a deficit.
      */
     public function remainingDailyCapacity(int $doctorId, string $date): int
     {
         return max(0, $this->dailyCapFor($doctorId) - $this->dailyBookedCount($doctorId, $date));
+    }
+
+    /**
+     * Whether this doctor is currently published to patients.
+     *
+     * `doctor_profiles.is_active` is derived from credentialing and written
+     * only by CredentialingService — see the invariant documented there.
+     *
+     * A doctor with no profile row at all reads as NOT published. That is the
+     * safe direction: before Phase 9 an admin-created doctor had no row, and
+     * treating "no record" as "cleared to practise" is exactly the assumption
+     * this phase removed.
+     */
+    private function isPublished(int $doctorId): bool
+    {
+        return (bool) DoctorProfile::where('user_id', $doctorId)->value('is_active');
     }
 
     /** The doctor's configured daily patient cap, falling back to clinic policy. */
@@ -103,7 +246,7 @@ class BookingService
     {
         return Appointment::where('doctor_id', $doctorId)
             ->where('appointment_date', $date)
-            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->whereNotIn('status', Appointment::RELEASED_STATUSES)
             ->where(function ($q) {
                 $q->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now());
             })
@@ -125,7 +268,8 @@ class BookingService
         $dateStr = $carbon->toDateString();
 
         // Check specific-date blocks first
-        $specific = AvailabilityBlock::where('doctor_id', $doctorId)
+        $specific = AvailabilityBlock::published()
+            ->where('doctor_id', $doctorId)
             ->where('specific_date', $dateStr)
             ->exists();
 
@@ -133,8 +277,12 @@ class BookingService
             return true;
         }
 
-        // Fall back to weekly recurring blocks
-        return AvailabilityBlock::where('doctor_id', $doctorId)
+        // Fall back to weekly recurring blocks. published() matters here too:
+        // without it a doctor whose only schedule is awaiting approval reports
+        // "has a schedule", and the UI renders "Fully Booked" instead of
+        // "no schedule configured" — the wrong message for the wrong reason.
+        return AvailabilityBlock::published()
+            ->where('doctor_id', $doctorId)
             ->where('day_of_week', $dayOfWeek)
             ->where('is_available', true)
             ->exists();
@@ -196,7 +344,7 @@ class BookingService
             $existing = Appointment::where('doctor_id', $doctorId)
                 ->where('appointment_date', $date)
                 ->where('appointment_time', $time)
-                ->whereNotIn('status', ['cancelled', 'no_show'])
+                ->whereNotIn('status', Appointment::RELEASED_STATUSES)
                 ->where(function ($q) {
                     $q->whereNull('hold_expires_at')
                         ->orWhere('hold_expires_at', '>', now());
@@ -210,32 +358,49 @@ class BookingService
                 );
             }
 
-            // 4. Patient conflict — use patient_id not email
-            // Same physical person cannot have two appointments on the same day
-            // regardless of which account booked them.
-            $patientConflict = Appointment::where('patient_id', $patient->id)
-                ->where('appointment_date', $date)
-                ->whereNotIn('status', ['cancelled', 'no_show'])
-                ->where(function ($q) {
-                    $q->whereNull('hold_expires_at')
-                        ->orWhere('hold_expires_at', '>', now());
-                })
-                ->lockForUpdate()
-                ->exists();
+            // 4. Patient conflict — overlap, not "already booked today".
+            //
+            // Keyed on patient_id rather than email or name, so the same person
+            // is caught whichever account booked them, and locked for the
+            // duration of the transaction: two overlapping requests arriving
+            // together would otherwise both read a clear day and both commit.
+            //
+            // The day is read once and both rules below run off that one read.
+            $sameDay = $this->patientAppointmentsOn($patient->id, $date, lock: true);
 
-            if ($patientConflict) {
+            // 4a. The patient's own daily cap.
+            if ($sameDay->count() >= self::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY) {
                 throw new SlotUnavailableException(
-                    'This patient already has an appointment on this date.'
+                    'This patient already has the maximum of '
+                    .self::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY
+                    .' appointments on this date. Please choose another day.'
                 );
             }
 
-            // 4b. Daily patient cap — the authoritative check.
+            // 4b. The physical constraint: one person, one place at a time.
+            // Half-open windows, so 9:00–9:30 and 9:30–10:00 are back-to-back
+            // rather than in conflict — which is the whole point of allowing
+            // more than one booking a day.
+            $duration = $this->slotDurationFor($doctorId, $date);
+            [$start, $end] = $this->windowFor($date, $time, $duration);
+
+            $clash = $sameDay->first(
+                fn (Appointment $booked) => $booked->overlaps($start, $end)
+            );
+
+            if ($clash) {
+                throw new SlotUnavailableException(
+                    "This patient is already booked at {$clash->appointment_time} on this date. Please choose a time that does not overlap it."
+                );
+            }
+
+            // 4c. The DOCTOR's daily cap — the authoritative check.
             // getAvailableSlots() also enforces this, but it is cached for 60s,
             // so two people booking the last slot at once would both see it as
             // free. Locking the day's rows here is what actually holds the line.
             $bookedToday = Appointment::where('doctor_id', $doctorId)
                 ->where('appointment_date', $date)
-                ->whereNotIn('status', ['cancelled', 'no_show'])
+                ->whereNotIn('status', Appointment::RELEASED_STATUSES)
                 ->where(function ($q) {
                     $q->whereNull('hold_expires_at')
                         ->orWhere('hold_expires_at', '>', now());
@@ -269,6 +434,10 @@ class BookingService
                 'branch' => $validated['branch'] ?? 'Wellcare Dasmarinas',
                 'appointment_date' => $date,
                 'appointment_time' => $time,
+                // Snapshotted, not derived on read: the doctor may reshape
+                // their schedule tomorrow, and that must not retroactively
+                // change how long a visit already booked is taken to last.
+                'duration_minutes' => $duration,
                 // Derived, never asked. Whether someone is new or returning is a
                 // fact about their record, not an opinion they hold about it —
                 // and asking meant a first-time child could be filed as
@@ -296,6 +465,18 @@ class BookingService
             if ($validated['coverage'] === 'hmo') {
                 $this->loaRequests->submit($appointment);
             }
+
+            // 5b-ii. A self-paid VIDEO consultation owes the clinic before it
+            // happens, and this is the same guarantee as the LOA above: the
+            // appointment and the record of what is owed are created together
+            // or not at all. Without it a patient could book a virtual visit as
+            // "Cash / Self-Pay" — cash being impossible to hand over a video
+            // call — attend it, and leave no trace that anything was due.
+            //
+            // Called unconditionally; raise() itself decides and returns null
+            // for every combination that owes nothing (in-person, HMO,
+            // PhilHealth, corporate).
+            $this->payments->raise($appointment);
 
             // 5c. Remember how this visit was covered, so the next booking for
             // the same person arrives with the Coverage step already filled.
@@ -344,7 +525,7 @@ class BookingService
     private function derivePatientStatus(Patient $patient): string
     {
         return $patient->appointments()
-            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->whereNotIn('status', Appointment::RELEASED_STATUSES)
             ->exists()
             ? 'returning'
             : 'new';
@@ -366,6 +547,207 @@ class BookingService
         }
     }
 
+    /**
+     * Task 2.2 — move an appointment to a new slot as ONE transaction.
+     *
+     * ## Why this is not cancel-then-rebook
+     *
+     * That was the only path available before, and it is materially worse than
+     * it looks. It destroys the appointment's identity and history, discards any
+     * HMO approval already granted against it, and — the part that actually
+     * harms patients — releases the old slot to the public BEFORE the new one is
+     * secured. A patient moving an appointment could end up with none, having
+     * had one when they started.
+     *
+     * Here the target is acquired under `lockForUpdate()` and the origin is only
+     * released by the same UPDATE that takes the new slot. There is no moment in
+     * between.
+     *
+     * ## The self-collision
+     *
+     * Every conflict check has to exclude the appointment being moved, or it
+     * conflicts with itself: its own row occupies the patient's day, counts
+     * toward the doctor's cap, and — when only the time changes — sits in the
+     * same day it is moving within. `$excludeId` threads through all three.
+     *
+     * ## HMO approval does not travel silently
+     *
+     * An LOA is approved for a stated date. Moving the appointment past that
+     * date invalidates the approval, so the appointment returns to
+     * `pending_hmo_approval` and HR sees it again. Doing nothing here would
+     * present the front desk with an approved-looking booking whose LOA no
+     * longer covers the day it falls on.
+     *
+     * @throws SlotUnavailableException
+     */
+    public function rescheduleAppointment(
+        Appointment $appointment,
+        string $date,
+        string $time,
+        ?int $doctorId = null,
+    ): Appointment {
+        if (! in_array($appointment->status, self::RESCHEDULABLE_STATUSES, true)) {
+            throw new SlotUnavailableException(
+                "An appointment that is {$appointment->status} can no longer be rescheduled."
+            );
+        }
+
+        $this->assertLeadTime(Carbon::parse($date.' '.$this->to24h($time)));
+
+        $originDoctorId = $appointment->doctor_id;
+        $originDate = $appointment->appointment_date->toDateString();
+
+        $moved = DB::transaction(function () use ($appointment, $date, $time, $doctorId) {
+            $targetDoctorId = $doctorId ?? $appointment->doctor_id;
+
+            if ($targetDoctorId === null) {
+                $targetDoctorId = $this->resolveDoctor((string) $appointment->service, $date, $time);
+            } elseif (! $this->isOwnCurrentSlot($appointment, $targetDoctorId, $date, $time)) {
+                // assertSlotOffered() tests membership of getAvailableSlots(),
+                // which subtracts slots that are already taken — and this
+                // appointment's own slot is one of them. Without the exemption,
+                // re-submitting the time an appointment already holds (a doctor
+                // change, or a no-op save) is refused as "not available", which
+                // is both wrong and confusing: the schedule plainly offers it,
+                // because this booking is sitting in it.
+                $this->assertSlotOffered($targetDoctorId, $date, $time);
+            }
+
+            // 1. The target slot, locked. Excludes this appointment so moving it
+            //    to a time it already occupies is not reported as a clash.
+            $taken = Appointment::where('doctor_id', $targetDoctorId)
+                ->where('appointment_date', $date)
+                ->where('appointment_time', $time)
+                ->where('id', '!=', $appointment->id)
+                ->whereNotIn('status', Appointment::RELEASED_STATUSES)
+                ->where(function ($q) {
+                    $q->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now());
+                })
+                ->lockForUpdate()
+                ->first();
+
+            if ($taken) {
+                throw new SlotUnavailableException(
+                    'That slot has just been taken. Please choose another time.'
+                );
+            }
+
+            // 2. The patient's own day, minus this appointment.
+            $sameDay = $this->patientAppointmentsOn(
+                (int) $appointment->patient_id,
+                $date,
+                lock: true,
+                excludeId: $appointment->id,
+            );
+
+            if ($sameDay->count() >= self::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY) {
+                throw new SlotUnavailableException(
+                    'This patient already has the maximum of '
+                    .self::MAX_APPOINTMENTS_PER_PATIENT_PER_DAY
+                    .' appointments on that date.'
+                );
+            }
+
+            $duration = $this->slotDurationFor($targetDoctorId, $date);
+            [$start, $end] = $this->windowFor($date, $time, $duration);
+
+            $clash = $sameDay->first(fn (Appointment $b) => $b->overlaps($start, $end));
+
+            if ($clash) {
+                throw new SlotUnavailableException(
+                    "This patient is already booked at {$clash->appointment_time} on that date."
+                );
+            }
+
+            // 3. The doctor's daily cap, minus this appointment.
+            $bookedToday = Appointment::where('doctor_id', $targetDoctorId)
+                ->where('appointment_date', $date)
+                ->where('id', '!=', $appointment->id)
+                ->whereNotIn('status', Appointment::RELEASED_STATUSES)
+                ->where(function ($q) {
+                    $q->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now());
+                })
+                ->lockForUpdate()
+                ->count();
+
+            if ($bookedToday >= $this->dailyCapFor($targetDoctorId)) {
+                throw new SlotUnavailableException(
+                    'That doctor is fully booked on that date.'
+                );
+            }
+
+            // 4. Take the new slot and release the old one in a single write.
+            $appointment->update([
+                'doctor_id' => $targetDoctorId,
+                'appointment_date' => $date,
+                'appointment_time' => $time,
+                'duration_minutes' => $duration,
+                // The reminders already sent describe a date that no longer
+                // applies. Clearing them lets the sweep remind about the new one
+                // — a patient who moved an appointment and is never reminded of
+                // the new time is worse off than before they moved it.
+                'reminded_ahead_at' => null,
+                'reminded_same_day_at' => null,
+                'status' => $this->statusAfterMove($appointment, $date),
+            ]);
+
+            return $appointment->fresh();
+        }, 3);
+
+        // Both days change availability, and they are usually different.
+        $this->bustSlotCache($originDoctorId, $originDate);
+        $this->bustSlotCache($moved->doctor_id, $date);
+
+        return $moved;
+    }
+
+    /**
+     * Is this the exact slot the appointment already holds?
+     *
+     * Same doctor, same date, same time. Used to exempt a reschedule from the
+     * availability check, because an appointment cannot be told that the slot it
+     * is currently occupying is unavailable.
+     */
+    private function isOwnCurrentSlot(
+        Appointment $appointment,
+        int $doctorId,
+        string $date,
+        string $time,
+    ): bool {
+        return $appointment->doctor_id === $doctorId
+            && $appointment->appointment_date->toDateString() === $date
+            && $appointment->appointment_time === $time;
+    }
+
+    /**
+     * Where a moved appointment lands in the state machine.
+     *
+     * Only HMO bookings can change: an approved LOA is granted for a stated
+     * date, so a move beyond its validity sends the appointment back to HR
+     * rather than carrying an approval that no longer covers the visit.
+     */
+    private function statusAfterMove(Appointment $appointment, string $date): string
+    {
+        if ($appointment->coverage !== 'hmo') {
+            return $appointment->status;
+        }
+
+        $loa = LoaRequest::where('appointment_id', $appointment->id)
+            ->where('status', 'approved')
+            ->first();
+
+        if ($loa === null) {
+            // Never approved, or still queued — the status it already carries is
+            // still the right one.
+            return $appointment->status;
+        }
+
+        $stillCovered = $loa->valid_until === null
+            || $loa->valid_until->gte(Carbon::parse($date));
+
+        return $stillCovered ? $appointment->status : 'pending_hmo_approval';
+    }
+
     public function cancelAppointment(Appointment $appointment, string $reason): Appointment
     {
         if (! in_array($appointment->status, ['pending_hmo_approval', 'requested', 'confirmed'], true)) {
@@ -381,31 +763,6 @@ class BookingService
         $this->bustSlotCache($appointment->doctor_id, $appointment->appointment_date);
 
         return $appointment->fresh();
-    }
-
-    public function invalidateOutOfOffice(int $doctorId, string $date): void
-    {
-        DB::transaction(function () use ($doctorId, $date) {
-            AvailabilityBlock::create([
-                'doctor_id' => $doctorId,
-                'specific_date' => $date,
-                'day_of_week' => null,
-                'start_time' => '00:00:00',
-                'end_time' => '23:59:00',
-                'is_available' => false,
-            ]);
-
-            Appointment::where('doctor_id', $doctorId)
-                ->where('appointment_date', $date)
-                ->where('status', 'requested')
-                ->update([
-                    'status' => 'cancelled',
-                    'cancellation_reason' => 'Doctor unavailable — Out of Office',
-                    'cancelled_at' => now(),
-                ]);
-        });
-
-        $this->bustSlotCache($doctorId, $date);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -452,7 +809,13 @@ class BookingService
         $dayOfWeek = AvailabilityBlock::storedDayFor($date);
         $dateStr = $date->toDateString();
 
-        $specificBlocks = AvailabilityBlock::where('doctor_id', $doctorId)
+        // published() on BOTH queries. This one also carries the out-of-office
+        // blocks, which is why AvailabilityService::addTimeOff() writes them as
+        // published explicitly rather than relying on the column default: an
+        // unpublished blackout would be filtered out here and the doctor would
+        // keep taking bookings on a day they had closed.
+        $specificBlocks = AvailabilityBlock::published()
+            ->where('doctor_id', $doctorId)
             ->where('specific_date', $dateStr)->get();
 
         if ($specificBlocks->where('is_available', false)->isNotEmpty()) {
@@ -462,7 +825,8 @@ class BookingService
             return $specificBlocks->where('is_available', true);
         }
 
-        return AvailabilityBlock::where('doctor_id', $doctorId)
+        return AvailabilityBlock::published()
+            ->where('doctor_id', $doctorId)
             ->where('day_of_week', $dayOfWeek)
             ->where('is_available', true)
             ->get();
@@ -496,7 +860,7 @@ class BookingService
 
         return Appointment::where('doctor_id', $doctorId)
             ->where('appointment_date', $date)
-            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->whereNotIn('status', Appointment::RELEASED_STATUSES)
             ->where(function ($q) {
                 $q->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now());
             })
@@ -545,6 +909,50 @@ class BookingService
             $this->bustSlotCache($doctorId, $cursor->toDateString());
             $cursor->addDay();
         }
+    }
+
+    /**
+     * This patient's live appointments on a date — the ones that still occupy
+     * the calendar, in exactly the sense getTakenSlots() and dailyBookedCount()
+     * use: cancelled, no-show and expired-hold rows have released their time and
+     * must not block a rebooking.
+     *
+     * `lock: true` is for bookSlot()'s transaction only. Everywhere else this is
+     * a read, and taking row locks on a read path would serialise the booking
+     * form against itself.
+     *
+     * @return Collection<int, Appointment>
+     */
+    private function patientAppointmentsOn(
+        int $patientId,
+        string $date,
+        bool $lock = false,
+        ?int $excludeId = null,
+    ): Collection {
+        return Appointment::where('patient_id', $patientId)
+            ->where('appointment_date', $date)
+            // Task 2.2 — a rescheduling appointment must not be counted as its
+            // own conflict. Null for every other caller.
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+            ->whereNotIn('status', Appointment::RELEASED_STATUSES)
+            ->where(function ($q) {
+                $q->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now());
+            })
+            ->orderBy('appointment_at')
+            ->when($lock, fn ($q) => $q->lockForUpdate())
+            ->get();
+    }
+
+    /**
+     * The [start, end) instants a booking at this date and display time covers.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function windowFor(string $date, string $time12, int $durationMinutes): array
+    {
+        $start = Carbon::parse($date.' '.$this->to24h($time12));
+
+        return [$start, $start->copy()->addMinutes($durationMinutes)];
     }
 
     private function to24h(string $time12): string

@@ -54,14 +54,14 @@ function EmptyResults(): ReactElement {
             <FlaskConical
                 size={32}
                 strokeWidth={1.5}
-                style={{ color: 'var(--wc-gray-400)' }}
+                style={{ color: 'var(--wc-text-muted)' }}
             />
             <h2
                 style={{
                     margin: 'var(--space-4) 0 0',
-                    fontSize: 17,
+                    fontSize: 'var(--text-base)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-900)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {empty.title}
@@ -69,8 +69,8 @@ function EmptyResults(): ReactElement {
             <p
                 style={{
                     margin: '6px auto 0',
-                    fontSize: 14,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-muted)',
                     maxWidth: 460,
                 }}
             >

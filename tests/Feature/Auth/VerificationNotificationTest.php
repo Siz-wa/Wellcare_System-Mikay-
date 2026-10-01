@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
+// The app sends the QUEUED subclass so registration does not wait on SMTP;
+// see App\Notifications\QueuedVerifyEmail.
+use App\Notifications\QueuedVerifyEmail as VerifyEmail;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
 

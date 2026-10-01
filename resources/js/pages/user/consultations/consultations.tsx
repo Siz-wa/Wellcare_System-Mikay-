@@ -48,14 +48,20 @@ export default function PatientConsultations(): ReactElement {
     return (
         <PatientDashboardLayout activeId="consultations">
             <header style={{ marginBottom: 'var(--space-6)' }}>
-                <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
+                <h1
+                    style={{
+                        fontSize: 'var(--text-2xl)',
+                        fontWeight: 700,
+                        margin: 0,
+                    }}
+                >
                     {consultationRoomMeta.listTitle}
                 </h1>
                 <p
                     style={{
                         margin: '6px 0 0',
-                        fontSize: 14,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {consultationRoomMeta.listSubtitle}
@@ -75,7 +81,12 @@ export default function PatientConsultations(): ReactElement {
                     <strong style={{ display: 'block', marginBottom: 6 }}>
                         {consultationRoomMeta.emptyTitle}
                     </strong>
-                    <span style={{ fontSize: 14, color: 'var(--wc-gray-500)' }}>
+                    <span
+                        style={{
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
+                        }}
+                    >
                         {consultationRoomMeta.emptyBody}
                     </span>
                 </div>
@@ -88,18 +99,17 @@ export default function PatientConsultations(): ReactElement {
                     }}
                 >
                     {consultations.map((c) => (
+                        // Join sits under the visit details on a phone and
+                        // beside them from `sm`. Squeezed into the same row at
+                        // 358px the button lost its label to an ellipsis — on
+                        // the only control that starts the consultation.
                         <div
                             key={c.id}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 'var(--space-4)',
-                                background: 'var(--wc-white)',
-                                border: '1px solid var(--wc-gray-200)',
-                                borderRadius: 'var(--radius-xl)',
-                                padding: 'var(--space-5)',
-                            }}
+                            className="flex flex-col items-stretch gap-4 rounded-2xl border border-wc-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                            // --wc-white, not the gray-50 the page sits on:
+                            // as a utility the card would have vanished into
+                            // its own background.
+                            style={{ background: 'var(--wc-white)' }}
                         >
                             <div>
                                 <strong style={{ display: 'block' }}>
@@ -107,8 +117,8 @@ export default function PatientConsultations(): ReactElement {
                                 </strong>
                                 <span
                                     style={{
-                                        fontSize: 13,
-                                        color: 'var(--wc-gray-500)',
+                                        fontSize: 'var(--text-sm)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {c.date} {c.time}
@@ -118,7 +128,7 @@ export default function PatientConsultations(): ReactElement {
 
                             <Link
                                 href={`/user/consultations/${c.id}`}
-                                className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
+                                className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill shrink-0 justify-center"
                             >
                                 {c.status === 'active'
                                     ? 'Rejoin Call'

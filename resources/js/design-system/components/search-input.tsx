@@ -47,7 +47,7 @@ export default function SearchInput({
             {/* Icon */}
             <span
                 className="pointer-events-none absolute top-1/2 left-[14px] -translate-y-1/2"
-                style={{ color: 'var(--wc-gray-400)' }}
+                style={{ color: 'var(--wc-text-muted)' }}
             >
                 <SearchIcon />
             </span>

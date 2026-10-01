@@ -13,15 +13,10 @@ interface SoapNotesProps {
 
 export function SoapNotes({ values, onChange }: SoapNotesProps): ReactElement {
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gridTemplateRows: '1fr 1fr',
-                gap: 'var(--space-4)',
-                flex: 1,
-            }}
-        >
+        // One column on a phone: four note fields in a 2x2 leaves each about
+        // 170px wide, and these hold paragraphs of clinical prose. The fixed
+        // `1fr 1fr` row track only applies once the 2x2 exists.
+        <div className="flex flex-1 flex-col gap-4 md:grid md:grid-cols-2 md:grid-rows-2">
             {soapFields.map((field) => (
                 <div
                     key={field.key}
@@ -57,7 +52,7 @@ export function SoapNotes({ values, onChange }: SoapNotesProps): ReactElement {
                             style={{
                                 fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                                 letterSpacing: '0.07em',
                                 textTransform: 'uppercase',
                             }}
@@ -81,10 +76,10 @@ export function SoapNotes({ values, onChange }: SoapNotesProps): ReactElement {
                             padding:
                                 'var(--space-2) var(--space-4) var(--space-4)',
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-700)',
+                            color: 'var(--wc-text-secondary)',
                             background: 'transparent',
                             lineHeight: 1.6,
-                            fontFamily: "var(--font-sans, 'DM Sans')",
+                            fontFamily: 'var(--font-sans)',
                             minHeight: 120,
                         }}
                     />

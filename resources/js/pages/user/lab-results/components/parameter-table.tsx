@@ -21,8 +21,8 @@ export function ParameterTable({
             <p
                 style={{
                     margin: 0,
-                    fontSize: 13,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {labels.noParameters}
@@ -36,7 +36,7 @@ export function ParameterTable({
                 style={{
                     width: '100%',
                     borderCollapse: 'collapse',
-                    fontSize: 13,
+                    fontSize: 'var(--text-sm)',
                     minWidth: 420,
                 }}
             >
@@ -52,11 +52,11 @@ export function ParameterTable({
                                 style={{
                                     textAlign: 'left',
                                     padding: '8px 12px',
-                                    fontSize: 11,
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
                                     letterSpacing: '.05em',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     borderBottom:
                                         '1px solid var(--wc-gray-200)',
                                     whiteSpace: 'nowrap',
@@ -76,7 +76,7 @@ export function ParameterTable({
                                 <td
                                     style={{
                                         padding: '10px 12px',
-                                        color: 'var(--wc-gray-700)',
+                                        color: 'var(--wc-text-secondary)',
                                         borderBottom:
                                             '1px solid var(--wc-gray-100)',
                                     }}
@@ -111,7 +111,7 @@ export function ParameterTable({
                                 <td
                                     style={{
                                         padding: '10px 12px',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                         borderBottom:
                                             '1px solid var(--wc-gray-100)',
                                         whiteSpace: 'nowrap',

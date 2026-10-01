@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\SmsDriver;
+use App\Listeners\RecordAuthActivity;
+use App\Sms\LogSmsDriver;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
@@ -9,9 +12,14 @@ use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use InvalidArgumentException;
+use RuntimeException;
+use Spatie\Permission\PermissionRegistrar;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,7 +28,29 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->bindSmsDriver();
+    }
+
+    /**
+     * Resolve the SMS transport named in config/sms.php.
+     *
+     * A match rather than a container alias so an unknown driver name fails
+     * loudly at boot. The alternative — falling back to the log driver — would
+     * mean a production typo in `SMS_DRIVER` silently stopped sending every
+     * clinical message while appearing to work.
+     */
+    private function bindSmsDriver(): void
+    {
+        $this->app->singleton(SmsDriver::class, function (): SmsDriver {
+            $driver = (string) config('sms.driver', 'log');
+
+            return match ($driver) {
+                'log' => new LogSmsDriver,
+                default => throw new InvalidArgumentException(
+                    "Unknown SMS driver [{$driver}]. Add it to AppServiceProvider::bindSmsDriver()."
+                ),
+            };
+        });
     }
 
     /**
@@ -29,9 +59,137 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureProductionSafety();
         $this->configureAssetPreloading();
         $this->configureSignallingRelay();
         $this->allowWindowsCasedServeVariables();
+        $this->allowServeSubprocessUploads();
+
+        // Sign-ins, sign-outs, failed attempts and password resets into the
+        // audit trail. Registered explicitly rather than through Laravel's
+        // listener auto-discovery, which binds one event per class by the
+        // `handle` type-hint and so would need four near-empty classes.
+        RecordAuthActivity::register();
+
+        $this->warmPermissionRegistrar();
+    }
+
+    /**
+     * Load the role/permission table into the registrar once per request.
+     *
+     * spatie/laravel-permission caches the whole table and rebuilds it lazily on
+     * the first `hasRole()` of a request. When that cache has just been dropped
+     * — `optimize:clear`, `cache:clear`, a deploy — the rebuild races anything
+     * else touching the same cache store in the same request.
+     *
+     * It showed up once during the September end-to-end run: an administrator
+     * cleared the two-factor challenge and was answered with a bare
+     * "403 USER DOES NOT HAVE THE RIGHT ROLES" from the `role:admin|owner`
+     * middleware, on an account that does hold `admin`. Loading /admin/dashboard
+     * a second later worked, and two further logout/login cycles were clean, so
+     * the roles were never the problem — the registrar simply had nothing in it
+     * at the moment the middleware asked.
+     *
+     * Priming it here makes the lookup answer from a populated registrar on the
+     * request's first check rather than mid-pipeline. Cheap: one query, and only
+     * when the cache is actually cold.
+     */
+    private function warmPermissionRegistrar(): void
+    {
+        if ($this->app->runningInConsole()) {
+            return;
+        }
+
+        try {
+            app(PermissionRegistrar::class)->getPermissions();
+        } catch (Throwable) {
+            // A missing permissions table (first migrate, a fresh CI database)
+            // must not take the whole application down on boot. Whatever asks
+            // for a role next will surface the real problem in its own context.
+        }
+    }
+
+    /**
+     * Settings that must hold in production regardless of what `.env` says.
+     *
+     * `.env.example` documents every one of these, but a deployment is a copy
+     * of a template made by a person under time pressure, and the failure mode
+     * is silent: a production app with `APP_DEBUG=true` looks completely normal
+     * until the first exception renders a stack trace — with the query, the
+     * bindings, and whatever patient row was in flight — to whoever triggered
+     * it. `SESSION_SECURE_COOKIE` unset is worse, because it never looks wrong
+     * at all: the session cookie simply also goes out over plain HTTP.
+     *
+     * So these are forced rather than merely recommended. Documentation cannot
+     * be relied on to survive a deploy; this can.
+     *
+     * Scoped to production for the same reason HSTS is in SecurityHeaders:
+     * forcing an HTTPS-only cookie on a local http:// dev server logs the
+     * developer out on every request, and forcing `https` scheme generation
+     * breaks `php artisan serve` entirely.
+     *
+     * Session config is read by StartSession when the request is handled, and
+     * `app.debug` by the exception handler when a response is rendered — both
+     * strictly after providers boot, so setting them here takes effect.
+     *
+     * NOTE: turning on `session.encrypt` invalidates sessions that were written
+     * unencrypted, so the first deploy after this lands signs everyone out
+     * once. That is the intended trade and is a one-time cost.
+     */
+    protected function configureProductionSafety(): void
+    {
+        if (! $this->app->isProduction()) {
+            return;
+        }
+
+        // Every URL this application generates is a URL into a medical record
+        // system. TLS termination belongs to the web server, but scheme
+        // generation belongs here — behind a proxy, Laravel would otherwise
+        // emit http:// links from an https:// request.
+        URL::forceScheme('https');
+
+        config([
+            'app.debug' => false,
+            'session.secure' => true,
+            'session.encrypt' => true,
+        ]);
+
+        $this->guardEncryptionKey();
+    }
+
+    /**
+     * Refuse to run in production without an encryption key.
+     *
+     * SC-5 / ND-8. Since the clinical columns gained `encrypted` casts, APP_KEY
+     * is not a nicety — it is the only thing standing between the application
+     * and a database of unreadable ciphertext. A production boot with a missing
+     * key would not fail cleanly either: reads of every diagnosis, SOAP note and
+     * allergen would throw one request at a time, deep inside the pages that
+     * matter most, and it would look like a database problem.
+     *
+     * Failing at boot converts an unbounded, confusing outage into an immediate
+     * and specific one. It also makes the mistake impossible to deploy past.
+     *
+     * The other half of the mitigation is key ROTATION, which lives in
+     * config/app.php as `APP_PREVIOUS_KEYS`: Laravel decrypts with any previous
+     * key and encrypts with the current one, so the key can be changed without
+     * a downtime migration over the whole clinical record.
+     */
+    protected function guardEncryptionKey(): void
+    {
+        if (config('app.key')) {
+            return;
+        }
+
+        throw new RuntimeException(
+            'APP_KEY is not set. This application encrypts patient diagnoses, '
+            .'consultation notes, allergies, lab results and insurance member '
+            .'numbers at rest, and cannot read any of them without it. Refusing '
+            .'to start rather than serving errors from every clinical page. '
+            .'Restore the key from your secret store — do NOT run key:generate '
+            .'against a database that already holds encrypted records, because a '
+            .'new key cannot decrypt them.'
+        );
     }
 
     /**
@@ -73,6 +231,53 @@ class AppServiceProvider extends ServiceProvider
         }
 
         foreach (['Path', 'SystemRoot'] as $name) {
+            if (! in_array($name, ServeCommand::$passthroughVariables, true)) {
+                ServeCommand::$passthroughVariables[] = $name;
+            }
+        }
+    }
+
+    /**
+     * Give the `artisan serve` subprocess a temporary directory, so file
+     * uploads work.
+     *
+     * Same mechanism as the method above and a completely different symptom.
+     * `ServeCommand::$passthroughVariables` does not carry `TMP` or `TEMP`, and
+     * on Windows those are how PHP finds a scratch directory: GetTempPath()
+     * reads TMP, then TEMP, then USERPROFILE, and only then falls back to the
+     * Windows directory — which a normal account cannot write to. `SystemRoot`
+     * is passed through (see above), so the fallback resolves, gets refused,
+     * and PHP reports:
+     *
+     *     PHP Request Startup: File upload error - unable to create a
+     *     temporary file in Unknown on line 0
+     *
+     * The consequence is that **`$_FILES` is empty for every upload in the
+     * whole application** while running under `composer dev` on Windows.
+     * Laravel then fails the `uploaded` rule and answers "The <field> failed to
+     * upload." — a message that reads like a bad file and is nothing of the
+     * kind. Reproduced 2026-09-10 against the doctor photo endpoint; a bare
+     * `php -S` from the same shell, with the same php.ini and the same file,
+     * accepted the identical upload with `error: 0`.
+     *
+     * Nothing in the application can work around it: by the time a controller
+     * or a form request runs, PHP has already discarded the upload. This has to
+     * be fixed where the subprocess is spawned, which is here.
+     *
+     * `upload_tmp_dir` in php.ini is the other cure, and is deliberately not
+     * the one taken: it is per-machine, invisible to the repository, and every
+     * teammate would hit this once each.
+     */
+    protected function allowServeSubprocessUploads(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        // USERPROFILE is the third place GetTempPath() looks and costs nothing
+        // to include; TMPDIR is the POSIX name, harmless on Windows and correct
+        // on a Linux host that has the same variable filtered out.
+        foreach (['TMP', 'TEMP', 'TMPDIR', 'USERPROFILE'] as $name) {
             if (! in_array($name, ServeCommand::$passthroughVariables, true)) {
                 ServeCommand::$passthroughVariables[] = $name;
             }

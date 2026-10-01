@@ -134,7 +134,7 @@ function StatCardItem({
                         margin: 0,
                         fontSize: 'var(--text-xs)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
                         lineHeight: 1,
@@ -148,7 +148,7 @@ function StatCardItem({
                         margin: 0,
                         fontSize: 'var(--text-2xl)',
                         fontWeight: 800,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         lineHeight: 1.1,
                     }}
                 >
@@ -165,14 +165,9 @@ export default function MySchedulePage(): ReactElement {
     return (
         <DashboardLayout activeId="schedule">
             {/* ── Page header ──────────────────────────────────────────────────── */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 'var(--space-8)',
-                }}
-            >
+            {/* Title and its actions stack on a phone and sit side by side
+                from `sm`. */}
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     {/* Back arrow */}
                     <a
@@ -181,7 +176,7 @@ export default function MySchedulePage(): ReactElement {
                             display: 'inline-flex',
                             alignItems: 'center',
                             marginBottom: 'var(--space-2)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             textDecoration: 'none',
                             transition: 'color 0.15s ease',
                         }}
@@ -215,7 +210,7 @@ export default function MySchedulePage(): ReactElement {
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
                             lineHeight: 1.15,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {SCHEDULE_META.pageTitle}
@@ -223,7 +218,7 @@ export default function MySchedulePage(): ReactElement {
                     <p
                         style={{
                             margin: 0,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             fontSize: 'var(--text-base)',
                         }}
                     >
@@ -247,28 +242,16 @@ export default function MySchedulePage(): ReactElement {
             </div>
 
             {/* ── Stat cards row ────────────────────────────────────────────────── */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: 'var(--space-5)',
-                    marginBottom: 'var(--space-6)',
-                }}
-            >
+            <div className="mb-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
                 {SCHEDULE_STATS.map((card, i) => (
                     <StatCardItem key={card.label} card={card} index={i} />
                 ))}
             </div>
 
             {/* ── Two-column layout: schedule list + sidebar ────────────────────── */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 360px',
-                    gap: 'var(--space-5)',
-                    alignItems: 'start',
-                }}
-            >
+            {/* A fixed 360px rail beside `1fr` overflows outright below about
+                760px — the rail alone is wider than the content box. */}
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_360px]">
                 <FullScheduleCard />
                 <ScheduleOverviewCard />
             </div>

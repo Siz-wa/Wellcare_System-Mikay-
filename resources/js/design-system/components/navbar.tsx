@@ -2,6 +2,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { NotificationBell } from '@/design-system/components/notification-bell';
+import { cn } from '@/lib/utils';
 import { home, about, services, doctors, contact, faqs, login } from '@/routes';
 import type { PageProps } from '@/types';
 
@@ -43,7 +44,10 @@ export function WellcareLogo({ dark = false }: WellcareLogoProps) {
                 </svg>
             </div>
             <span
-                className={`wc-logo__wordmark${dark ? 'wc-logo__wordmark--dark' : ''}`}
+                className={cn(
+                    'wc-logo__wordmark',
+                    dark && 'wc-logo__wordmark--dark',
+                )}
             >
                 WELLCARE <span className="wc-logo__accent">CLINICS</span>
             </span>
@@ -215,7 +219,7 @@ export default function Navbar({ active }: NavbarProps) {
     return (
         <>
             <header
-                className={`wc-navbar${scrolled ? 'wc-navbar--scrolled' : ''}`}
+                className={cn('wc-navbar', scrolled && 'wc-navbar--scrolled')}
             >
                 <div className="wc-navbar__inner">
                     <WellcareLogo />
@@ -228,7 +232,11 @@ export default function Navbar({ active }: NavbarProps) {
                             <Link
                                 key={link.label}
                                 href={link.href}
-                                className={`wc-navbar__nav-link${resolvedActive === link.label ? 'wc-navbar__nav-link--active' : ''}`}
+                                className={cn(
+                                    'wc-navbar__nav-link',
+                                    resolvedActive === link.label &&
+                                        'wc-navbar__nav-link--active',
+                                )}
                                 aria-current={
                                     resolvedActive === link.label
                                         ? 'page'
@@ -274,7 +282,12 @@ export default function Navbar({ active }: NavbarProps) {
                         <Link
                             key={link.label}
                             href={link.href}
-                            className={`wc-navbar__nav-link wc-navbar__nav-link--mobile${resolvedActive === link.label ? 'wc-navbar__nav-link--active' : ''}`}
+                            className={cn(
+                                'wc-navbar__nav-link',
+                                'wc-navbar__nav-link--mobile',
+                                resolvedActive === link.label &&
+                                    'wc-navbar__nav-link--active',
+                            )}
                             aria-current={
                                 resolvedActive === link.label
                                     ? 'page'

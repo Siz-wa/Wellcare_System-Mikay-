@@ -13,9 +13,15 @@ use Carbon\Carbon;
  * The panel reported being able to book the same day and time twice.
  *
  * Three guards are supposed to prevent it: a unique index on a generated
- * active_slot_key column, a lockForUpdate slot check, and a per-patient
- * one-appointment-per-day rule. These tests pin down what each one actually
- * covers — and, importantly, what none of them cover.
+ * active_slot_key column, a lockForUpdate slot check, and a per-patient rule.
+ * These tests pin down what each one actually covers — and, importantly, what
+ * none of them cover.
+ *
+ * The third guard has since been narrowed. It used to be
+ * one-appointment-per-patient-per-day, which rejected a perfectly ordinary
+ * clinic day; it is now an overlap check plus a daily maximum. The tests below
+ * that used to assert the blanket refusal now assert the narrower rule, and
+ * PatientDailyBookingTest covers the new behaviour in full.
  */
 beforeEach(function () {
     $this->doctor = userWithRole('doctor');
@@ -80,10 +86,25 @@ it('refuses the same doctor, date and time for a different person', function () 
     expect(Appointment::count())->toBe(1);
 });
 
-it('refuses the same patient twice on one day even at a different time', function () {
+it('lets the same patient book twice on one day at times that do not overlap', function () {
     ($this->book)();
 
-    expect(fn () => ($this->book)(['appointment_time' => '2:00 PM']))
+    $second = ($this->book)(['appointment_time' => '2:00 PM']);
+
+    // A morning consultation and an afternoon follow-up is one patient's day,
+    // not a double-booking. The slot guard is untouched by this — 9:00 AM is
+    // still taken, and 2:00 PM was free.
+    expect($second->appointment_time)->toBe('2:00 PM')
+        ->and(Appointment::count())->toBe(2)
+        ->and(Appointment::pluck('patient_id')->unique())->toHaveCount(1);
+});
+
+it('still refuses the same patient at a time they are already occupied', function () {
+    ($this->book)();
+
+    // The other doctor is free at 9:00 — the doctor-level slot guard would
+    // allow this. The patient cannot be in both rooms, which is what stops it.
+    expect(fn () => ($this->book)(['doctor_id' => $this->otherDoctor->id]))
         ->toThrow(SlotUnavailableException::class);
 
     expect(Appointment::count())->toBe(1);
@@ -91,13 +112,14 @@ it('refuses the same patient twice on one day even at a different time', functio
 
 it('treats one person booked twice through the same account as the same patient', function () {
     ($this->book)();
+    ($this->book)(['appointment_time' => '3:00 PM']);
 
-    // The same person, same guarantor, a later slot. The dedup in
-    // Patient::findOrCreateFromBooking() is what makes this collide.
-    expect(fn () => ($this->book)(['appointment_time' => '3:00 PM']))
-        ->toThrow(SlotUnavailableException::class);
-
-    expect(Patient::count())->toBe(1);
+    // Two appointments, one Patient. The dedup in
+    // Patient::findOrCreateFromBooking() is what collapses them, and it is what
+    // the per-patient overlap and daily-cap rules both key off — a second
+    // Patient row here would silently exempt this person from both.
+    expect(Patient::count())->toBe(1)
+        ->and(Appointment::where('patient_id', Patient::first()->id)->count())->toBe(2);
 });
 
 /**

@@ -9,6 +9,7 @@
 
 import { Link } from '@inertiajs/react';
 import type { ReactElement } from 'react';
+import { plural } from '@/lib/utils';
 import { NurseDashboardLayout } from '@/pages/nurse/layout/nurse-dashboard-layout';
 import type { PageProps } from '@/types';
 import type {
@@ -98,9 +99,8 @@ export default function NursePatientRecordDetailPage({
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
                             lineHeight: 1.15,
-                            color: 'var(--wc-dark)',
-                            fontFamily:
-                                "var(--font-display,'Bricolage Grotesque')",
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {patient.name}
@@ -109,10 +109,11 @@ export default function NursePatientRecordDetailPage({
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
-                        {patient.patientId} · {patient.appointmentCount} visits
+                        {patient.patientId} ·{' '}
+                        {plural(patient.appointmentCount, 'visit')}
                     </p>
                 </div>
             </div>

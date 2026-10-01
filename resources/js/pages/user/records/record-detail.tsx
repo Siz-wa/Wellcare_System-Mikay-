@@ -9,6 +9,7 @@ import type { ReactElement } from 'react';
 import { PatientDashboardLayout } from '@/pages/user/layout/patient-dashboard-layout';
 import type { PageProps } from '@/types';
 import type {
+    AccessLogEntry,
     Allergy,
     Diagnosis,
     PatientCard,
@@ -17,6 +18,7 @@ import type {
     Visit,
 } from './records-data';
 import { recordsMeta } from './records-data';
+import { AccessLogSection } from './sections/access-log-section';
 import { AllergiesSection } from './sections/allergies-section';
 import { DiagnosesSection } from './sections/diagnoses-section';
 import { DocumentsSection } from './sections/documents-section';
@@ -30,6 +32,7 @@ interface PageData extends PageProps {
     diagnoses: Diagnosis[];
     documents: RecordDocument[];
     visits: Visit[];
+    accessLog: AccessLogEntry[];
 }
 
 export default function RecordDetailPage({
@@ -39,6 +42,7 @@ export default function RecordDetailPage({
     diagnoses,
     documents,
     visits,
+    accessLog,
 }: PageData): ReactElement {
     return (
         <PatientDashboardLayout activeId="records">
@@ -49,9 +53,9 @@ export default function RecordDetailPage({
                     alignItems: 'center',
                     gap: 6,
                     marginBottom: 'var(--space-5)',
-                    fontSize: 13,
+                    fontSize: 'var(--text-sm)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-600)',
+                    color: 'var(--wc-text-secondary)',
                     textDecoration: 'none',
                 }}
             >
@@ -79,7 +83,7 @@ export default function RecordDetailPage({
                         background: 'var(--wc-blue-50, #eff6ff)',
                         color: 'var(--wc-blue-600)',
                         fontWeight: 700,
-                        fontSize: 18,
+                        fontSize: 'var(--text-lg)',
                         flexShrink: 0,
                     }}
                 >
@@ -89,11 +93,10 @@ export default function RecordDetailPage({
                     <h1
                         style={{
                             margin: 0,
-                            fontSize: 24,
+                            fontSize: 'var(--text-2xl)',
                             fontWeight: 700,
-                            color: 'var(--wc-gray-900)',
-                            fontFamily:
-                                'var(--font-display, "Bricolage Grotesque")',
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {patient.name}
@@ -102,8 +105,8 @@ export default function RecordDetailPage({
                         <p
                             style={{
                                 margin: '2px 0 0',
-                                fontSize: 13,
-                                color: 'var(--wc-gray-500)',
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {recordsMeta.labels.clinicId} {patient.clinicId}
@@ -122,8 +125,8 @@ export default function RecordDetailPage({
                     borderRadius: 10,
                     background: 'var(--wc-gray-50)',
                     border: '1px solid var(--wc-gray-200)',
-                    fontSize: 13,
-                    color: 'var(--wc-gray-600)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-secondary)',
                 }}
             >
                 <Info
@@ -145,6 +148,8 @@ export default function RecordDetailPage({
                 <ProfileSection profile={profile} />
                 <DiagnosesSection diagnoses={diagnoses} />
                 <VisitsSection visits={visits} />
+
+                <AccessLogSection entries={accessLog} />
                 <DocumentsSection documents={documents} />
             </div>
         </PatientDashboardLayout>

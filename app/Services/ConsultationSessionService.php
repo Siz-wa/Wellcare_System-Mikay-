@@ -3,13 +3,16 @@
 namespace App\Services;
 
 use App\Events\WebRtcSignal;
+use App\Exceptions\AllergyContraindicationException;
 use App\Exceptions\InvalidConsultationTransitionException;
 use App\Models\Appointment;
 use App\Models\AppointmentNotification;
 use App\Models\ConsultationSession;
+use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -51,6 +54,149 @@ use Illuminate\Support\Str;
  */
 class ConsultationSessionService
 {
+    public function __construct(private readonly DrugAllergyChecker $allergyChecker) {}
+
+    /**
+     * Replace this session's prescriptions, refusing any that contradict a
+     * recorded allergy unless the prescriber has acknowledged it.
+     *
+     * ## Why this is here and not in the controller
+     *
+     * The check has to run on the same path as the write, inside the same
+     * transaction. A check in the controller is a check that the next caller —
+     * a queued job, a seeder, an import, a second controller — does not
+     * perform, and the whole finding this task closes was a safety rule that
+     * existed on the chart but not on the path that could violate it.
+     *
+     * ## Replace rather than append
+     *
+     * The editor sends the whole medication list on every save, because that is
+     * what the UI holds. Diffing it would leave the two representations able to
+     * disagree; replacing cannot. The rows are soft-deleted, so a removed
+     * prescription remains recoverable and remains in `activity_log`.
+     *
+     * @param  array<int, array{name?: string|null, instructions?: string|null}>  $medications
+     *
+     * @throws AllergyContraindicationException when a conflict is not acknowledged
+     */
+    public function syncPrescriptions(
+        ConsultationSession $session,
+        ?Patient $patient,
+        array $medications,
+        ?string $allergyOverrideReason = null,
+    ): void {
+        $medications = $this->cleanMedications($medications);
+
+        if ($patient !== null) {
+            $this->guardAllergies($session, $patient, $medications, $allergyOverrideReason);
+        }
+
+        $session->prescriptions()->delete();
+
+        foreach ($medications as $medication) {
+            $session->prescriptions()->create([
+                'name' => $medication['name'],
+                'instructions' => $medication['instructions'],
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<int, array{name: string, instructions: string}>  $medications
+     *
+     * @throws AllergyContraindicationException
+     */
+    private function guardAllergies(
+        ConsultationSession $session,
+        Patient $patient,
+        array $medications,
+        ?string $allergyOverrideReason,
+    ): void {
+        $conflicts = $this->allergyChecker->checkAll($patient->loadMissing('allergies'), $medications);
+
+        if ($conflicts === []) {
+            return;
+        }
+
+        // No acknowledgement — refuse the whole save and hand the conflicts
+        // back so the doctor sees WHAT matched rather than that something did.
+        if (blank($allergyOverrideReason)) {
+            throw new AllergyContraindicationException($conflicts);
+        }
+
+        $this->recordOverride($session, $patient, $conflicts, $allergyOverrideReason);
+    }
+
+    /**
+     * Write the override to the audit trail.
+     *
+     * A prescriber may always overrule this check — the checker is name
+     * matching over a short table, not a clinical authority, and a system that
+     * cannot be overridden is one that gets worked around. What must not happen
+     * is an override leaving no trace.
+     *
+     * The drug and allergen names are deliberately NOT written to
+     * `activity_log`. ConsultationPrescription excludes `name` from its audited
+     * attributes for a stated reason — a drug name is a diagnosis by inference,
+     * and activity_log is admin-readable. The same reasoning applies with more
+     * force to an allergen. The log records that an override happened, by whom,
+     * on which session, and how many conflicts; the reason text and the clinical
+     * detail stay in the encrypted record and the application log.
+     *
+     * @param  array<int, array{name: string, conflicts: array<int, array<string, mixed>>}>  $conflicts
+     */
+    private function recordOverride(
+        ConsultationSession $session,
+        Patient $patient,
+        array $conflicts,
+        string $reason,
+    ): void {
+        activity('consultationsession')
+            ->performedOn($session)
+            ->causedBy($session->doctor)
+            ->withProperties([
+                'conflict_count' => count($conflicts),
+                'patient_id' => $patient->id,
+            ])
+            ->log('Allergy warning overridden on a prescription');
+
+        // The detail an incident review would need, kept out of the
+        // admin-readable audit table.
+        Log::warning('Drug-allergy warning overridden', [
+            'session_id' => $session->id,
+            'patient_id' => $patient->id,
+            'doctor_id' => $session->doctor_id,
+            'reason' => $reason,
+            'conflicts' => $conflicts,
+        ]);
+    }
+
+    /**
+     * Drop blank rows and normalise the shape the editor posts.
+     *
+     * @param  array<int, array{name?: string|null, instructions?: string|null}>  $medications
+     * @return array<int, array{name: string, instructions: string}>
+     */
+    private function cleanMedications(array $medications): array
+    {
+        $cleaned = [];
+
+        foreach ($medications as $medication) {
+            $name = trim((string) ($medication['name'] ?? ''));
+
+            if ($name === '') {
+                continue;
+            }
+
+            $cleaned[] = [
+                'name' => $name,
+                'instructions' => trim((string) ($medication['instructions'] ?? '')),
+            ];
+        }
+
+        return $cleaned;
+    }
+
     /**
      * Return the session for this appointment, creating it if the doctor has
      * not saved a note yet.
@@ -99,6 +245,26 @@ class ConsultationSessionService
         if (! $appointment->isInConsultation()) {
             throw new InvalidConsultationTransitionException(
                 'The video room opens once the patient has checked in, and closes when the consultation is completed.'
+            );
+        }
+
+        // G5 — the clinic has not been paid for a visit it agreed to charge
+        // for. Checked BEFORE ensureSession() so an unsettled appointment does
+        // not leave a consultation row behind it.
+        //
+        // This is the gate the whole payment module exists to hold. An
+        // in-person patient passes a cashier on the way to the consulting room;
+        // a video patient passes nothing, so the software has to stand where the
+        // cashier stands. It reads `verified`/`waived` only — a payment the
+        // patient has merely CLAIMED is not payment, or the reference field
+        // would be a password anyone could guess.
+        //
+        // Silent on every other kind of booking: isSettledForConsultation()
+        // returns true when there is no payment record, which is every
+        // in-person, HMO, PhilHealth and corporate visit.
+        if (! $appointment->isSettledForConsultation()) {
+            throw new InvalidConsultationTransitionException(
+                'This video consultation has not been paid for yet. The room opens once the clinic confirms the payment.'
             );
         }
 
@@ -301,20 +467,38 @@ class ConsultationSessionService
      *
      * @throws InvalidConsultationTransitionException
      */
-    public function saveNotes(Appointment $appointment, User $doctor, array $soap, array $vitals): ConsultationSession
-    {
+    public function saveNotes(
+        Appointment $appointment,
+        User $doctor,
+        array $soap,
+        array $vitals,
+        array $medications = [],
+        ?string $allergyOverrideReason = null,
+    ): ConsultationSession {
         $session = $this->ensureSession($appointment, $doctor);
 
         $this->guardNotFinalized($session);
 
-        $session->update($this->noteAttributes($doctor, $soap, $vitals) + ['status' => 'draft']);
+        // One transaction: a prescription refused for a contraindication must
+        // take the note and vitals back with it, or the doctor is left with a
+        // saved note and silently discarded medications.
+        DB::transaction(function () use ($session, $appointment, $doctor, $soap, $vitals, $medications, $allergyOverrideReason) {
+            $session->update($this->noteAttributes($session, $doctor, $soap, $vitals) + ['status' => 'draft']);
 
-        // The in-person equivalent of "the doctor has started". Preserved from
-        // the original saveSession(), which flipped checked_in -> in_progress
-        // on the first draft save.
-        if ($appointment->status === 'checked_in') {
-            $appointment->update(['status' => 'in_progress']);
-        }
+            $this->syncPrescriptions(
+                $session,
+                $appointment->patientRecord,
+                $medications,
+                $allergyOverrideReason,
+            );
+
+            // The in-person equivalent of "the doctor has started". Preserved
+            // from the original saveSession(), which flipped checked_in ->
+            // in_progress on the first draft save.
+            if ($appointment->status === 'checked_in') {
+                $appointment->update(['status' => 'in_progress']);
+            }
+        });
 
         return $session->fresh();
     }
@@ -327,8 +511,14 @@ class ConsultationSessionService
      *
      * @throws InvalidConsultationTransitionException
      */
-    public function finalize(Appointment $appointment, User $doctor, array $soap, array $vitals): ConsultationSession
-    {
+    public function finalize(
+        Appointment $appointment,
+        User $doctor,
+        array $soap,
+        array $vitals,
+        array $medications = [],
+        ?string $allergyOverrideReason = null,
+    ): ConsultationSession {
         $session = $this->ensureSession($appointment, $doctor);
 
         $this->guardNotFinalized($session);
@@ -342,20 +532,38 @@ class ConsultationSessionService
             );
         }
 
-        $signed = DB::transaction(function () use ($session, $appointment, $doctor, $soap, $vitals) {
-            $session->update($this->noteAttributes($doctor, $soap, $vitals) + ['status' => 'finalized']);
+        $signed = DB::transaction(function () use ($session, $appointment, $doctor, $soap, $vitals, $medications, $allergyOverrideReason) {
+            $session->update($this->noteAttributes($session, $doctor, $soap, $vitals) + ['status' => 'finalized']);
+
+            // Before the note is sealed, not after: once `status` is finalized
+            // guardNotFinalized() refuses further edits, so a prescription that
+            // failed to save here could never be added afterwards.
+            $this->syncPrescriptions(
+                $session,
+                $appointment->patientRecord,
+                $medications,
+                $allergyOverrideReason,
+            );
 
             $appointment->update(['status' => 'completed']);
 
             if ($appointment->user_id) {
                 $name = trim($appointment->first_name.' '.$appointment->last_name);
+                $date = $appointment->appointment_date->format('F j, Y');
+
+                // The recipient is the booking account. Speak to them about
+                // themselves, and name the patient only when it is someone
+                // they book for (a child, a parent).
+                $isSelf = $appointment->patientRecord?->relationship_to_guarantor === 'self';
 
                 AppointmentNotification::create([
                     'appointment_id' => $appointment->id,
                     'user_id' => $appointment->user_id,
                     'type' => 'consultation_done',
                     'subject' => 'Consultation Complete',
-                    'body' => "{$name}'s consultation notes have been finalized by the doctor.",
+                    'body' => $isSelf
+                        ? "Your doctor has finished the notes from your consultation on {$date}. You can read them in My Records."
+                        : "The doctor has finished {$name}'s consultation notes from {$date}. You can read them in My Records.",
                     'read' => false,
                 ]);
             }
@@ -481,21 +689,151 @@ class ConsultationSessionService
      * @param  array<string, mixed>  $vitals
      * @return array<string, mixed>
      */
-    private function noteAttributes(User $doctor, array $soap, array $vitals): array
+    private function noteAttributes(ConsultationSession $session, User $doctor, array $soap, array $vitals): array
     {
+        $source = $this->resolveVitalsSource($session, $vitals['source'] ?? null);
+
+        // "Nothing was obtained" and a recorded blood pressure cannot both be
+        // true, and a record that says both is worse than one that says neither.
+        // The room's UI already closes the six inputs when the doctor picks
+        // this, but the save route is reachable without that page, and the
+        // in-person session editor posts the same six fields from a form that
+        // never saw the choice. Normalising here is what makes the stored row
+        // consistent regardless of which door the save came through.
+        if ($source === 'not_obtained') {
+            $vitals = [];
+        }
+
         return [
             'doctor_id' => $doctor->id,
             'subjective' => $soap['subjective'] ?? null,
             'objective' => $soap['objective'] ?? null,
             'assessment' => $soap['assessment'] ?? null,
             'plan' => $soap['plan'] ?? null,
+            // Task 3.1 — dual-written. The display strings stay exactly as they
+            // were so nothing that reads them has to change today; the numeric
+            // columns beside them are what a trend, a BMI or an out-of-range
+            // flag can actually be computed from.
             'blood_pressure' => $vitals['bloodPressure'] ?? null,
             'heart_rate' => $vitals['heartRate'] ?? null,
             'temperature' => $vitals['temperature'] ?? null,
             'oxygen_saturation' => $vitals['oxygenSaturation'] ?? null,
             'weight' => $vitals['weight'] ?? null,
             'height' => $vitals['height'] ?? null,
+            'vitals_source' => $source,
+        ] + $this->numericVitals($vitals);
+    }
+
+    /**
+     * The measurement half of the vitals, parsed out of what the form posts.
+     *
+     * The editor sends display strings ("119/83", "70"), and the controller's
+     * rules already constrain them to plausible measurements — but the rules
+     * only reject; they do not convert. This is where the number is extracted.
+     *
+     * Returns null for anything absent or unparseable rather than zero. A
+     * recorded heart rate of 0 is clinically impossible and, unlike a null,
+     * looks like a real reading — the same reason the backfill migration guards
+     * every cast.
+     *
+     * @param  array<string, mixed>  $vitals
+     * @return array<string, int|float|null>
+     */
+    private function numericVitals(array $vitals): array
+    {
+        [$systolic, $diastolic] = $this->splitBloodPressure($vitals['bloodPressure'] ?? null);
+
+        return [
+            'systolic' => $systolic,
+            'diastolic' => $diastolic,
+            'heart_rate_bpm' => $this->toInt($vitals['heartRate'] ?? null),
+            'temperature_c' => $this->toFloat($vitals['temperature'] ?? null),
+            'oxygen_saturation_pct' => $this->toInt($vitals['oxygenSaturation'] ?? null),
+            'weight_kg' => $this->toFloat($vitals['weight'] ?? null),
+            'height_cm' => $this->toFloat($vitals['height'] ?? null),
         ];
+    }
+
+    /**
+     * "119/83" into its two measurements.
+     *
+     * Both or neither: a value that is not two numbers separated by a slash is
+     * not a blood pressure, and guessing which half a lone number represents
+     * would be inventing a finding.
+     *
+     * @return array{0: int|null, 1: int|null}
+     */
+    private function splitBloodPressure(mixed $value): array
+    {
+        if (! is_string($value) || ! preg_match('/^\s*(\d{2,3})\s*\/\s*(\d{2,3})/', $value, $m)) {
+            return [null, null];
+        }
+
+        return [(int) $m[1], (int) $m[2]];
+    }
+
+    private function toInt(mixed $value): ?int
+    {
+        $number = $this->leadingNumber($value);
+
+        return $number === null ? null : (int) $number;
+    }
+
+    private function toFloat(mixed $value): ?float
+    {
+        return $this->leadingNumber($value);
+    }
+
+    /**
+     * The number at the start of a written value, or null.
+     *
+     * Tolerates a trailing unit ("70 bpm", "36.7 C", "96%") because the seeded
+     * rows are written that way and a doctor may type it too.
+     */
+    private function leadingNumber(mixed $value): ?float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (! is_string($value) || ! preg_match('/^\s*(\d+(?:\.\d+)?)/', $value, $m)) {
+            return null;
+        }
+
+        return (float) $m[1];
+    }
+
+    /**
+     * Decide the provenance to store for this save.
+     *
+     * Three rules, in order, and the middle one is the reason this is a method
+     * rather than a `??` chain:
+     *
+     *  1. **An explicit, valid choice wins.** The doctor said where the numbers
+     *     came from; nothing here second-guesses it.
+     *  2. **Silence preserves what is already on the row.** The in-person
+     *     session editor and the video room both POST to the same save route,
+     *     and a caller that omits the field must not overwrite a choice the
+     *     other one made. Without this, a doctor who marked a virtual visit's
+     *     vitals `patient_reported` in the room, then reopened the note in the
+     *     session-editor modal, would have had them silently relabelled as
+     *     clinic-measured -- the record asserting an instrument reading that
+     *     never happened, which is the exact failure this column exists to
+     *     prevent.
+     *  3. **Otherwise fall back to the mode's honest default.** Virtual means
+     *     patient-reported, because nobody on a video call is holding a cuff.
+     *
+     * An invalid value is treated as silence rather than rejected: the request
+     * validation already refuses one, and a service that throws here would take
+     * a whole clinical note down over a provenance label.
+     */
+    private function resolveVitalsSource(ConsultationSession $session, ?string $requested): string
+    {
+        if ($requested !== null && in_array($requested, ConsultationSession::VITALS_SOURCES, true)) {
+            return $requested;
+        }
+
+        return $session->vitals_source ?? $session->defaultVitalsSource();
     }
 
     private function notifyPatientRoomOpen(Appointment $appointment): void

@@ -23,7 +23,8 @@ class NotificationController extends Controller
     {
         AppointmentNotification::where('user_id', Auth::id())
             ->where('id', $id)
-            ->update(['read' => true]);
+            ->whereNull('read_at')
+            ->update(['read' => true, 'read_at' => now()]);
 
         return back();
     }
@@ -32,9 +33,30 @@ class NotificationController extends Controller
     {
         AppointmentNotification::where('user_id', Auth::id())
             ->where('read', false)
-            ->update(['read' => true]);
+            ->update(['read' => true, 'read_at' => now()]);
 
         return back();
+    }
+
+    /**
+     * Task 1.3 — explicitly accept responsibility for a critical lab result.
+     *
+     * Deliberately a separate action from marking read. Opening the bell is not
+     * the same act as accepting a critical value, and the audit trail must not
+     * claim otherwise: `read_at` says the notification was displayed,
+     * `acknowledged_at` says a named clinician took it on. Only the second stops
+     * `wellcare:results:escalate` re-raising it.
+     */
+    public function acknowledge(int $id): RedirectResponse
+    {
+        $notification = AppointmentNotification::where('user_id', Auth::id())
+            ->findOrFail($id);
+
+        abort_unless($notification->requiresAcknowledgement(), 422);
+
+        $notification->acknowledge(Auth::user());
+
+        return back()->with('success', 'Critical result acknowledged.');
     }
 
     public function destroy(int $id): RedirectResponse

@@ -39,17 +39,33 @@ interface PageProps {
         doctor: string | null;
     };
     reason: ClosedReason;
+    /**
+     * Only ever present on the `unpaid` branch. "You have not paid" with no
+     * figure and no reference to quote at the counter is a dead end.
+     */
+    payment: {
+        reference: string;
+        amountDue: number;
+        status: string;
+        dueAt: string | null;
+    } | null;
     [key: string]: unknown;
 }
 
 export default function PatientConsultationClosed(): ReactElement {
-    const { appointment, reason } = usePage<PageProps>().props;
+    const { appointment, reason, payment } = usePage<PageProps>().props;
     const copy = consultationRoomMeta.closedReasons[reason];
 
     // Only while the room could still come back. A finalized note is terminal —
     // polling it would be a request every eight seconds, forever, for an answer
-    // that can never change.
-    usePoll(POLL_MS, {}, { autoStart: reason !== 'finalized' });
+    // that can never change. An unpaid visit is equally static from here: it
+    // waits on the patient paying and a person checking, neither of which
+    // happens in the next eight seconds.
+    usePoll(
+        POLL_MS,
+        {},
+        { autoStart: reason !== 'finalized' && reason !== 'unpaid' },
+    );
 
     return (
         <PatientDashboardLayout activeId="consultations">
@@ -64,15 +80,21 @@ export default function PatientConsultationClosed(): ReactElement {
                     textAlign: 'center',
                 }}
             >
-                <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
+                <h1
+                    style={{
+                        fontSize: 'var(--text-lg)',
+                        fontWeight: 700,
+                        margin: 0,
+                    }}
+                >
                     {copy.title}
                 </h1>
 
                 <p
                     style={{
                         margin: 'var(--space-3) 0 0',
-                        fontSize: 14,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                         lineHeight: 1.6,
                     }}
                 >
@@ -82,14 +104,34 @@ export default function PatientConsultationClosed(): ReactElement {
                 <p
                     style={{
                         margin: 'var(--space-4) 0 0',
-                        fontSize: 13,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {appointment.service} · {appointment.date}{' '}
                     {appointment.time}
                     {appointment.doctor ? ` · ${appointment.doctor}` : ''}
                 </p>
+
+                {payment && (
+                    <p
+                        style={{
+                            margin: 'var(--space-3) 0 0',
+                            fontSize: 'var(--text-sm)',
+                            fontWeight: 600,
+                            fontVariantNumeric: 'tabular-nums',
+                            color: 'var(--wc-text-primary)',
+                        }}
+                    >
+                        ₱
+                        {payment.amountDue.toLocaleString('en-PH', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        })}{' '}
+                        · {payment.reference}
+                        {payment.dueAt ? ` · pay before ${payment.dueAt}` : ''}
+                    </p>
+                )}
 
                 <div
                     style={{
@@ -106,6 +148,18 @@ export default function PatientConsultationClosed(): ReactElement {
                     >
                         {consultationRoomMeta.closedBackToList}
                     </Link>
+
+                    {/* The page that can actually settle it. Same rule as
+                        the records link below: only offered when there is
+                        something to do there. */}
+                    {reason === 'unpaid' && (
+                        <Link
+                            href="/user/payments"
+                            className="wc-btn wc-btn-md wc-btn-pill"
+                        >
+                            Go to Payments
+                        </Link>
+                    )}
 
                     {/* Only once there is something to read. Before the note is
                         signed the records page has nothing for this visit, and

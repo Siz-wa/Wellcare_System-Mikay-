@@ -16,17 +16,17 @@ interface PatientListProps {
 const CELL: React.CSSProperties = {
     padding: 'var(--space-4) var(--space-3)',
     fontSize: 'var(--text-sm)',
-    color: 'var(--wc-gray-700)',
+    color: 'var(--wc-text-secondary)',
     verticalAlign: 'middle',
 };
 
 const HEAD: React.CSSProperties = {
     padding: 'var(--space-3)',
     textAlign: 'left',
-    fontSize: '10px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     letterSpacing: '0.12em',
-    color: 'var(--wc-gray-500)',
+    color: 'var(--wc-text-muted)',
     textTransform: 'uppercase',
     whiteSpace: 'nowrap',
 };
@@ -61,8 +61,8 @@ export function PatientList({
                         margin: 0,
                         fontSize: 'var(--text-base)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.listCardTitle}
@@ -70,7 +70,7 @@ export function PatientList({
                 <span
                     style={{
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {patients.total} {meta.recordsSuffix}
@@ -84,7 +84,7 @@ export function PatientList({
                         padding: 'var(--space-8) var(--space-5)',
                         textAlign: 'center',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.empty}
@@ -161,7 +161,7 @@ export function PatientList({
                                                     justifyContent: 'center',
                                                     background: '#eff6ff',
                                                     color: 'var(--wc-blue-600)',
-                                                    fontSize: '11px',
+                                                    fontSize: 'var(--text-xs)',
                                                     fontWeight: 700,
                                                 }}
                                             >
@@ -174,7 +174,7 @@ export function PatientList({
                                                         alignItems: 'center',
                                                         gap: 6,
                                                         fontWeight: 600,
-                                                        color: 'var(--wc-dark)',
+                                                        color: 'var(--wc-text-primary)',
                                                     }}
                                                 >
                                                     {patient.name}
@@ -193,8 +193,9 @@ export function PatientList({
                                                     <span
                                                         style={{
                                                             display: 'block',
-                                                            fontSize: '11px',
-                                                            color: 'var(--wc-gray-500)',
+                                                            fontSize:
+                                                                'var(--text-xs)',
+                                                            color: 'var(--wc-text-muted)',
                                                         }}
                                                     >
                                                         {patient.email}
@@ -207,7 +208,7 @@ export function PatientList({
                                         style={{
                                             ...CELL,
                                             fontFamily: 'monospace',
-                                            fontSize: '12px',
+                                            fontSize: 'var(--text-xs)',
                                         }}
                                     >
                                         {patient.patientId}
@@ -223,7 +224,7 @@ export function PatientList({
                                             whiteSpace: 'nowrap',
                                         }}
                                     >
-                                        {patient.lastUpdate}
+                                        {patient.lastUpdate ?? '—'}
                                     </td>
                                 </tr>
                             ))}

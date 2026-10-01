@@ -6,6 +6,8 @@ import LoginFormPanel from '@/pages/auth/login/sections/login-inform-panel';
 // ─── Props ────────────────────────────────────────────────────────────────────
 type Props = {
     status?: string;
+    /** Why the app ended a session: an idle timeout, or a deactivation. */
+    notice?: string | null;
     canResetPassword: boolean;
     canRegister: boolean;
 };
@@ -13,6 +15,7 @@ type Props = {
 // ─── Composer ─────────────────────────────────────────────────────────────────
 export default function Login({
     status,
+    notice,
     canResetPassword,
     canRegister,
 }: Props) {
@@ -23,6 +26,7 @@ export default function Login({
                 <LoginBrandPanel />
                 <LoginFormPanel
                     status={status}
+                    notice={notice}
                     canResetPassword={canResetPassword}
                     canRegister={canRegister}
                 />

@@ -10,7 +10,13 @@ import type { ReactElement } from 'react';
 import { DashboardLayout } from '@/pages/doctor/layout/dashboard-layout';
 import type { PageProps } from '@/types';
 import { availabilityMeta } from './availability-data';
-import type { TimeOffEntry, WeeklyBlock } from './availability-data';
+import type {
+    CredentialState,
+    ScheduleApproval,
+    TimeOffEntry,
+    WeeklyBlock,
+} from './availability-data';
+import { ScheduleStatus } from './sections/schedule-status';
 import { TimeOff } from './sections/time-off';
 import { WeeklyHours } from './sections/weekly-hours';
 
@@ -18,12 +24,16 @@ interface PageData extends PageProps {
     weekly: WeeklyBlock[];
     timeOff: TimeOffEntry[];
     dailyCap: number;
+    approval: ScheduleApproval;
+    credential: CredentialState | null;
 }
 
 export default function AvailabilityPage({
     weekly,
     timeOff,
     dailyCap,
+    approval,
+    credential,
 }: PageData): ReactElement {
     const meta = availabilityMeta;
 
@@ -37,8 +47,8 @@ export default function AvailabilityPage({
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.pageTitle}
@@ -47,12 +57,15 @@ export default function AvailabilityPage({
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.pageSubtitle}
                 </p>
             </div>
+
+            {/* Why nothing may be bookable — read this before the editor. */}
+            <ScheduleStatus approval={approval} credential={credential} />
 
             {/* Remount the editor whenever the server sends a new schedule, so
                 its local drafts never drift from what was actually saved. */}

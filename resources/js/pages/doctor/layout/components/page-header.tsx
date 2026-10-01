@@ -41,7 +41,7 @@ function BackChevron({ href }: { href: string }): ReactElement {
                 display: 'inline-flex',
                 alignItems: 'center',
                 marginBottom: 'var(--space-3)',
-                color: 'var(--wc-gray-400)',
+                color: 'var(--wc-text-muted)',
                 textDecoration: 'none',
                 width: 'fit-content',
                 transition: `color var(--duration-base) var(--ease-out)`,
@@ -74,15 +74,10 @@ export function PageHeader({
     cta,
 }: PageHeaderProps): ReactElement {
     return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 'var(--space-4)',
-                marginBottom: 'var(--space-8)',
-            }}
-        >
+        // Stacks on a phone. The CTA is a pill button and the title runs up to
+        // 36px, so side by side the title took the squeeze and wrapped to three
+        // lines. Every doctor page that uses this header inherits the fix.
+        <div className="mb-8 flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
             {/* Left: back + title + subtitle */}
             <div>
                 {backHref && <BackChevron href={backHref} />}
@@ -94,8 +89,8 @@ export function PageHeader({
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {title}
@@ -106,7 +101,7 @@ export function PageHeader({
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {subtitle}
@@ -115,20 +110,20 @@ export function PageHeader({
             </div>
 
             {/* Right: CTA */}
+            {/* Full width on its own row below `sm`, auto beside the title
+                above it. */}
             {cta &&
                 (cta.href ? (
                     <Link
                         href={cta.href}
-                        className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
-                        style={{ flexShrink: 0 }}
+                        className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill w-full shrink-0 justify-center sm:w-auto"
                     >
                         {cta.label}
                     </Link>
                 ) : (
                     <button
                         type="button"
-                        className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
-                        style={{ flexShrink: 0 }}
+                        className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill w-full shrink-0 justify-center sm:w-auto"
                         onClick={cta.onClick}
                     >
                         {cta.label}

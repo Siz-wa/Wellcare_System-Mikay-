@@ -73,7 +73,23 @@ export const navGroups: NavGroup[] = [
         ],
     },
     {
-        groupLabel: 'Generals',
+        // Settings is reachable from the account menu in the topbar too, but a
+        // sidebar entry is what people actually look for — and until this
+        // existed, no role's sidebar linked to it at all.
+        groupLabel: 'ACCOUNT',
+        items: [
+            {
+                id: 'settings',
+                label: 'Settings',
+                href: '/settings/profile',
+                iconKey: 'settings',
+            },
+        ],
+    },
+    {
+        // The public marketing pages, kept last and under their own
+        // heading so they do not compete with the role's actual tasks.
+        groupLabel: 'WELLCARE SITE',
         items: [
             { id: 'home', label: 'Home Page', href: '/', iconKey: 'records' },
             {

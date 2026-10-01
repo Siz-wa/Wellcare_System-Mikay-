@@ -4,6 +4,7 @@
 
 import { router } from '@inertiajs/react';
 import type { ChangeEvent, ReactElement } from 'react';
+import { DateField } from '@/design-system';
 import { NurseDashboardLayout } from '@/pages/nurse/layout/nurse-dashboard-layout';
 import type { PageProps } from '@/types';
 import type {
@@ -59,9 +60,8 @@ export default function NurseAppointmentsPage({
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
                             lineHeight: 1.15,
-                            color: 'var(--wc-dark)',
-                            fontFamily:
-                                "var(--font-display,'Bricolage Grotesque')",
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {meta.pageTitle}
@@ -70,19 +70,19 @@ export default function NurseAppointmentsPage({
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {meta.dateLabel}{' '}
-                        <strong style={{ color: 'var(--wc-gray-700)' }}>
+                        <strong style={{ color: 'var(--wc-text-secondary)' }}>
                             {dateLabel}
                         </strong>
                         {isToday ? ` · ${meta.todayLabel}` : ''}
                     </p>
                 </div>
 
-                <input
-                    type="date"
+                <DateField
+                    kind="date"
                     value={date}
                     onChange={handleDateChange}
                     aria-label={meta.dateLabel}
@@ -93,7 +93,7 @@ export default function NurseAppointmentsPage({
                         background: 'var(--wc-white)',
                         fontSize: 'var(--text-sm)',
                         fontFamily: 'var(--font-sans)',
-                        color: 'var(--wc-gray-700)',
+                        color: 'var(--wc-text-secondary)',
                     }}
                 />
             </div>

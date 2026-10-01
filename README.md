@@ -21,14 +21,31 @@ The project is built using a modern full-stack architecture to ensure scalabilit
 
 ## System Architecture
 By utilizing Inertia.js, this capstone project eliminates the complexity of building a separate API. It allows for the rapid development of a single-page application (SPA) while maintaining the robust security features of the Laravel ecosystem.
-Installation & Setup
 
-   1. Clone the repository: git clone https://github.com/Siz-wa/Wellcare_System-Mikay-.git
-   2. Install PHP dependencies: composer install
-   3. Install JS dependencies: npm install
-   4. Configure Environment: Copy .env.example to .env and set your database credentials.
-   5. Run Migrations: php artisan migrate
-   6. Start Development: php artisan serve and npm run dev
+## Installation & Setup (Windows laptop)
+
+Needs: **XAMPP 8.2+** (for PHP and MySQL), **Node.js LTS**, **Git**. Composer is optional; the setup script downloads it if missing.
+
+```
+git clone https://github.com/Siz-wa/Wellcare_System-Mikay-.git
+cd Wellcare_System-Mikay-
+.\wellcare.cmd setup
+.\wellcare.cmd start
+```
+
+`setup` installs the PHP and JS packages, creates `.env` (MySQL `wellcare_db`, user `root`), starts XAMPP MySQL if it is not running, creates the database, seeds the clean demo record and builds the interface. It is the only step that needs internet. Re-run it after every `git pull`. It never wipes a database that already has accounts.
+
+| Command | What it does |
+| --- | --- |
+| `.\wellcare.cmd start` | Asks **Online or Offline** (shows the current mode; Enter keeps it), then runs the system at http://127.0.0.1:8000 (server, queue, Reverb, scheduler). `-Online` / `-Offline` skip the question |
+| `.\wellcare.cmd reset` | Wipes the database and reseeds the clean demo record (dates move to today) |
+| `.\wellcare.cmd offline` | Makes the system work with **no internet**: local fonts and map card, mail to log, no STUN, Reverb on this machine |
+| `.\wellcare.cmd online` | Undoes `offline` (restores the previous `.env`) |
+| `.\wellcare.cmd status` | Shows the settings and what is running |
+
+Every demo password is `password123`. `reset` prints the accounts to use: patients `juan.dela.cruz@gmail.com` (video consult ready today), `maria.santos@gmail.com` and `pedro.reyes@gmail.com`; doctor `dr.reyes@wellcare.com`; `hr.garcia@wellcare.com`; `nurse.delacruz@wellcare.com`; `admin@wellcare.com`.
+
+Offline video consultations work between two browser windows on the same laptop (for example the doctor in Chrome and the patient in Edge).
 
 ## Capstone Team:
    1. Aliyah Mikayla Danao

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Doctor;
 
+use App\Concerns\LogsRecordAccess;
 use App\Concerns\ReadsPatientRecords;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use App\Models\PatientAllergy;
 use App\Models\PatientDiagnosis;
 use App\Models\PatientDocument;
+use App\Services\PatientDocumentStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +20,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PatientRecordController extends Controller
 {
+    /** SC-3 — every read of a chart is recorded. */
+    use LogsRecordAccess;
+
+    public function __construct(private readonly PatientDocumentStorage $documents) {}
+
     /**
      * The read half is shared with Nurse\PatientRecordController. The write
      * methods below are not — diagnosis authoring is the doctor's alone.
@@ -28,9 +35,17 @@ class PatientRecordController extends Controller
 
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', Patient::class);
+
         $patients = $this->patientRecordQuery($request)
             ->paginate(20)
             ->through(fn (Patient $p) => $this->mapPatientSummary($p));
+
+        // Logged without a patient_id: this is the clinic-wide roster, not one
+        // person's record. It is here so that bulk enumeration — one account
+        // paging the whole patient list — leaves a trace, which is the signal
+        // SC-8's threshold alerting reads.
+        $this->logRecordAccess('searched');
 
         return Inertia::render('doctor/patient-records/patient-records', [
             'patients' => $patients,
@@ -48,8 +63,12 @@ class PatientRecordController extends Controller
         // Always try patient_id first (correct path for all new records); the
         // concern fills the relation from the legacy user_id shape only if it
         // comes back empty.
+        $this->authorize('view', $patient);
+
         $patient->load(['allergies', 'diagnoses', 'documents']);
         $this->applyLegacyRecordFallback($patient);
+
+        $this->logRecordAccess('viewed', $patient, $patient);
 
         return Inertia::render('doctor/patient-records/patient-record-detail', [
             'patient' => $this->mapPatientSummary($patient),
@@ -66,6 +85,8 @@ class PatientRecordController extends Controller
 
     public function storeAllergy(Request $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('recordObservation', $patient);
+
         $request->validate([
             'allergen' => ['required', 'string', 'max:255'],
             'severity' => ['required', 'in:mild,moderate,severe'],
@@ -95,6 +116,8 @@ class PatientRecordController extends Controller
 
     public function destroyAllergy(PatientAllergy $allergy): RedirectResponse
     {
+        $this->authorize('delete', $allergy);
+
         $allergy->delete();
 
         return back()->with('success', 'Allergy record removed.');
@@ -104,6 +127,8 @@ class PatientRecordController extends Controller
 
     public function storeDiagnosis(Request $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('recordDiagnosis', $patient);
+
         $request->validate([
             'diagnosis' => ['required', 'string', 'max:255'],
             'icd_code' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/i'],
@@ -145,6 +170,8 @@ class PatientRecordController extends Controller
 
     public function updateDiagnosis(Request $request, PatientDiagnosis $diagnosis): RedirectResponse
     {
+        $this->authorize('update', $diagnosis);
+
         $request->validate(['status' => ['required', 'in:active,resolved,chronic']]);
         $diagnosis->update(['status' => $request->string('status')->toString()]);
 
@@ -153,6 +180,8 @@ class PatientRecordController extends Controller
 
     public function destroyDiagnosis(PatientDiagnosis $diagnosis): RedirectResponse
     {
+        $this->authorize('delete', $diagnosis);
+
         $diagnosis->delete();
 
         return back()->with('success', 'Diagnosis removed.');
@@ -162,6 +191,8 @@ class PatientRecordController extends Controller
 
     public function uploadDocument(Request $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('recordObservation', $patient);
+
         $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'type' => ['required', 'in:lab,imaging,referral,prescription,report,other'],
@@ -180,7 +211,12 @@ class PatientRecordController extends Controller
         ]);
 
         $file = $request->file('file');
-        $path = $file->store("patient-documents/{$patient->id}", 'local');
+
+        // SC-6 — encrypted on disk. Never `$file->store(...)` directly here: a
+        // plaintext file beside an `is_encrypted = true` row downloads as a
+        // corrupt scan, and the failure would surface to a clinician rather
+        // than to whoever wrote the line.
+        $path = $this->documents->store($file, $patient->id);
 
         PatientDocument::create([
             'patient_id' => $patient->id,
@@ -193,6 +229,7 @@ class PatientRecordController extends Controller
             'file_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
+            'is_encrypted' => true,
         ]);
 
         return back()->with('success', 'Document uploaded.');
@@ -200,14 +237,27 @@ class PatientRecordController extends Controller
 
     public function downloadDocument(PatientDocument $document): StreamedResponse
     {
-        abort_unless(Storage::disk('local')->exists($document->file_path), 404);
+        $this->authorize('view', $document);
 
-        return Storage::disk('local')->download($document->file_path, $document->file_name);
+        $this->logRecordAccess('downloaded', $document->patient_id, $document);
+
+        // Honours the per-document `is_encrypted` flag, so files predating
+        // SC-6 still serve correctly while the backfill command works through
+        // them. See PatientDocumentStorage.
+        return $this->documents->download($document) ?? abort(404);
     }
 
     public function destroyDocument(PatientDocument $document): RedirectResponse
     {
-        Storage::disk('local')->delete($document->file_path);
+        $this->authorize('delete', $document);
+
+        // The row is soft-deleted (SC-1a) but the FILE is still removed from
+        // disk. That asymmetry is deliberate: keeping the metadata makes the
+        // removal auditable and reversible as a record, while an orphaned blob
+        // of imaging left on disk is storage nobody is accounting for. If the
+        // retention period (ND-6) turns out to cover attachments themselves,
+        // this is the line that changes.
+        $this->documents->delete($document);
         $document->delete();
 
         return back()->with('success', 'Document removed.');

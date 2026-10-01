@@ -21,7 +21,12 @@ export function ActivityRow({ entry }: ActivityRowProps): ReactElement {
             <AdminTableCell nowrap>
                 <div style={{ fontWeight: 600 }}>{entry.causer}</div>
                 {entry.causerRole && (
-                    <div style={{ fontSize: 11, color: 'var(--wc-gray-500)' }}>
+                    <div
+                        style={{
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
+                        }}
+                    >
                         {entry.causerRole}
                     </div>
                 )}
@@ -48,7 +53,7 @@ export function ActivityRow({ entry }: ActivityRowProps): ReactElement {
 
             <AdminTableCell>
                 {entry.changes.length === 0 ? (
-                    <span style={{ color: 'var(--wc-gray-500)' }}>
+                    <span style={{ color: 'var(--wc-text-muted)' }}>
                         {activityLogCopy.noChanges}
                     </span>
                 ) : (
@@ -66,7 +71,7 @@ export function ActivityRow({ entry }: ActivityRowProps): ReactElement {
                             <li
                                 key={change.field}
                                 style={{
-                                    fontSize: 12,
+                                    fontSize: 'var(--text-xs)',
                                     color: 'var(--wc-gray-600, #475569)',
                                 }}
                             >
@@ -88,7 +93,12 @@ export function ActivityRow({ entry }: ActivityRowProps): ReactElement {
 
             <AdminTableCell nowrap>
                 <div>{entry.ago ?? '—'}</div>
-                <div style={{ fontSize: 11, color: 'var(--wc-gray-500)' }}>
+                <div
+                    style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
+                    }}
+                >
                     {entry.at ?? ''}
                 </div>
             </AdminTableCell>

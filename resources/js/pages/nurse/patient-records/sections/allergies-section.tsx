@@ -186,14 +186,14 @@ export function AllergiesSection({
                                         margin: 0,
                                         fontSize: 'var(--text-sm)',
                                         fontWeight: 600,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {allergy.allergen}
                                     <span
                                         style={{
                                             marginLeft: 8,
-                                            fontSize: '11px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
                                             textTransform: 'uppercase',
                                             color:
@@ -210,7 +210,7 @@ export function AllergiesSection({
                                         style={{
                                             margin: '2px 0 0',
                                             fontSize: 'var(--text-xs)',
-                                            color: 'var(--wc-gray-500)',
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
                                         {[allergy.reaction, allergy.notes]

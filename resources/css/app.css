@@ -18,8 +18,94 @@
 
 /* ── Tailwind Theme Override with Wellcare Tokens ─────────── */
 @theme {
-    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-    --font-display: 'Bricolage Grotesque', sans-serif;
+    /* ── TYPE FAMILIES ───────────────────────────────────────────────────────
+       One family for the whole product. The previous system ran Bricolage
+       Grotesque + DM Sans from Google plus an unused Instrument Sans from
+       fonts.bunny.net, and `--font-mono` was referenced but never defined, so
+       recovery codes and 2FA secrets fell back to whatever the browser chose.
+
+       Atkinson Hyperlegible Next replaces all of it. Hierarchy is carried by
+       size, weight and tracking rather than by a second typeface, which is what
+       made the old system read as inconsistent. `--font-display` is kept as an
+       alias so the ~80 components already referencing it need no edit; point it
+       at another family here if the brand face ever comes back. */
+    --font-sans:
+        'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', ui-sans-serif,
+        system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-display: var(--font-sans);
+    --font-mono:
+        'Atkinson Hyperlegible Mono', ui-monospace, 'Cascadia Mono',
+        'Segoe UI Mono', Consolas, monospace;
+
+    /* ── TYPE SCALE ──────────────────────────────────────────────────────────
+       Single source of truth: drives both the Tailwind `text-*` utilities and
+       every `var(--text-*)` in components.css.
+
+       Sized for a clinic workstation read at arm's length, and floored at 14px
+       — nothing in the product is allowed to be smaller. The old scale started
+       at 12px and components.css freely dropped to 10px, which is roughly half
+       the angular size a reader with 20/200 acuity needs. `--text-xs` is the
+       floor, so the ~180 existing `text-xs` usages land on it automatically.
+
+       Every value is rem, so the scale multiplies with both the browser's own
+       font-size setting and the in-app Text size control.
+
+       Line heights pair via Tailwind's `--text-*--line-height` convention. Body
+       sizes sit at >= 1.5 so the layout already satisfies the WCAG 1.4.12
+       text-spacing override rather than breaking under it. */
+    --text-xs: 0.875rem; /* 14px — floor: badges, micro-labels   */
+    --text-xs--line-height: 1.5;
+    --text-sm: 0.9375rem; /* 15px — dense UI, table cells, meta   */
+    --text-sm--line-height: 1.55;
+    --text-base: 1.0625rem; /* 17px — body copy                     */
+    --text-base--line-height: 1.6;
+    --text-lg: 1.1875rem; /* 19px — lead paragraphs, card titles  */
+    --text-lg--line-height: 1.55;
+    --text-xl: 1.375rem; /* 22px — h5 / section titles           */
+    --text-xl--line-height: 1.4;
+    --text-2xl: 1.625rem; /* 26px — h4                            */
+    --text-2xl--line-height: 1.3;
+    /* ── Display sizes are FLUID ─────────────────────────────────────────────
+       From `3xl` up, each size interpolates between a phone value and the
+       desktop value above. These were fixed, and `h1` at a flat 49px meant the
+       global heading rule put about four words on a line of a 390px handset —
+       on the booking page, the records page, and every marketing page.
+
+       The pattern is `clamp(min-rem, base-rem + vw, max-rem)`. Both bounds are
+       in rem deliberately: `vw` alone does not respond to the reader's browser
+       font size or to this app's own Text size control, so a viewport-only
+       heading would refuse to grow for the person who most needs it and would
+       fail WCAG 1.4.4. With rem bounds the control still multiplies the whole
+       range — a reader at 150% gets the full desktop size on a phone.
+
+       Body sizes below are left fixed. They are floored at 14px for legibility
+       and there is no width at which shrinking them is an improvement. */
+    --text-3xl: clamp(1.75rem, 1.5rem + 1.2vw, 2rem); /* 28 → 32px — h3      */
+    --text-3xl--line-height: 1.25;
+    --text-4xl: clamp(2rem, 1.6rem + 2vw, 2.5rem); /* 32 → 40px — h2         */
+    --text-4xl--line-height: 1.2;
+    --text-5xl: clamp(2.25rem, 1.6rem + 3.2vw, 3.0625rem); /* 36 → 49px — h1 */
+    --text-5xl--line-height: 1.15;
+    --text-6xl: clamp(2.5rem, 1.7rem + 4vw, 3.8125rem); /* 40 → 61px         */
+    --text-6xl--line-height: 1.1;
+    --text-7xl: clamp(2.75rem, 1.6rem + 5.75vw, 4.75rem); /* 44 → 76px       */
+    --text-7xl--line-height: 1.05;
+
+    /* Tailwind's `tracking-*` utilities, aligned with the tokens.css values. */
+    --tracking-tighter: -0.016em;
+    --tracking-tight: -0.008em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.02em;
+    --tracking-wider: 0.06em;
+    --tracking-widest: 0.1em;
+
+    /* Tailwind's `leading-*` utilities. */
+    --leading-none: 1;
+    --leading-tight: 1.2;
+    --leading-snug: 1.35;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.65;
+    --leading-loose: 1.8;
 
     --color-brand-primary: #0056b3;
     --color-brand-secondary: #00a8e8;
@@ -37,6 +123,40 @@
     --color-wc-sky-500: #00a8e8;
     --color-wc-sky-600: #0284c7;
 
+    /* ── NEUTRALS + SEMANTICS as utilities ──────────────────────────────────
+       Mirrors the `--wc-*` ramp in tokens.css so that `border-wc-gray-200`,
+       `bg-wc-gray-50` and `bg-wc-success-light` exist as real Tailwind
+       utilities.
+
+       This is what makes the responsive refactor possible at all. A layout
+       written as an inline `style={{}}` object cannot hold a media query, so
+       every `@media` in this product had to be either a hand-rolled JS
+       breakpoint or nothing — and it was nothing. Converting those objects to
+       utilities only works if the utilities cover the palette the objects were
+       already using, otherwise each conversion silently re-colors the element.
+
+       Text still belongs on the `ink-*` roles below: this ramp bottoms out well
+       under 4.5:1 and is for borders, icons and fills. */
+    --color-wc-gray-50: #f8f9fa;
+    --color-wc-gray-100: #f1f5f9;
+    --color-wc-gray-200: #e2e8f0;
+    --color-wc-gray-300: #cbd5e1;
+    --color-wc-gray-400: #94a3b8;
+    --color-wc-gray-500: #64748b;
+    --color-wc-gray-600: #475569;
+    --color-wc-gray-700: #334155;
+    --color-wc-gray-800: #1e293b;
+    --color-wc-gray-900: #0f172a;
+
+    --color-wc-success-light: #dcfce7;
+    --color-wc-success: #16a34a;
+    --color-wc-warning-light: #fef9c3;
+    --color-wc-warning: #ca8a04;
+    --color-wc-error-light: #fee2e2;
+    --color-wc-error: #dc2626;
+    --color-wc-info-light: #dbeafe;
+    --color-wc-info: #2563eb;
+
     /* ── shadcn semantic tokens ────────────────────────────────────────────
        components/ui/* is stock shadcn and styles itself with `bg-background`,
        `text-muted-foreground`, `border-border` and friends. Those were never
@@ -53,14 +173,37 @@
     --color-popover: #ffffff;
     --color-popover-foreground: #0f172a;
     --color-muted: #f1f5f9;
-    --color-muted-foreground: #64748b;
+    /* Was #64748b — 4.36:1 on the app background, which fails AA for the
+       body-sized text shadcn puts it on. */
+    --color-muted-foreground: #475569;
     --color-accent: #eff6ff;
     --color-accent-foreground: #004494;
     --color-border: #e2e8f0;
-    --color-input: #e2e8f0;
-    --color-ring: #00a8e8;
-    --color-destructive: #dc2626;
+    --color-input: #cbd5e1;
+    --color-ring: #0056b3;
+    --color-destructive: #991b1b;
     --color-destructive-foreground: #ffffff;
+}
+
+/* ── Semantic TEXT colors as utilities ──────────────────────────────────────
+   `text-ink`, `text-ink-secondary`, `text-ink-muted`, `text-ink-success`… Reach
+   for these instead of `text-gray-400` / `text-slate-500` for any real text:
+   the raw ramps bottom out well under 4.5:1, whereas every value here is >= 7:1
+   on white.
+
+   `@theme inline` is what makes them follow the High contrast toggle — the
+   utility resolves `var(--wc-text-*)` at the element, so re-pointing those on
+   <html data-contrast="high"> re-colors the whole app with no extra classes. */
+@theme inline {
+    --color-ink: var(--wc-text-primary);
+    --color-ink-secondary: var(--wc-text-secondary);
+    --color-ink-muted: var(--wc-text-muted);
+    --color-ink-inverse: var(--wc-text-inverse);
+    --color-ink-success: var(--wc-text-success);
+    --color-ink-warning: var(--wc-text-warning);
+    --color-ink-error: var(--wc-text-error);
+    --color-ink-info: var(--wc-text-info);
+    --color-ink-link: var(--wc-link);
 }
 
 #nprogress .bar {

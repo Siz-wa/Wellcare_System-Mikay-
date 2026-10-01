@@ -3,6 +3,8 @@
 // All copy, labels and empty states for the patient-facing medical record.
 // Nothing in this feature hardcodes text in JSX.
 
+import type { VitalsSource } from '@/lib/vitals';
+
 export type AllergySeverity = 'mild' | 'moderate' | 'severe';
 export type DiagnosisStatus = 'active' | 'resolved' | 'chronic';
 export type DocumentType =
@@ -76,6 +78,9 @@ export interface Vitals {
     oxygenSaturation: string | null;
     weight: string | null;
     height: string | null;
+    source: VitalsSource | null;
+    /** Null only for rows written before provenance was recorded. */
+    sourceLabel: string | null;
 }
 
 export interface Prescription {
@@ -97,6 +102,27 @@ export interface Visit {
 
 // ── Copy ──────────────────────────────────────────────────────────────────────
 
+/**
+ * One recorded access to this record by clinic staff.
+ *
+ * Roles, never names: the patient is owed "a nurse opened your chart on
+ * 3 March", and naming individual staff to patients creates a problem of its
+ * own. See PatientRecordController::staffAccessLog().
+ */
+export interface AccessLogEntry {
+    id: number;
+    role: string;
+    action: 'viewed' | 'downloaded' | 'exported' | 'searched';
+    at: string | null;
+}
+
+export const accessActionLabels: Record<AccessLogEntry['action'], string> = {
+    viewed: 'Opened your record',
+    downloaded: 'Downloaded a document',
+    exported: 'Exported record data',
+    searched: 'Searched the patient list',
+};
+
 export const recordsMeta = {
     indexTitle: 'My Medical Records',
     indexSubtitle:
@@ -117,6 +143,7 @@ export const recordsMeta = {
         diagnoses: 'Diagnosis history',
         documents: 'Documents',
         visits: 'Past consultations',
+        accessLog: 'Who has viewed this record',
     },
 
     empty: {
@@ -124,6 +151,8 @@ export const recordsMeta = {
         diagnoses: 'No diagnoses have been recorded yet.',
         documents: 'No documents have been uploaded to your record.',
         visits: 'You have no completed consultations yet.',
+        accessLog:
+            'No clinic staff have opened this record yet. Access by a doctor or nurse will appear here.',
     },
 
     labels: {

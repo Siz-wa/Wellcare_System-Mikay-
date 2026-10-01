@@ -366,6 +366,15 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
          */
         teardown: (() => void) | null;
         /**
+         * This browser tab's identity in the room. Presence is keyed by user,
+         * so a second tab for the same person is invisible to it; without a
+         * per-tab id both tabs answered the doctor's offer and the second one
+         * sat on a "connected" timer with no video.
+         */
+        tabId: string;
+        /** The other party's tab this one is talking to. */
+        peerTab: string | null;
+        /**
          * The signalling sender, published for the same reason.
          *
          * `toggleMic` and `toggleCamera` live outside the setup effect — they
@@ -392,12 +401,23 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
         departureAnnounced: false,
         teardown: null,
         send: null,
+        // Assigned in the effect: generating it here would run during render.
+        tabId: '',
+        peerTab: null,
     });
 
     useEffect(() => {
         const bag = rtc.current;
         bag.disposed = false;
         bag.restarts = 0;
+
+        if (!bag.tabId) {
+            bag.tabId =
+                typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                    ? crypto.randomUUID()
+                    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
+
         bag.lastOfferAt = 0;
         bag.callStartedAt = 0;
         bag.joinPosted = false;
@@ -490,7 +510,14 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
             // consultation because a mute badge did not send would be absurd.
             post(
                 'signal',
-                { type, payload },
+                {
+                    type,
+                    payload: {
+                        ...payload,
+                        tab: bag.tabId,
+                        ...(bag.peerTab ? { to: bag.peerTab } : {}),
+                    },
+                },
                 type !== 'ice-candidate' && type !== 'state',
             );
 
@@ -863,10 +890,19 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
                 // page refresh is not a gesture, so after one the element is
                 // simply never started — silently, with no console error and no
                 // UI. The doctor sees a dark rectangle that looks intentional.
-                void remoteVideoRef.current
+                const remote = remoteVideoRef.current;
+
+                void remote
                     ?.play()
                     .then(() => setNeedsAudioGesture(false))
-                    .catch(() => setNeedsAudioGesture(true));
+                    .catch(() => {
+                        // Muted autoplay is always allowed. Show the picture
+                        // now and ask for a tap only for the sound, instead of
+                        // leaving the doctor looking at a black box.
+                        remote.muted = true;
+                        void remote.play().catch(() => undefined);
+                        setNeedsAudioGesture(true);
+                    });
             };
 
             pc.onicecandidate = (e) => {
@@ -1048,6 +1084,47 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
                 bag.disposed
             ) {
                 return;
+            }
+
+            const fromTab =
+                typeof message.payload.tab === 'string'
+                    ? message.payload.tab
+                    : null;
+            const toTab =
+                typeof message.payload.to === 'string'
+                    ? message.payload.to
+                    : null;
+
+            // Addressed to another tab of this same person. An offer means the
+            // other party has moved to that tab: this one steps aside quietly
+            // (no `bye`, no `peer-left` — the call is continuing elsewhere).
+            if (toTab && toTab !== bag.tabId) {
+                if (message.type === 'offer' && bag.peerTab === fromTab) {
+                    bag.departureAnnounced = true;
+                    teardown();
+                    setError(
+                        'This consultation continued in another tab or on another device. You can close this page.',
+                    );
+                    advancePhase('ended');
+                }
+
+                return;
+            }
+
+            // A hello from a different tab of the other party than the one we
+            // are connected to: they rejoined elsewhere. The old connection
+            // belongs to a tab that is stepping aside, so start fresh.
+            if (
+                message.type === 'hello' &&
+                fromTab &&
+                bag.peerTab &&
+                bag.peerTab !== fromTab
+            ) {
+                handlePeerGone();
+            }
+
+            if (fromTab) {
+                bag.peerTab = fromTab;
             }
 
             const pc = bag.pc;
@@ -1591,7 +1668,14 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
 
     /** Called from a real click, which is what the autoplay policy wants. */
     const resumeAudio = () => {
-        void remoteVideoRef.current
+        const remote = remoteVideoRef.current;
+
+        // Unmute unless the user has chosen "Mute speaker" themselves.
+        if (remote && !speakerMuted) {
+            remote.muted = false;
+        }
+
+        void remote
             ?.play()
             .then(() => setNeedsAudioGesture(false))
             .catch(() => setNeedsAudioGesture(true));

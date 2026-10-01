@@ -61,7 +61,7 @@ export function DiagnosesSection({
                                             margin: 0,
                                             fontSize: 'var(--text-sm)',
                                             fontWeight: 600,
-                                            color: 'var(--wc-dark)',
+                                            color: 'var(--wc-text-primary)',
                                         }}
                                     >
                                         {diagnosis.diagnosis}
@@ -70,8 +70,8 @@ export function DiagnosesSection({
                                                 style={{
                                                     marginLeft: 8,
                                                     fontFamily: 'monospace',
-                                                    fontSize: '11px',
-                                                    color: 'var(--wc-gray-500)',
+                                                    fontSize: 'var(--text-xs)',
+                                                    color: 'var(--wc-text-muted)',
                                                 }}
                                             >
                                                 {diagnosis.icdCode}
@@ -82,7 +82,7 @@ export function DiagnosesSection({
                                         style={{
                                             margin: '2px 0 0',
                                             fontSize: 'var(--text-xs)',
-                                            color: 'var(--wc-gray-500)',
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
                                         {diagnosis.type} ·{' '}
@@ -96,7 +96,7 @@ export function DiagnosesSection({
                                     style={{
                                         padding: '3px 10px',
                                         borderRadius: 999,
-                                        fontSize: '11px',
+                                        fontSize: 'var(--text-xs)',
                                         fontWeight: 700,
                                         whiteSpace: 'nowrap',
                                         background: tone.bg,

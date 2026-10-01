@@ -21,7 +21,7 @@ export function StatusPill({ status }: StatusPillProps): ReactElement {
                 alignItems: 'center',
                 padding: '3px 10px',
                 borderRadius: 999,
-                fontSize: '11px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 700,
                 letterSpacing: '0.02em',
                 whiteSpace: 'nowrap',

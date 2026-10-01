@@ -1,6 +1,7 @@
 // resources/js/pages/user/services/sections/ServicesGridSection.tsx
 import { Link } from '@inertiajs/react';
 import type { ReactElement } from 'react';
+import { useCanBook } from '@/hooks/use-can-book';
 import { useInView } from '@/hooks/useInView';
 import { servicesData } from './service-data';
 
@@ -131,6 +132,7 @@ const CheckIcon = () => (
 
 export default function ServicesGridSection() {
     const { ref, inView } = useInView();
+    const canBook = useCanBook();
 
     return (
         <section className="wc-section bg-[var(--wc-gray-50)]">
@@ -156,7 +158,7 @@ export default function ServicesGridSection() {
                     </h2>
                     <p
                         className="text-lg leading-relaxed"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         Six core service areas — each staffed by specialists and
                         backed by ISO-certified quality.
@@ -188,7 +190,7 @@ export default function ServicesGridSection() {
 
                                 <p
                                     className="mb-1 text-xs font-bold tracking-[var(--tracking-widest)] uppercase"
-                                    style={{ color: 'var(--wc-gray-400)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {s.tagline}
                                 </p>
@@ -197,7 +199,7 @@ export default function ServicesGridSection() {
 
                                 <p
                                     className="mb-5 text-sm leading-relaxed"
-                                    style={{ color: 'var(--wc-gray-500)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {s.desc}
                                 </p>
@@ -209,7 +211,7 @@ export default function ServicesGridSection() {
                                             key={f}
                                             className="flex items-center gap-2 text-sm"
                                             style={{
-                                                color: 'var(--wc-gray-600)',
+                                                color: 'var(--wc-text-secondary)',
                                             }}
                                         >
                                             <span
@@ -227,22 +229,29 @@ export default function ServicesGridSection() {
                                     ))}
                                 </ul>
 
-                                {/* CTA */}
-                                <Link
-                                    href={s.href}
-                                    className="mt-auto inline-flex items-center gap-2 text-sm font-bold no-underline transition-all duration-[var(--duration-fast)]"
-                                    style={{ color: 'var(--wc-blue-600)' }}
-                                    onMouseEnter={(e) =>
-                                        (e.currentTarget.style.color =
-                                            'var(--wc-sky-500)')
-                                    }
-                                    onMouseLeave={(e) =>
-                                        (e.currentTarget.style.color =
-                                            'var(--wc-blue-600)')
-                                    }
-                                >
-                                    Book this service <ArrowRight />
-                                </Link>
+                                {/* CTA. Most of these point at /book, which
+                                    is gated role:user — but a card whose
+                                    destination is public (24/7 emergency sends
+                                    people to the clinic, not to a wizard that
+                                    wants two hours' notice) opts out. */}
+                                {(s.requiresBooking === false || canBook) && (
+                                    <Link
+                                        href={s.href}
+                                        className="mt-auto inline-flex items-center gap-2 text-sm font-bold no-underline transition-all duration-[var(--duration-fast)]"
+                                        style={{ color: 'var(--wc-blue-600)' }}
+                                        onMouseEnter={(e) =>
+                                            (e.currentTarget.style.color =
+                                                'var(--wc-sky-500)')
+                                        }
+                                        onMouseLeave={(e) =>
+                                            (e.currentTarget.style.color =
+                                                'var(--wc-blue-600)')
+                                        }
+                                    >
+                                        {s.cta ?? 'Book this service'}{' '}
+                                        <ArrowRight />
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     ))}
