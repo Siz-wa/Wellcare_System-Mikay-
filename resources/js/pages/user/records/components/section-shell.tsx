@@ -61,9 +61,9 @@ export function SectionShell({
 
                 <h2
                     style={{
-                        fontSize: 15,
+                        fontSize: 'var(--text-base)',
                         fontWeight: 600,
-                        color: 'var(--wc-gray-900)',
+                        color: 'var(--wc-text-primary)',
                         margin: 0,
                     }}
                 >
@@ -73,9 +73,9 @@ export function SectionShell({
                 {typeof count === 'number' && count > 0 && (
                     <span
                         style={{
-                            fontSize: 12,
+                            fontSize: 'var(--text-xs)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             background: 'var(--wc-gray-100)',
                             borderRadius: 999,
                             padding: '2px 8px',
@@ -91,8 +91,8 @@ export function SectionShell({
                     <p
                         style={{
                             margin: 0,
-                            fontSize: 14,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {emptyText}

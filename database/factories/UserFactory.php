@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Http\Middleware\EnsureTwoFactorEnrolled;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -55,9 +56,39 @@ class UserFactory extends Factory
         });
     }
 
+    /**
+     * Attach a Spatie role — and, for staff roles, enrol the account in 2FA.
+     *
+     * X-01 made two-factor mandatory for doctor, nurse, hr and admin
+     * (EnsureTwoFactorEnrolled, registered globally), so an un-enrolled staff
+     * account is redirected to its security settings on every page. Without the
+     * enrolment here, every test that signs in as staff asserts 200 and gets a
+     * 302 — a failure that says nothing about the behaviour under test.
+     *
+     * It belongs in the factory rather than only in `userWithRole()` because
+     * tests reach for both: `SettingsAccessTest` calls
+     * `User::factory()->role('doctor')` directly, and a fix that only covered
+     * the helper left those failing.
+     *
+     * This is also the honest default. Once the middleware ships, every staff
+     * account in the clinic IS enrolled, so an enrolled account is what a
+     * representative staff user looks like. Tests that need the un-enrolled
+     * case build it explicitly — see StaffTwoFactorRequiredTest, the one place
+     * the absence of enrolment is the subject rather than a nuisance.
+     */
     public function role(string $role): static
     {
-        return $this->afterCreating(fn (User $user) => $user->syncRoles([$role]));
+        return $this->afterCreating(function (User $user) use ($role) {
+            $user->syncRoles([$role]);
+
+            // Kept in step with EnsureTwoFactorEnrolled::PROTECTED_ROLES — a
+            // staff role missing from that list here builds a user who is
+            // bounced to the enrolment screen on their first request, and the
+            // test fails somewhere unrelated to what it was asserting.
+            if (in_array($role, EnsureTwoFactorEnrolled::PROTECTED_ROLES, true)) {
+                $user->forceFill(['two_factor_confirmed_at' => now()])->save();
+            }
+        });
     }
 
     /** An account an admin has deactivated — cannot log in, cannot hold a session. */

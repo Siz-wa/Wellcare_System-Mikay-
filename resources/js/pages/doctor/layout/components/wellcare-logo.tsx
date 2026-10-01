@@ -61,8 +61,8 @@ export function WellcareLogo({ scale = 1 }: WellcareLogoProps): ReactElement {
                         fontSize: namePx,
                         fontWeight: 800,
                         letterSpacing: '-0.02em',
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                         lineHeight: 1.1,
                     }}
                 >
@@ -75,7 +75,7 @@ export function WellcareLogo({ scale = 1 }: WellcareLogoProps): ReactElement {
                         fontWeight: 800,
                         letterSpacing: '0.1em',
                         color: 'var(--wc-blue-600)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        fontFamily: 'var(--font-display)',
                         lineHeight: 1.1,
                     }}
                 >

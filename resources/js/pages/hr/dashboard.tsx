@@ -79,7 +79,7 @@ function StatCard({
                         margin: 0,
                         fontSize: 'var(--text-3xl)',
                         fontWeight: 800,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         letterSpacing: '-0.03em',
                         lineHeight: 1,
                         fontFamily: 'var(--font-display)',
@@ -92,7 +92,7 @@ function StatCard({
                         margin: '3px 0 0',
                         fontSize: 'var(--text-sm)',
                         fontWeight: 500,
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {label}
@@ -144,7 +144,7 @@ function PendingRow({ item }: { item: PendingItem }): ReactElement {
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {item.patient}
@@ -153,7 +153,7 @@ function PendingRow({ item }: { item: PendingItem }): ReactElement {
                     style={{
                         margin: '1px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.service} · {item.hmo ?? 'HMO'} · ID:{' '}
@@ -179,7 +179,7 @@ function PendingRow({ item }: { item: PendingItem }): ReactElement {
                     style={{
                         margin: '1px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {item.time}
@@ -193,7 +193,7 @@ function PendingRow({ item }: { item: PendingItem }): ReactElement {
                     borderRadius: '100px',
                     background: '#f5f3ff',
                     color: '#7c3aed',
-                    fontSize: '11px',
+                    fontSize: 'var(--text-xs)',
                     fontWeight: 700,
                     whiteSpace: 'nowrap',
                     border: '1px solid #ede9fe',
@@ -222,14 +222,9 @@ export default function HRDashboard(): ReactElement {
     return (
         <HRDashboardLayout activeId="dashboard">
             {/* Welcome */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 'var(--space-8)',
-                }}
-            >
+            {/* Title and its actions stack on a phone and sit side by side
+                from `sm`. */}
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h1
                         style={{
@@ -237,7 +232,7 @@ export default function HRDashboard(): ReactElement {
                             fontSize: 'var(--text-3xl)',
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                             fontFamily: 'var(--font-display)',
                         }}
                     >
@@ -250,7 +245,7 @@ export default function HRDashboard(): ReactElement {
                     <p
                         style={{
                             margin: 0,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             fontSize: 'var(--text-base)',
                         }}
                     >
@@ -266,14 +261,7 @@ export default function HRDashboard(): ReactElement {
             </div>
 
             {/* Stats */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: 'var(--space-4)',
-                    marginBottom: 'var(--space-8)',
-                }}
-            >
+            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <StatCard
                     value={props.stats.pendingHmo}
                     label="Pending HMO Review"
@@ -330,7 +318,12 @@ export default function HRDashboard(): ReactElement {
                 />
                 <StatCard
                     value={props.stats.totalAppointments}
-                    label="Total Appointments"
+                    /* The query behind this is scoped to today (see
+                       HRDashboardController), and the three tiles beside it are
+                       all day-scoped too. Labelling it "Total Appointments" made
+                       it read as the clinic's whole book, so a quiet day showed
+                       "Total Appointments 0" against 113 on file. */
+                    label="Appointments Today"
                     color="#2B59C3"
                     icon={
                         <svg
@@ -442,7 +435,7 @@ export default function HRDashboard(): ReactElement {
                             margin: 0,
                             fontSize: 'var(--text-xl)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                             fontFamily: 'var(--font-display)',
                         }}
                     >
@@ -500,7 +493,7 @@ export default function HRDashboard(): ReactElement {
                                     margin: '0 0 4px',
                                     fontSize: 'var(--text-base)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                 }}
                             >
                                 All caught up!
@@ -509,7 +502,7 @@ export default function HRDashboard(): ReactElement {
                                 style={{
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 No HMO appointments pending review right now.

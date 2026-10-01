@@ -33,7 +33,7 @@ class AppointmentMonitorController extends Controller
 
         $appointments = Appointment::whereDate('appointment_date', $date)
             ->with(['patientRecord', 'doctor.profile'])
-            ->orderBy('appointment_time')
+            ->orderBy('appointment_at')
             ->get();
 
         return Inertia::render('nurse/appointments/appointments', [

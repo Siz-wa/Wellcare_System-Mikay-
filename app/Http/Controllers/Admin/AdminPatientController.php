@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Concerns\LogsRecordAccess;
+use App\Concerns\NormalizesPhoneNumbers;
+use App\Concerns\ValidatesHmoProvider;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use Illuminate\Http\RedirectResponse;
@@ -19,11 +22,36 @@ use Inertia\Response;
  * they belong to Doctor\PatientRecordController, behind `role:doctor`. An
  * administrator is a records clerk in this system, not a clinician, and the
  * paper's own role split (Fig. 8 admin vs Fig. 9 doctor) draws the same line.
+ *
+ * ## Why the reads here are logged (GV-4)
+ *
+ * "Demographics only" is a narrower disclosure than a chart, not a harmless
+ * one. This screen pages up to 200 patients with name, email, contact number,
+ * address and clinic ID — which is the whole roster, and is exactly the shape
+ * of data an insider exfiltrates. `LogsRecordAccess` was applied to the doctor,
+ * nurse, patient-portal and analytics surfaces in the September compliance pass
+ * and not to this one; the reasoning given there ("viewing is the whole of the
+ * harm in an unauthorised access") does not stop being true because the reader
+ * is an administrator.
  */
 class AdminPatientController extends Controller
 {
+    use LogsRecordAccess, NormalizesPhoneNumbers, ValidatesHmoProvider;
+
     public function index(Request $request): Response
     {
+        // SC-2: routed through the policy rather than resting on the
+        // `role:admin` middleware alone. The middleware says which door the
+        // request came through; PatientPolicy is where "who may see what" is
+        // actually written down, and a matrix with an exception in it is not a
+        // matrix.
+        $this->authorize('viewAny', Patient::class);
+
+        // GV-4. `searched` rather than `viewed`, and with no patient_id: this
+        // is a roster read, not a read of one person's record. Matches how the
+        // doctor and nurse index screens record themselves.
+        $this->logRecordAccess('searched');
+
         $search = $request->string('search')->toString();
         $coverage = $request->string('coverage')->toString();
 
@@ -62,25 +90,32 @@ class AdminPatientController extends Controller
 
     public function update(Request $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('updateDemographics', $patient);
+
+        $request->merge([
+            'contact_number' => $this->normalizePhoneNumber($request->input('contact_number')),
+        ]);
+
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255'],
-            'contact_number' => ['required', 'string', 'regex:/^(\+639|09)\d{9}$/'],
+            'contact_number' => $this->phoneRules(required: true),
             'age' => ['nullable', 'integer', 'min:0', 'max:120'],
             'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
             'birthdate' => ['nullable', 'date', 'before:today'],
             'address' => ['nullable', 'string', 'max:500'],
-            'civil_status' => ['nullable', Rule::in(['single', 'married', 'widowed'])],
+            'civil_status' => ['nullable', Rule::in(Patient::CIVIL_STATUSES)],
             'company' => ['nullable', 'string', 'max:255'],
             'default_coverage' => ['nullable', Rule::in(['cash', 'hmo', 'philhealth', 'corporate'])],
             // hmo_provider is editable (it is already visible to HR and nurses
             // on the LOA screens); `hmo_id` deliberately is not. The member ID
             // is captured at booking and never rendered or accepted here — see
             // mapPatient() and the Patient model's activityLogAttributes().
-            'hmo_provider' => ['nullable', 'required_if:default_coverage,hmo', 'string', 'max:100'],
+            'hmo_provider' => $this->hmoProviderRules('default_coverage'),
         ], [
-            'contact_number.regex' => 'Please enter a valid PH number (e.g. +639XXXXXXXXX or 09XXXXXXXXX).',
+            ...$this->phoneMessages(),
+            ...$this->hmoProviderMessages('hmo_provider'),
             'hmo_provider.required_if' => 'Please name the HMO provider.',
         ]);
 

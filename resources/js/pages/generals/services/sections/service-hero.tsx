@@ -1,5 +1,6 @@
 // resources/js/pages/user/services/sections/ServicesHeroSection.tsx
 import { Link } from '@inertiajs/react';
+import { useCanBook } from '@/hooks/use-can-book';
 import { useInView } from '@/hooks/useInView';
 import { servicesHeroData } from './service-data';
 
@@ -42,6 +43,7 @@ const TRUST_ITEMS = [
 
 export default function ServicesHeroSection() {
     const { ref, inView } = useInView(0.1);
+    const canBook = useCanBook();
     const { pill, heading, body, ctas, image } = servicesHeroData;
 
     return (
@@ -74,7 +76,7 @@ export default function ServicesHeroSection() {
 
                         <p
                             className="mb-8 text-lg leading-relaxed"
-                            style={{ color: 'var(--wc-gray-500)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             {body}
                         </p>
@@ -97,7 +99,9 @@ export default function ServicesHeroSection() {
                                     </span>
                                     <span
                                         className="text-sm font-medium"
-                                        style={{ color: 'var(--wc-gray-700)' }}
+                                        style={{
+                                            color: 'var(--wc-text-secondary)',
+                                        }}
                                     >
                                         {item}
                                     </span>
@@ -105,15 +109,18 @@ export default function ServicesHeroSection() {
                             ))}
                         </ul>
 
-                        {/* CTAs */}
-                        <div className="flex flex-wrap gap-4">
-                            <Link
-                                href={ctas.primary.href}
-                                className="wc-btn wc-btn-primary wc-btn-lg wc-btn-pill"
-                            >
-                                {ctas.primary.label} <ArrowRight />
-                            </Link>
-                        </div>
+                        {/* CTAs — /book is gated role:user, so staff are not
+                            offered a button that answers them with a 403. */}
+                        {canBook && (
+                            <div className="flex flex-wrap gap-4">
+                                <Link
+                                    href={ctas.primary.href}
+                                    className="wc-btn wc-btn-primary wc-btn-lg wc-btn-pill"
+                                >
+                                    {ctas.primary.label} <ArrowRight />
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {/* ── Right: Image ── */}

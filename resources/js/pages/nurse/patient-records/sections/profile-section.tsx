@@ -8,6 +8,8 @@
 import { useForm } from '@inertiajs/react';
 import type { FormEvent, ReactElement } from 'react';
 import { useState } from 'react';
+import { normalizePhMobile } from '@/lib/input-masks';
+import { toDateInputValue } from '@/lib/local-date';
 import {
     fieldGrid,
     ReadOnlyField,
@@ -27,19 +29,6 @@ interface ProfileSectionProps {
     profile: PatientProfile;
 }
 
-/** `d M Y` back to the `YYYY-MM-DD` an <input type="date"> needs. */
-function toDateInput(value: string | null): string {
-    if (!value) {
-        return '';
-    }
-
-    const parsed = new Date(value);
-
-    return Number.isNaN(parsed.getTime())
-        ? ''
-        : parsed.toISOString().slice(0, 10);
-}
-
 export function ProfileSection({
     patientId,
     profile,
@@ -53,7 +42,7 @@ export function ProfileSection({
         last_name: profile.lastName ?? '',
         email: profile.email ?? '',
         contact_number: profile.contactNumber ?? '',
-        birthdate: toDateInput(profile.birthdate),
+        birthdate: toDateInputValue(profile.birthdate),
         gender: profile.gender ?? '',
         civil_status: profile.civilStatus ?? '',
         address: profile.address ?? '',
@@ -118,6 +107,10 @@ export function ProfileSection({
                         value={profile.civilStatus}
                     />
                     <ReadOnlyField
+                        label={labels.bloodType}
+                        value={profile.bloodType ?? null}
+                    />
+                    <ReadOnlyField
                         label={labels.address}
                         value={profile.address}
                     />
@@ -151,8 +144,13 @@ export function ProfileSection({
                     />
                     <TextField
                         label={labels.contactNumber}
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="09171234567"
                         value={form.data.contact_number}
-                        onChange={(v) => form.setData('contact_number', v)}
+                        onChange={(v) =>
+                            form.setData('contact_number', normalizePhMobile(v))
+                        }
                         error={form.errors.contact_number}
                     />
                     <TextField

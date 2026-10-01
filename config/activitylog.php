@@ -13,7 +13,17 @@ return [
      * When the clean-command is executed, all recording activities older than
      * the number of days specified here will be deleted.
      */
-    'delete_records_older_than_days' => 365,
+    /*
+     * ND-3. Derived from config/retention.php rather than set here, so the
+     * activity log and the record access log cannot drift to different
+     * retention periods — they answer the same accountability question about
+     * the same people and there is no reading under which one should outlive
+     * the other.
+     *
+     * Was a bare 365 (Spatie's default) with nothing scheduled to act on it,
+     * so in practice the table grew without limit.
+     */
+    'delete_records_older_than_days' => (int) env('RETENTION_AUDIT_LOG_YEARS', 7) * 365,
 
     /*
      * If no log name is passed to the activity() helper

@@ -10,6 +10,7 @@ import { router, usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState, useCallback } from 'react';
 import { useEffect } from 'react';
+import { start } from '@/routes/doctor/consultations';
 import type { PageProps } from '@/types';
 import { DashboardLayout } from '../layout/dashboard-layout';
 import { ConsultationDetailModal } from './components/consultation-detail-modal';
@@ -110,7 +111,7 @@ function LocalToast({
                     color: 'inherit',
                     opacity: 0.6,
                     padding: 0,
-                    fontSize: '16px',
+                    fontSize: 'var(--text-base)',
                     lineHeight: 1,
                 }}
             >
@@ -139,9 +140,25 @@ export default function ConsultationsPage(): ReactElement {
     const { props } = usePage<ConsultationsPageProps>();
     const meta = consultationsMeta;
 
-    const [editorOpen, setEditorOpen] = useState(false);
-    const [editorConsultation, setEditorConsultation] =
-        useState<ConsultationRecord | null>(null);
+    // The editor is open exactly when there is a visit to document — but hold
+    // the ID, never a copy of the record.
+    //
+    // This used to store the whole ConsultationRecord, which froze it at the
+    // moment the modal opened. Ordering a lab test posts and Inertia refreshes
+    // `props.consultations`, but the snapshot in state never saw it: the "Tests
+    // ordered this visit" list kept reading "No lab tests ordered yet" after a
+    // successful order, so the obvious response was to click Request again and
+    // book the patient a second specimen draw. Deriving the record from props
+    // means every refresh reaches the open modal.
+    const [editorConsultationId, setEditorConsultationId] = useState<
+        number | null
+    >(null);
+
+    const editorConsultation =
+        editorConsultationId === null
+            ? null
+            : (props.consultations.find((c) => c.id === editorConsultationId) ??
+              null);
     const [selectedConsultation, setSelectedConsultation] =
         useState<ConsultationRecord | null>(null);
     const [search, setSearch] = useState(props.filters.search ?? '');
@@ -164,14 +181,33 @@ export default function ConsultationsPage(): ReactElement {
 
     // ── Session editor ────────────────────────────────────────────────────────
 
-    const handleOpenEditor = useCallback((record?: ConsultationRecord) => {
-        setEditorConsultation(record ?? null);
-        setEditorOpen(true);
+    /**
+     * Open the editor for a visit, and mark the visit underway if it is not
+     * already.
+     *
+     * The `checked_in -> in_progress` transition is the doctor's half of the
+     * handshake the patient began at check-in, and it belongs here rather than
+     * in the first draft save: a doctor who opens the chart, is called away and
+     * saves nothing still went in, and the patient's dashboard should say so.
+     * The POST is fire-and-forget against the same guarded endpoint
+     * (DoctorConsultationController::start, which refuses anything that is not
+     * `checked_in`) — the editor opens either way, because the note must never
+     * wait on a status write.
+     */
+    const handleOpenEditor = useCallback((record: ConsultationRecord) => {
+        setEditorConsultationId(record.id);
+
+        if (record.rawStatus === 'checked_in') {
+            router.post(
+                start(record.id).url,
+                {},
+                { preserveScroll: true, preserveState: true },
+            );
+        }
     }, []);
 
     const handleCloseEditor = useCallback(() => {
-        setEditorOpen(false);
-        setEditorConsultation(null);
+        setEditorConsultationId(null);
     }, []);
 
     const handleViewSummary = useCallback((record: ConsultationRecord) => {
@@ -181,14 +217,9 @@ export default function ConsultationsPage(): ReactElement {
     return (
         <DashboardLayout activeId="consultations">
             {/* ── Page header ── */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 'var(--space-8)',
-                }}
-            >
+            {/* Title and its actions stack on a phone and sit side by side
+                from `sm`. */}
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h1
                         style={{
@@ -197,9 +228,8 @@ export default function ConsultationsPage(): ReactElement {
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
                             lineHeight: 1.15,
-                            color: 'var(--wc-dark)',
-                            fontFamily:
-                                "var(--font-display, 'Bricolage Grotesque')",
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {meta.pageTitle}
@@ -207,7 +237,7 @@ export default function ConsultationsPage(): ReactElement {
                     <p
                         style={{
                             margin: 0,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             fontSize: 'var(--text-base)',
                         }}
                     >
@@ -215,52 +245,22 @@ export default function ConsultationsPage(): ReactElement {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => handleOpenEditor()}
+                <p
                     style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-2)',
                         flexShrink: 0,
-                        height: 48,
-                        paddingInline: 'var(--space-8)',
-                        borderRadius: '100px',
-                        background: '#0056b3',
-                        color: '#ffffff',
-                        fontSize: 'var(--text-base)',
-                        fontWeight: 700,
-                        border: 'none',
-                        cursor: 'pointer',
-                        letterSpacing: '-0.01em',
-                        transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                        (
-                            e.currentTarget as HTMLButtonElement
-                        ).style.background = '#133686';
-                    }}
-                    onMouseLeave={(e) => {
-                        (
-                            e.currentTarget as HTMLButtonElement
-                        ).style.background = '#0056b3';
+                        maxWidth: 320,
+                        margin: 0,
+                        padding: 'var(--space-3) var(--space-4)',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--wc-gray-100)',
+                        background: 'var(--wc-white)',
+                        color: 'var(--wc-text-muted)',
+                        fontSize: 'var(--text-xs)',
+                        lineHeight: 'var(--leading-relaxed)',
                     }}
                 >
-                    <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    >
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    {meta.startSessionLabel}
-                </button>
+                    {meta.sessionOriginNote}
+                </p>
             </div>
 
             {/* ── Search + filter bar ── */}
@@ -279,7 +279,7 @@ export default function ConsultationsPage(): ReactElement {
             >
                 <span
                     style={{
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         display: 'flex',
                         flexShrink: 0,
                     }}
@@ -309,7 +309,7 @@ export default function ConsultationsPage(): ReactElement {
                         border: 'none',
                         outline: 'none',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         background: 'transparent',
                         padding: 'var(--space-1) 0',
                     }}
@@ -376,13 +376,18 @@ export default function ConsultationsPage(): ReactElement {
             />
 
             {/* ── Session editor modal ── */}
-            {editorOpen && (
+            {editorConsultation && (
                 <SessionEditor
                     consultation={editorConsultation}
                     onClose={handleCloseEditor}
                     onSaveSuccess={() => showToast('Draft saved successfully.')}
                     onFinalizeSuccess={() =>
                         showToast('Consultation finalized successfully.')
+                    }
+                    onLabOrdered={(testName) =>
+                        showToast(
+                            `${testName} requested. The lab team has been notified.`,
+                        )
                     }
                 />
             )}

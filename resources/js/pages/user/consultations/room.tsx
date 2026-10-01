@@ -95,14 +95,20 @@ export default function PatientConsultationRoom(): ReactElement {
     return (
         <PatientDashboardLayout activeId="consultations">
             <header style={{ marginBottom: 'var(--space-5)' }}>
-                <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+                <h1
+                    style={{
+                        fontSize: 'var(--text-xl)',
+                        fontWeight: 700,
+                        margin: 0,
+                    }}
+                >
                     {consultationRoomMeta.patientTitle}
                 </h1>
                 <p
                     style={{
                         margin: '4px 0 0',
-                        fontSize: 14,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {appointment.service} · {appointment.date}{' '}
@@ -112,8 +118,8 @@ export default function PatientConsultationRoom(): ReactElement {
                 <p
                     style={{
                         margin: '4px 0 0',
-                        fontSize: 13,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-sm)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {consultationRoomMeta.patientSubtitle}
@@ -130,21 +136,18 @@ export default function PatientConsultationRoom(): ReactElement {
                         padding: 'var(--space-4)',
                         borderRadius: 'var(--radius-lg)',
                         background: 'rgba(185,28,28,.10)',
-                        fontSize: 14,
+                        fontSize: 'var(--text-sm)',
                     }}
                 >
                     {consultationRoomMeta.secureContextWarning}
                 </div>
             )}
 
+            {/* 20px of chrome on every side of a video stage is 40px the
+                stream does not get. Half that on a phone. */}
             <div
-                style={{
-                    background: 'var(--wc-white)',
-                    border: '1px solid var(--wc-gray-200)',
-                    borderRadius: 'var(--radius-xl)',
-                    padding: 'var(--space-5)',
-                    maxWidth: 900,
-                }}
+                className="max-w-[900px] rounded-2xl border border-wc-gray-200 p-3 sm:p-5"
+                style={{ background: 'var(--wc-white)' }}
             >
                 <VideoStage
                     {...call}

@@ -6,11 +6,14 @@
 
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { Select } from '@/design-system';
 import {
     emptyParameter,
     labQueueMeta,
     parameterColumns,
     severityOptions,
+    statusForResult,
+    templateFor,
 } from '../lab-queue-data';
 import type {
     LabQueueItem,
@@ -27,17 +30,18 @@ interface RecordResultsModalProps {
         parameters: ParameterDraft[];
         severity: LabSeverity;
         notes: string;
+        attachment: File | null;
     }) => void;
 }
 
 const LABEL_STYLE = {
     display: 'block',
     marginBottom: 'var(--space-2)',
-    fontSize: '11px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase' as const,
-    color: 'var(--wc-gray-500)',
+    color: 'var(--wc-text-muted)',
 };
 
 export function RecordResultsModal({
@@ -49,21 +53,57 @@ export function RecordResultsModal({
 }: RecordResultsModalProps): ReactElement {
     const meta = labQueueMeta;
 
-    const [parameters, setParameters] = useState<ParameterDraft[]>([
-        { ...emptyParameter },
-    ]);
+    // Opens with the standard panel for this test, so the nurse only types
+    // the results.
+    const [parameters, setParameters] = useState<ParameterDraft[]>(() =>
+        templateFor(item.test),
+    );
+    /** The analyzer's own printout, filed on the patient's record. */
+    const [attachment, setAttachment] = useState<File | null>(null);
     const [severity, setSeverity] = useState<LabSeverity>('normal');
     const [notes, setNotes] = useState('');
 
+    /**
+     * Update one field, and keep the row's own status honest.
+     *
+     * Editing the result or the reference range re-derives the status from the
+     * two of them. Nothing was derived before: a haemoglobin of 11.4 typed
+     * against a 12.0–16.0 range stayed on the default "Normal" until somebody
+     * changed it by hand, so an out-of-range value could be filed as a normal
+     * parameter — and that status is what the doctor's review screen and the
+     * patient's results page both render.
+     *
+     * A parameter row is only ever `normal` or `abnormal` — `critical` is a
+     * clinical judgement and lives on the overall assessment, which stays the
+     * nurse's call. A row whose result is not a plain number, or whose range
+     * cannot be parsed, is left exactly as the nurse set it.
+     */
     function updateParameter(
         index: number,
         field: keyof ParameterDraft,
         value: string,
     ): void {
         setParameters((rows) =>
-            rows.map((row, i) =>
-                i === index ? { ...row, [field]: value } : row,
-            ),
+            rows.map((row, i) => {
+                if (i !== index) {
+                    return row;
+                }
+
+                const next = { ...row, [field]: value };
+
+                if (field === 'result' || field === 'ref_range') {
+                    const derived = statusForResult(
+                        next.result,
+                        next.ref_range,
+                    );
+
+                    if (derived !== null) {
+                        next.status = derived;
+                    }
+                }
+
+                return next;
+            }),
         );
     }
 
@@ -78,7 +118,7 @@ export function RecordResultsModal({
     }
 
     function handleSubmit(): void {
-        onSubmit({ parameters, severity, notes });
+        onSubmit({ parameters, severity, notes, attachment });
     }
 
     // Surface the first server-side parameter error; they are keyed by index
@@ -95,7 +135,8 @@ export function RecordResultsModal({
             style={{
                 position: 'fixed',
                 inset: 0,
-                zIndex: 1000,
+                // Was a bare 1000 — below --z-nav (5000).
+                zIndex: 'var(--z-modal)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -129,9 +170,8 @@ export function RecordResultsModal({
                             fontSize: 'var(--text-xl)',
                             fontWeight: 800,
                             letterSpacing: '-0.02em',
-                            color: 'var(--wc-dark)',
-                            fontFamily:
-                                "var(--font-display,'Bricolage Grotesque')",
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {meta.modalTitle}
@@ -140,7 +180,7 @@ export function RecordResultsModal({
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {item.test} — {item.name} ({item.patientId})
@@ -192,35 +232,34 @@ export function RecordResultsModal({
                                             }
                                             style={{
                                                 flex: column.flex,
-                                                minWidth: 90,
-                                                height: 40,
+                                                minWidth: '6rem',
                                                 fontSize: 'var(--text-sm)',
                                             }}
                                         />
                                     ))}
 
-                                    <select
-                                        className="wc-input"
+                                    <Select
                                         aria-label="Parameter status"
                                         value={row.status}
-                                        onChange={(e) =>
+                                        onChange={(value) =>
                                             updateParameter(
                                                 index,
                                                 'status',
-                                                e.target.value,
+                                                value,
                                             )
                                         }
-                                        style={{
-                                            width: 118,
-                                            height: 40,
-                                            fontSize: 'var(--text-sm)',
-                                        }}
-                                    >
-                                        <option value="normal">Normal</option>
-                                        <option value="abnormal">
-                                            Abnormal
-                                        </option>
-                                    </select>
+                                        style={{ width: '9.5rem' }}
+                                        options={[
+                                            {
+                                                value: 'normal',
+                                                label: 'Normal',
+                                            },
+                                            {
+                                                value: 'abnormal',
+                                                label: 'Abnormal',
+                                            },
+                                        ]}
+                                    />
 
                                     <button
                                         type="button"
@@ -244,7 +283,7 @@ export function RecordResultsModal({
                                                 parameters.length === 1
                                                     ? 'not-allowed'
                                                     : 'pointer',
-                                            fontSize: 18,
+                                            fontSize: 'var(--text-lg)',
                                             lineHeight: 1,
                                         }}
                                     >
@@ -338,8 +377,8 @@ export function RecordResultsModal({
                                             style={{
                                                 display: 'block',
                                                 marginTop: 2,
-                                                fontSize: '12px',
-                                                color: 'var(--wc-gray-500)',
+                                                fontSize: 'var(--text-xs)',
+                                                color: 'var(--wc-text-muted)',
                                             }}
                                         >
                                             {option.hint}
@@ -379,6 +418,33 @@ export function RecordResultsModal({
                                 resize: 'vertical',
                             }}
                         />
+                    </div>
+
+                    {/* ── Analyzer printout ───────────────────────────────── */}
+                    <div>
+                        <label htmlFor="lab-attachment" style={LABEL_STYLE}>
+                            {meta.attachmentLabel}
+                        </label>
+                        <input
+                            id="lab-attachment"
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) =>
+                                setAttachment(e.target.files?.[0] ?? null)
+                            }
+                            style={{ fontSize: 'var(--text-sm)' }}
+                        />
+                        <p
+                            style={{
+                                margin: '4px 0 0',
+                                fontSize: 'var(--text-xs)',
+                                color: errors.attachment
+                                    ? 'var(--wc-error)'
+                                    : 'var(--wc-text-muted)',
+                            }}
+                        >
+                            {errors.attachment ?? meta.attachmentHint}
+                        </p>
                     </div>
                 </div>
 

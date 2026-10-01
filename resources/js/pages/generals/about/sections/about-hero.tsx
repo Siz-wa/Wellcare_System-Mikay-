@@ -35,7 +35,7 @@ export default function AboutHeroSection() {
 
                         <p
                             className="mb-10 text-lg leading-relaxed"
-                            style={{ color: 'var(--wc-gray-500)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             {body}
                         </p>
@@ -64,7 +64,9 @@ export default function AboutHeroSection() {
                                     </span>
                                     <span
                                         className="block text-xs font-semibold tracking-[var(--tracking-widest)] uppercase"
-                                        style={{ color: 'var(--wc-gray-400)' }}
+                                        style={{
+                                            color: 'var(--wc-text-muted)',
+                                        }}
                                     >
                                         {s.label}
                                     </span>

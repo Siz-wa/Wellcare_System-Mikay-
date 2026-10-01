@@ -2,9 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\ForcedSignOut;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -29,13 +29,14 @@ class EnsureUserIsActive
         $user = $request->user();
 
         if ($user && ! $user->is_active) {
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return redirect()->route('login')->withErrors([
-                'email' => 'This account has been deactivated. Please contact the clinic administrator.',
-            ]);
+            // Carried as a session notice, not a validation error on `email`.
+            // The error bag never rendered on the login page, so a suspended
+            // nurse was returned to an ordinary sign-in screen and had no way
+            // to tell a deactivation from a mistyped password.
+            return ForcedSignOut::withNotice(
+                $request,
+                'This account has been deactivated. Please contact the clinic administrator.'
+            );
         }
 
         return $next($request);

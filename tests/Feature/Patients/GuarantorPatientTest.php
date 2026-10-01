@@ -45,6 +45,43 @@ it('lets a guarantor add a patient to their own account', function () {
         ->and($patient->clinic_id)->toStartWith('WC-');
 });
 
+it('refuses to add the same person twice, whatever the case of their name', function () {
+    $this->actingAs($this->guarantor)->post('/user/patients', ($this->payload)());
+
+    $this->actingAs($this->guarantor)
+        ->post('/user/patients', ($this->payload)(['firstName' => 'juan', 'lastName' => 'DELA CRUZ', 'relationship' => 'sibling']))
+        ->assertSessionHasErrors('first_name');
+
+    expect(Patient::count())->toBe(1);
+});
+
+it('allows the same name with a different birthdate', function () {
+    $this->actingAs($this->guarantor)->post('/user/patients', ($this->payload)());
+
+    $this->actingAs($this->guarantor)
+        ->post('/user/patients', ($this->payload)(['birthdate' => now()->subYears(40)->toDateString(), 'relationship' => 'parent']))
+        ->assertSessionHasNoErrors();
+
+    expect(Patient::count())->toBe(2);
+});
+
+it('tidies a name typed all in one case', function () {
+    $this->actingAs($this->guarantor)
+        ->post('/user/patients', ($this->payload)(['firstName' => 'juan  miguel', 'lastName' => 'DELA CRUZ']))
+        ->assertSessionHasNoErrors();
+
+    expect(Patient::sole()->full_name)->toBe('Juan Miguel Dela Cruz');
+});
+
+it('lets a patient be edited without tripping over its own record', function () {
+    $this->actingAs($this->guarantor)->post('/user/patients', ($this->payload)());
+    $patient = Patient::sole();
+
+    $this->actingAs($this->guarantor)
+        ->patch("/user/patients/{$patient->id}", ($this->payload)(['contactNumber' => '09181234567']))
+        ->assertSessionHasNoErrors();
+});
+
 it('will not let the client choose which account a patient belongs to', function () {
     $this->actingAs($this->guarantor)
         ->post('/user/patients', ($this->payload)([
@@ -192,4 +229,19 @@ it('only lists the signed-in account’s own patients', function () {
 it('keeps a guest out entirely', function () {
     $this->get('/user/patients')->assertRedirect('/login');
     $this->post('/user/patients', ($this->payload)())->assertRedirect('/login');
+});
+
+it('counts completed visits, not every booking, as visits', function () {
+    $this->actingAs($this->guarantor)->post('/user/patients', ($this->payload)());
+    $patient = Patient::sole();
+
+    Appointment::factory()->forPatient($patient)->create(['status' => 'completed']);
+    Appointment::factory()->forPatient($patient)->create(['status' => 'requested']);
+
+    $this->actingAs($this->guarantor)
+        ->get('/user/patients')
+        ->assertInertia(fn ($page) => $page->where(
+            'patients',
+            fn ($patients) => collect($patients)->firstWhere('id', $patient->id)['appointmentCount'] === 1,
+        ));
 });

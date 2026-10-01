@@ -106,11 +106,11 @@ export function DocumentsSection({
                                 style={{
                                     display: 'block',
                                     marginBottom: 4,
-                                    fontSize: '10px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
                                     letterSpacing: '0.12em',
                                     textTransform: 'uppercase',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {meta.documentFields.file}
@@ -127,7 +127,7 @@ export function DocumentsSection({
                                     width: '100%',
                                     fontSize: 'var(--text-xs)',
                                     fontFamily: 'var(--font-sans)',
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                 }}
                             />
                             {form.errors.file ? (
@@ -136,8 +136,8 @@ export function DocumentsSection({
                                 <p
                                     style={{
                                         margin: '4px 0 0',
-                                        fontSize: '11px',
-                                        color: 'var(--wc-gray-400)',
+                                        fontSize: 'var(--text-xs)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {meta.documentHint}
@@ -222,7 +222,7 @@ export function DocumentsSection({
                                         margin: 0,
                                         fontSize: 'var(--text-sm)',
                                         fontWeight: 600,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {document.title}
@@ -231,7 +231,7 @@ export function DocumentsSection({
                                     style={{
                                         margin: '2px 0 0',
                                         fontSize: 'var(--text-xs)',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {document.type} · {document.size} ·{' '}
@@ -250,7 +250,7 @@ export function DocumentsSection({
                                     border: '1px solid var(--wc-gray-200)',
                                     fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                     textDecoration: 'none',
                                 }}
                             >

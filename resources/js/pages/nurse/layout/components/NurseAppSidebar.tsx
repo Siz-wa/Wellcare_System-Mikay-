@@ -144,8 +144,8 @@ export function NurseAppSidebar({
         <aside
             style={{
                 width: 260,
-                minHeight: '100vh',
-                height: '100vh',
+                minHeight: '100dvh',
+                height: '100dvh',
                 position: 'sticky',
                 top: 0,
                 flexShrink: 0,
@@ -186,7 +186,7 @@ export function NurseAppSidebar({
                             style={{
                                 margin: '0 0 6px',
                                 padding: '0 4px',
-                                fontSize: '10px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 color: '#94a3b8',
                                 textTransform: 'uppercase',

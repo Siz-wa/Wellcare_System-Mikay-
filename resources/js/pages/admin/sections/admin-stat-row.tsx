@@ -36,8 +36,8 @@ export function AdminStatRow({
                         style={{
                             margin: 'var(--space-2) 0 0',
                             paddingLeft: 2,
-                            fontSize: '11px',
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {card.hint}

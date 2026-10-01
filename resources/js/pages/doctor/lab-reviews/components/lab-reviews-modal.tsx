@@ -36,19 +36,19 @@ export function LaboratoryResultModal({
         },
         critical: {
             label: 'Critical',
-            color: 'var(--wc-error)',
+            color: 'var(--wc-text-error)',
             bg: '#fef2f2',
             icon: <IconBell />,
         },
         normal: {
             label: 'Normal',
-            color: 'var(--wc-success)',
+            color: 'var(--wc-text-success)',
             bg: '#f0fdf4',
             icon: <IconCheck />,
         },
         reviewed: {
             label: 'Reviewed',
-            color: 'var(--wc-gray-600)',
+            color: 'var(--wc-text-secondary)',
             bg: 'var(--wc-gray-50)',
             icon: <IconCheck />,
         },
@@ -58,7 +58,13 @@ export function LaboratoryResultModal({
 
     return (
         <div style={styles.overlay} onClick={onClose}>
-            <div style={styles.container} onClick={(e) => e.stopPropagation()}>
+            {/* One column on a phone. The fixed 280px side column plus a 32px
+                gap plus 80px of padding demanded more than a handset has, so
+                the dialog ran off both edges. */}
+            <div
+                className="grid max-h-[90dvh] w-full max-w-[1000px] grid-cols-1 gap-6 overflow-y-auto rounded-3xl border border-[var(--wc-gray-100)] bg-white p-5 sm:w-[90%] md:grid-cols-[280px_1fr] md:gap-8 md:p-10"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Sidebar */}
                 <aside
                     style={{
@@ -81,7 +87,7 @@ export function LaboratoryResultModal({
                             <h2
                                 style={{
                                     margin: 0,
-                                    fontSize: '20px',
+                                    fontSize: 'var(--text-lg)',
                                     fontWeight: 800,
                                 }}
                             >
@@ -90,8 +96,8 @@ export function LaboratoryResultModal({
                             <p
                                 style={{
                                     margin: 0,
-                                    fontSize: '11px',
-                                    color: 'var(--wc-gray-400)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
                                     fontWeight: 700,
                                 }}
                             >
@@ -199,6 +205,22 @@ export function LaboratoryResultModal({
                             flexDirection: 'column',
                         }}
                     >
+                        {/* The nurse's remarks, read-only. These used to be
+                            loaded straight into the textarea below, so pressing
+                            Validate without editing signed them as the doctor's
+                            own interpretation. They belong next to the field,
+                            not inside it. */}
+                        {result.nurseNotes && (
+                            <div style={styles.nurseNote}>
+                                <span style={styles.nurseNoteLabel}>
+                                    Notes from the lab
+                                </span>
+                                <p style={styles.nurseNoteBody}>
+                                    {result.nurseNotes}
+                                </p>
+                            </div>
+                        )}
+
                         <SectionHeader title="Doctor's Interpretation" />
                         <textarea
                             style={styles.textarea}
@@ -222,7 +244,7 @@ export function LaboratoryResultModal({
                                 border: 'none',
                                 fontWeight: 700,
                                 cursor: 'pointer',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             Close
@@ -250,19 +272,12 @@ const styles: Record<string, React.CSSProperties> = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
+        padding: 'var(--space-4)',
+        // Was a bare 1000 — below --z-nav (5000).
+        zIndex: 'var(--z-modal)' as React.CSSProperties['zIndex'],
     },
-    container: {
-        background: '#fff',
-        width: '90%',
-        maxWidth: '1000px',
-        borderRadius: '32px',
-        padding: '40px',
-        display: 'grid',
-        gridTemplateColumns: '280px 1fr',
-        gap: '32px',
-        border: '1px solid var(--wc-gray-100)',
-    },
+    // `container` moved to utility classes on the element itself — an inline
+    // style object cannot hold the media query this dialog needs.
     bento: {
         padding: '24px',
         border: '1px solid var(--wc-gray-100)',
@@ -280,11 +295,33 @@ const styles: Record<string, React.CSSProperties> = {
         color: 'var(--wc-blue-600)',
     },
     tableHeader: {
-        color: 'var(--wc-gray-400)',
-        fontSize: '10px',
+        color: 'var(--wc-text-muted)',
+        fontSize: 'var(--text-xs)',
         fontWeight: 800,
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
+    },
+    nurseNote: {
+        marginBottom: '16px',
+        padding: '12px 14px',
+        borderRadius: '12px',
+        background: 'var(--wc-gray-50)',
+        borderLeft: '3px solid var(--wc-gray-300)',
+    },
+    nurseNoteLabel: {
+        display: 'block',
+        marginBottom: '4px',
+        fontSize: 'var(--text-xs)',
+        fontWeight: 800,
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+        color: 'var(--wc-text-muted)',
+    },
+    nurseNoteBody: {
+        margin: 0,
+        fontSize: 'var(--text-sm)',
+        lineHeight: 1.55,
+        color: 'var(--wc-text-secondary)',
     },
     textarea: {
         width: '100%',
@@ -293,7 +330,7 @@ const styles: Record<string, React.CSSProperties> = {
         background: 'var(--wc-gray-50)',
         borderRadius: '12px',
         padding: '16px',
-        fontSize: '14px',
+        fontSize: 'var(--text-sm)',
         outline: 'none',
         resize: 'none',
     },

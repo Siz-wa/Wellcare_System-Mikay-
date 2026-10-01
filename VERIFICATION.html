@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WellCare — Verification Steps (Phases 1–3)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font: 16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 900px; margin: 0 auto; padding: 24px 20px 80px;
+  }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 40px 0 6px; padding-bottom: 6px; border-bottom: 2px solid currentColor; }
+  h3 { font-size: 17px; margin: 28px 0 6px; }
+  .sub { opacity: .7; margin: 0 0 24px; }
+  code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; }
+  pre {
+    background: rgba(127,127,127,.12); padding: 10px 12px; border-radius: 4px;
+    overflow-x: auto; border-left: 3px solid rgba(127,127,127,.5);
+  }
+  code:not(pre code) { background: rgba(127,127,127,.15); padding: 1px 4px; border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14.5px; }
+  th, td { border: 1px solid rgba(127,127,127,.35); padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: rgba(127,127,127,.12); }
+  .pass { border-left: 3px solid #2e7d32; background: rgba(46,125,50,.10); padding: 8px 12px; margin: 8px 0; }
+  .warn { border-left: 3px solid #ef6c00; background: rgba(239,108,0,.10); padding: 8px 12px; margin: 12px 0; }
+  .stop { border-left: 3px solid #c62828; background: rgba(198,40,40,.10); padding: 8px 12px; margin: 12px 0; }
+  .pass::before { content: "PASS IF — "; font-weight: 700; }
+  ol.steps > li { margin-bottom: 8px; }
+  .task { margin-bottom: 34px; }
+  .meta { font-size: 13px; opacity: .75; margin: 0 0 10px; }
+  hr { border: 0; border-top: 1px solid rgba(127,127,127,.3); margin: 34px 0; }
+</style>
+</head>
+<body>
+
+<h1>WellCare — Verification Steps</h1>
+<p class="sub">Phases 1–3, plus the Phase 0 checks they depend on. Work top to bottom; later steps assume earlier ones passed.</p>
+
+<h2>Before you start</h2>
+
+<p>Two terminals. In the first:</p>
+<pre>composer dev</pre>
+<p>That now also runs the task scheduler (added in 0.2), so anything time-based works while it is up. Leave it running. Use the second terminal for the <code>php artisan</code> commands below.</p>
+
+<p>Seeded logins are all <code>password123</code>:</p>
+<table>
+  <tr><th>Role</th><th>Email</th></tr>
+  <tr><td>Admin</td><td><code>admin@wellcare.com</code></td></tr>
+  <tr><td>Doctor</td><td><code>dr.reyes@wellcare.com</code></td></tr>
+</table>
+
+<div class="stop">
+<strong>Read this first — you will hit it immediately.</strong>
+Task 0.4 makes two-factor authentication mandatory for doctor, nurse, HR and admin accounts.
+<strong>None of the 40 seeded staff accounts are enrolled</strong>, so signing in as any of
+them now redirects to <code>/settings/security</code> and will not let you reach a
+dashboard until you enrol. That is the feature working, not a bug.
+<br><br>
+For verification you have two options. Either enrol properly with an authenticator app
+(Google Authenticator, Authy — this is the honest test of 0.4), or bypass it for the
+other checks with:
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "UPDATE users SET two_factor_confirmed_at = NOW() WHERE two_factor_confirmed_at IS NULL;"</pre>
+Run that <em>after</em> you have verified 0.4 below, not before.
+</div>
+
+<hr>
+
+<h2>Phase 0 — Correctness</h2>
+<p class="meta">Short checks. Everything later depends on these.</p>
+
+<div class="task">
+<h3>0.1 — The clinic day sorts correctly</h3>
+<p>The bug: times were stored as display strings (<code>"9:00 AM"</code>) and sorted alphabetically, so the afternoon came first on five screens.</p>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT appointment_time, TIME(appointment_at) AS real_time FROM appointments ORDER BY appointment_at LIMIT 10;"</pre>
+<div class="pass">the times run in real chronological order (8:00 AM, 8:30 AM, 9:00 AM …). Compare with <code>ORDER BY appointment_time</code> in the same query — that still returns 1:00 PM first, which is what every screen used to show.</div>
+<p>Then log in as a doctor and open <strong>Appointments</strong>. The list must run earliest-first across the day.</p>
+</div>
+
+<div class="task">
+<h3>0.2 — The scheduler is alive</h3>
+<pre>php artisan wellcare:scheduler:status</pre>
+<div class="pass">it reports "Scheduler is alive" while <code>composer dev</code> is running. Stop <code>composer dev</code>, wait 30 minutes (or run <code>php artisan wellcare:scheduler:status --stale-minutes=0</code>), and it must report failure instead. Check the exit code with <code>echo $?</code> — <strong>0</strong> when alive, <strong>1</strong> when stale. That exit code is the contract a monitor uses.</div>
+</div>
+
+<div class="task">
+<h3>0.3 — Retention is per record type</h3>
+<pre>php artisan wellcare:records:purge</pre>
+<div class="pass">it prints a table of four record classes with different periods, each with its source, and a warning that the figures are UNVERIFIED. It must delete nothing.</div>
+<div class="warn"><strong>Action for you:</strong> those numbers came from secondary reporting of DOH issuances — the primary PDFs would not parse. They must be confirmed by whoever acts as your DPO before <code>RETENTION_PURGE_ENABLED</code> is ever set true.</div>
+</div>
+
+<div class="task">
+<h3>0.4 — Staff must use two-factor</h3>
+<ol class="steps">
+  <li>Log in as <code>dr.reyes@wellcare.com</code>.</li>
+  <li>You are sent to <strong>Settings → Security</strong>, via a password confirmation step.</li>
+  <li>Try to navigate to <code>/doctor/appointments</code> directly — you are sent back.</li>
+  <li>Enrol with an authenticator app, then retry.</li>
+</ol>
+<div class="pass">an un-enrolled doctor cannot reach any clinical page, and reaches all of them after enrolling. Also confirm a <em>patient</em> account is never asked — 2FA is deliberately optional for patients.</div>
+</div>
+
+<hr>
+
+<h2>Phase 1 — Safety gates</h2>
+
+<div class="task">
+<h3>1.1 — Prescribing, and the allergy check</h3>
+<p class="meta">Before this task, doctors could not prescribe at all — the UI existed but was never wired to anything.</p>
+
+<p><strong>First give a patient an allergy.</strong> As a doctor, open <strong>Patient Records</strong>, pick a patient, and add an allergy: allergen <code>Penicillin</code>, severity <code>severe</code>, reaction <code>Anaphylaxis</code>.</p>
+
+<p><strong>Then try to prescribe against it.</strong></p>
+<ol class="steps">
+  <li>Open <strong>Consultations</strong> and start/open a session for that same patient.</li>
+  <li>Go to the new <strong>Prescription</strong> tab. The patient's allergies are listed at the top.</li>
+  <li>Add a medication named <code>Amoxicillin 500mg</code> and save.</li>
+</ol>
+<div class="pass">the save is <strong>refused</strong>. A red panel names the allergen, its severity and the recorded reaction, and says it is a "Same drug family" match — Amoxicillin is a penicillin.</div>
+
+<p><strong>Now confirm the refusal was total:</strong> change the SOAP notes before saving, get refused, then reload. The SOAP text must <em>not</em> have saved either — the whole save rolls back together, so you never end up with a note plus silently dropped medications.</p>
+
+<p><strong>Then override it.</strong> Type a reason of at least 10 characters and save again.</p>
+<div class="pass">the prescription saves, and the override is recorded:</div>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT description, causer_id, properties FROM activity_log WHERE description LIKE '%Allergy warning overridden%' ORDER BY id DESC LIMIT 3;"</pre>
+<div class="pass">a row exists — and the <code>properties</code> column contains <strong>neither</strong> the drug name nor the allergen. That is deliberate: a drug name discloses the diagnosis by inference, and <code>activity_log</code> is readable by admins. The clinical detail goes to <code>storage/logs/laravel.log</code> instead.</div>
+
+<p><strong>Check it does not over-fire.</strong> Prescribe <code>Paracetamol 500mg</code> to the same penicillin-allergic patient — it must save with no warning at all. A checker that cries wolf is worse than none.</p>
+
+<div class="warn"><strong>Known limit, state this in your defence:</strong> this is name matching over a hand-written ingredient table, not a drug database. It will miss brands it does not know, misspellings and compound preparations. A silent result means "nothing matched the table", never "this drug is safe."</div>
+</div>
+
+<div class="task">
+<h3>1.2 — Notifications leave the application</h3>
+<p class="meta">Previously every notification was database-only: visible solely to someone already logged in, looking at the bell.</p>
+<ol class="steps">
+  <li>As a doctor, confirm any pending appointment.</li>
+  <li>Open <code>storage/logs/laravel.log</code>.</li>
+</ol>
+<div class="pass">you see the confirmation email rendered in the log (the mail driver is <code>log</code>), and an <code>SMS (not sent — log driver)</code> entry showing the message and the normalised <code>+63…</code> number.</div>
+
+<p><strong>Check channel independence.</strong> As the patient, go to <strong>Settings → Notifications</strong> and switch <em>off</em> in-app appointment notifications. Have the doctor cancel that appointment.</p>
+<div class="pass">no bell notification appears for the patient, but the email and SMS entries <strong>still</strong> appear in the log. Turning off the bell must not silence the other two — they are separate channels on the settings screen and must behave that way.</div>
+
+<div class="warn"><strong>Not yet real delivery.</strong> <code>SMS_DRIVER=log</code> writes messages to the log rather than sending them — the whole path is real, only the last hop is simulated. Email becomes genuinely live the moment <code>MAIL_MAILER</code> is pointed at real SMTP; that costs nothing. SMS needs the clinic to choose and pay for a provider.</div>
+</div>
+
+<div class="task">
+<h3>1.3 — Critical results cannot be ignored</h3>
+<ol class="steps">
+  <li>As a doctor, order a lab test from within a consultation.</li>
+  <li>Log in as a nurse and record that result with severity <strong>critical</strong>.</li>
+  <li>Back as the requesting doctor, open the bell.</li>
+</ol>
+<div class="pass">the critical result appears with an <strong>Acknowledge</strong> action, distinct from simply reading it.</div>
+
+<p><strong>Confirm reading is not acknowledging.</strong> Mark it read, then:</p>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT id, type, `read`, read_at, acknowledged_at, escalation_count FROM appointment_notifications WHERE type='lab_critical' ORDER BY id DESC LIMIT 5;"</pre>
+<div class="pass"><code>read_at</code> is set but <code>acknowledged_at</code> is still NULL. Opening a notification is not the same act as accepting a critical value, and the audit trail must not claim it is.</div>
+
+<p><strong>Now test escalation.</strong> Age the alert past the 15-minute threshold and run the sweep:</p>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "UPDATE appointment_notifications SET created_at = DATE_SUB(NOW(), INTERVAL 2 HOUR) WHERE type='lab_critical' AND acknowledged_at IS NULL;"
+php artisan wellcare:results:escalate --dry-run
+php artisan wellcare:results:escalate</pre>
+<div class="pass">the dry run lists the waiting result and changes nothing; the real run escalates it, <code>escalation_count</code> becomes 1, and the log shows the alert going to <strong>nurses and admins</strong> — not back to the doctor who already did not respond. Run it three more times: it stops at 3 escalations rather than nagging forever.</div>
+
+<p>Finally, click <strong>Acknowledge</strong> and re-run the sweep — it must report nothing to escalate.</p>
+</div>
+
+<hr>
+
+<h2>Phase 2 — Operational</h2>
+
+<div class="task">
+<h3>2.1 — Appointment reminders</h3>
+<p class="meta">The <code>reminder</code> notification type had existed since the table was first created and was sent by nothing.</p>
+<pre>php artisan wellcare:reminders:send --dry-run</pre>
+<p>If nothing is listed, create something in the window — book an appointment about two days out and confirm it as the doctor. Then:</p>
+<pre>php artisan wellcare:reminders:send</pre>
+<div class="pass">the appointment is reminded, and <code>storage/logs/laravel.log</code> shows the reminder email and SMS.</div>
+
+<p><strong>The most important check — it must not re-send.</strong> Run the same command twice more.</p>
+<div class="pass">it reports nothing due. Verify directly:</div>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT id, appointment_date, appointment_time, reminded_ahead_at, reminded_same_day_at FROM appointments WHERE reminded_ahead_at IS NOT NULL LIMIT 5;"</pre>
+<div class="pass">the timestamp is stamped once and does not move. A reminder system that re-sends is worse than none — it is the fastest way to teach a patient to ignore the clinic.</div>
+
+<p><strong>The subtle case:</strong> as the patient, turn <em>off</em> in-app appointment notifications, then book and confirm another appointment two days out and run the sweep. No bell notification appears — but <code>reminded_ahead_at</code> must still be stamped, and a second sweep must still send nothing. (If this were derived from the notification rows instead, that patient would be re-reminded every 15 minutes forever.)</p>
+</div>
+
+<div class="task">
+<h3>2.2 — Reschedule</h3>
+<p class="meta">Previously the only path was cancel-then-rebook, which releases your old slot before securing the new one.</p>
+<ol class="steps">
+  <li>As a patient, note an existing confirmed appointment's date, time and ID.</li>
+  <li>POST a reschedule to <code>/appointments/{id}/reschedule</code> with <code>appointment_date</code> and <code>appointment_time</code>. (There is no UI button yet — see the note below.)</li>
+</ol>
+<div class="pass">the appointment moves and <strong>keeps its ID</strong>:</div>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT id, appointment_date, appointment_time, appointment_at, status FROM appointments WHERE id = <em>YOUR_ID</em>;"</pre>
+<div class="pass">same <code>id</code>, new date/time, and <code>appointment_at</code> updated to match. A cancel-and-rebook would have produced a new row and lost the history.</div>
+<p>Then confirm the old slot is free again — open the booking page for that doctor and date; the original time must be offered.</p>
+
+<div class="warn"><strong>Backend only.</strong> The route, transaction and all guards are built and tested, but there is no reschedule <em>button</em> in the patient UI yet. Verify with a REST client or <code>curl</code> (you will need a session cookie and CSRF token), or trust the 19 automated tests in <code>tests/Feature/Booking/RescheduleTest.php</code>. Adding the button is a small front-end task if you want it for the defence.</div>
+</div>
+
+<hr>
+
+<h2>Phase 3 — Clinical depth</h2>
+
+<div class="task">
+<h3>3.1 — Vitals are measurements, not text</h3>
+<p class="meta">All six vitals were stored as display strings with units baked in, which made trends, BMI and range checks impossible.</p>
+
+<p><strong>Check the historical data was converted:</strong></p>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT blood_pressure, systolic, diastolic, heart_rate, heart_rate_bpm, temperature, temperature_c FROM consultation_sessions WHERE systolic IS NOT NULL LIMIT 5;"</pre>
+<div class="pass">every string has a matching number beside it — <code>119/83</code> became <code>119</code> and <code>83</code>, <code>70 bpm</code> became <code>70</code>.</div>
+
+<p><strong>Check it did not invent any readings</strong> — this is the one that matters most:</p>
+<pre>C:\xampp\mysql\bin\mysql.exe -u root wellcare_db -e "SELECT MIN(heart_rate_bpm) min_hr, MIN(systolic) min_sys, MIN(temperature_c) min_temp FROM consultation_sessions;"</pre>
+<div class="pass">no zeros. MySQL casts unparseable text to <code>0</code>, so a careless backfill records a heart rate of zero — clinically impossible, and unlike a NULL it looks like a real measurement somebody took.</div>
+
+<p><strong>Then record new vitals</strong> through a consultation and re-query that session: both the display strings and the numeric columns must be written.</p>
+
+<div class="warn"><strong>Backend only, same as 2.2.</strong> The trend query (<code>ConsultationSession::vitalsTrendFor()</code>), BMI and out-of-range flagging are built and tested, but not yet drawn on a chart in the UI. The chart is the visible payoff and is a front-end task — worth doing before the defence, since a BP trend line is the most convincing screen in the system.</div>
+
+<div class="warn"><strong>Deliberate limitation:</strong> range flagging uses <em>adult</em> reference ranges and returns nothing for patients under 18. A healthy toddler's heart rate of 130 is far outside every adult range, and flagging it would train clinicians to ignore the flag. An empty result therefore means "nothing to flag <em>or</em> not assessable" — never "everything is normal."</div>
+</div>
+
+<hr>
+
+<h2>Not built — say so rather than let it be found</h2>
+<table>
+  <tr><th>Item</th><th>Status</th></tr>
+  <tr><td>3.2 — Full structured medication list</td><td>Not started. Task 1.1 delivers the safety check against a per-visit prescription list; the patient-level list with dose, route and dates is still open, and drug–drug interaction checking depends on it.</td></tr>
+  <tr><td>3.3 — Note addenda</td><td>Not started. A finalized note still cannot be corrected at all.</td></tr>
+  <tr><td>3.4 — Duplicate patient merge queue</td><td>Not started. Patient matching still runs unsupervised on name + phone.</td></tr>
+  <tr><td>3.5 — RA 10173 correction requests and record export</td><td>Not started.</td></tr>
+  <tr><td>PhilHealth certified-EMR submission</td><td>Out of scope by decision — a certification programme, not a coding task. This system is the clinic's internal layer alongside a certified EMR.</td></tr>
+</table>
+
+<h2>Running the automated tests</h2>
+<p>Everything above is also covered by tests. The full suite takes roughly 15–17 minutes:</p>
+<pre>php artisan test</pre>
+<p>Or per task, which is much faster:</p>
+<pre>php artisan test --filter=AppointmentOrderingTest        <em># 0.1</em>
+php artisan test --filter=SchedulerHealthTest           <em># 0.2</em>
+php artisan test --filter=RetentionPeriodTest           <em># 0.3</em>
+php artisan test --filter=StaffTwoFactorRequiredTest    <em># 0.4</em>
+php artisan test --filter=DrugAllergyCheckerTest        <em># 1.1</em>
+php artisan test --filter=PrescriptionSaveTest          <em># 1.1</em>
+php artisan test --filter=OutboundDeliveryTest          <em># 1.2</em>
+php artisan test --filter=CriticalResultLoopTest        <em># 1.3</em>
+php artisan test --filter=AppointmentReminderTest       <em># 2.1</em>
+php artisan test --filter=RescheduleTest                <em># 2.2</em>
+php artisan test --filter=StructuredVitalsTest          <em># 3.1</em></pre>
+<p>Last full run: <strong>1041 passed, 0 failures</strong> (that run covered Phases 0–2; 3.1 added 15 more, verified separately).</p>
+
+<div class="warn"><strong>If tests fail to connect:</strong> MySQL here is XAMPP, not a Windows service. Check it is running before assuming a code problem. Note also that <code>php artisan db:show</code> is broken in this environment — it queries a table MariaDB 10.4 does not have — which is not a connection failure.</div>
+
+</body>
+</html>

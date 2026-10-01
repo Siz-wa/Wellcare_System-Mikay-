@@ -101,7 +101,7 @@ export default function AdminActivityLogPage({
                 <div style={{ minWidth: 180 }}>
                     <Select
                         value={filters.log}
-                        onChange={(e) => go({ log: e.target.value })}
+                        onChange={(value) => go({ log: value })}
                         options={[
                             { value: '', label: activityLogCopy.allLogs },
                             ...logNames.map((name) => ({
@@ -115,7 +115,7 @@ export default function AdminActivityLogPage({
                 <div style={{ minWidth: 160 }}>
                     <Select
                         value={filters.event}
-                        onChange={(e) => go({ event: e.target.value })}
+                        onChange={(value) => go({ event: value })}
                         options={[
                             { value: '', label: activityLogCopy.allEvents },
                             ...events.map((name) => ({

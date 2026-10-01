@@ -26,6 +26,13 @@ class LabResultParameter extends Model
     ];
 
     protected $casts = [
+        // SC-5 — encrypted at rest. See the encrypt_sensitive_clinical_columns
+        // migration for why these columns and not others: anything the app
+        // filters on in SQL stays plaintext, because LIKE over ciphertext
+        // returns nothing rather than failing, and anything audited into
+        // activity_log stays plaintext too, because Spatie reads through the
+        // cast and would just relocate the clear text.
+        'result' => 'encrypted',
         'sort_order' => 'integer',
     ];
 

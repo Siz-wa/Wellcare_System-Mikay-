@@ -99,6 +99,22 @@ export const consultationRoomMeta = {
         'Your browser blocked audio until you interact with the page.',
     speakerOn: 'Mute speaker',
     speakerOff: 'Unmute speaker',
+    /**
+     * The vitals panel's provenance control.
+     *
+     * A doctor on a video call can measure none of the six vitals — no cuff, no
+     * thermometer, no scale, no oximeter reaches through a screen. Recording the
+     * patient's own readings is normal telehealth practice; recording them
+     * *unlabelled* is not, because the chart then asserts a clinic measurement
+     * that never happened. This copy is what makes the doctor state which it is
+     * before the note is signed.
+     */
+    vitalsTitle: 'Vitals',
+    vitalsSourceLabel: 'How were these obtained?',
+    vitalsVirtualNote:
+        'You cannot measure these over video. Record what the patient reports and keep the source accurate — the record shows it alongside the numbers.',
+    vitalsNotObtainedNote:
+        'Marked as not obtained, so the fields are closed. This is recorded as a deliberate absence rather than an unfilled form.',
     doctorTitle: 'Video Consultation',
     doctorSubtitle:
         'Notes save as a draft. Finalizing ends the call and closes the visit.',
@@ -131,6 +147,13 @@ export const consultationRoomMeta = {
         finalized: {
             title: 'This consultation is complete',
             body: 'Your doctor has signed the notes for this visit. You can read them in your medical records.',
+        },
+        // Ahead of `not_open` in the controller's match, because both are "no
+        // room yet" and only this one tells the patient what to do about it.
+        // The room is missing BECAUSE gate G5 refused to open it.
+        unpaid: {
+            title: 'This consultation has not been paid for yet',
+            body: 'A video consultation is settled before it starts — there is no cashier to pay on the way in. Once the clinic confirms your payment, the room opens at your scheduled time.',
         },
     },
     /**

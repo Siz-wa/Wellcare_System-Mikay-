@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Concerns\LogsRecordAccess;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Patient;
@@ -22,11 +23,26 @@ use Inertia\Response;
  * deletes carry no parent/child relationship, and guessing at one would
  * resurrect visits that were cancelled for their own reasons. The two lists
  * are restored independently and the UI says so.
+ *
+ * ## Why this screen is audited more carefully than it looks (GV-4)
+ *
+ * Every row here is a record somebody deliberately removed. That makes the
+ * archive a more sensitive read than the live patient list, not a less
+ * sensitive one — it is where a deleted person's details remain legible, and
+ * "who looked through the deleted records" is a question a breach
+ * investigation will ask. The read is logged for the same reason the live
+ * roster is.
  */
 class AdminArchiveController extends Controller
 {
+    use LogsRecordAccess;
+
     public function index(Request $request): Response
     {
+        // GV-4. Unscoped `searched`, like the other index surfaces: the read
+        // spans two archives rather than one person's record.
+        $this->logRecordAccess('searched');
+
         $search = $request->string('search')->toString();
 
         $appointments = Appointment::onlyTrashed()

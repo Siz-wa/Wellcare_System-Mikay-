@@ -2,11 +2,19 @@
 
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
+import { DateField, Select } from '@/design-system';
 import type { Step1Errors } from '@/hooks/use-step-validators';
+// The registration form's consent box, reused rather than reimplemented: one
+// definition of "a consent purpose, its summary, and its full text in place"
+// means the booking wizard cannot drift from the wording people already agree
+// to at sign-up. Same precedent as login reusing register-ui's errorBorder.
+import { ConsentCheckbox } from '@/pages/auth/register/components/consent-checkbox';
 import type {
     BookingFormData,
     BookingWindow,
+    ConsentDocument,
     PatientOption,
+    ServiceDefinition,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import {
     consultationTypeOptions,
@@ -17,13 +25,7 @@ import {
     STEP_HEADINGS,
     supportsVirtual,
 } from '@/pages/user/book-appointment/sections/bookingdata';
-import {
-    BrandSelect,
-    Field,
-    ToggleCard,
-    StepNav,
-    IconCalendar,
-} from '../components';
+import { Field, ToggleCard, StepNav, IconCalendar } from '../components';
 
 interface StepAppointmentProps {
     data: BookingFormData;
@@ -35,6 +37,10 @@ interface StepAppointmentProps {
     /** Whose record drives service eligibility (OB-Gyne, Pediatrics) */
     patient: PatientOption;
     bookingWindow: BookingWindow;
+    /** SC-4 / C-5. Wording for the tick-box a video consultation requires. */
+    telemedicineConsent: ConsentDocument;
+    /** The bookable catalogue, served from the `services` table. */
+    services: ServiceDefinition[];
     valid: boolean;
     onNext: () => void;
 }
@@ -45,6 +51,8 @@ export default function StepAppointment({
     setData,
     patient,
     bookingWindow,
+    telemedicineConsent,
+    services,
     onNext,
 }: StepAppointmentProps): ReactElement {
     const { title, subtitle } = STEP_HEADINGS[1];
@@ -55,18 +63,26 @@ export default function StepAppointment({
     // go stale — drop it in an effect, never during render.
     const patientGender = patient.gender ?? '';
     const patientAge = patient.age === null ? '' : String(patient.age);
-    const services = eligibleServices(patientGender, patientAge);
+    const options = eligibleServices(services, patientGender, patientAge);
 
+    // Also catches a service the administrator retired while this page was
+    // open: it is gone from `services`, so isServiceEligible's unknown-slug
+    // branch no longer applies and the stale selection is dropped.
     useEffect(() => {
         if (
             data.service &&
-            !isServiceEligible(data.service, patientGender, patientAge)
+            !isServiceEligible(
+                services,
+                data.service,
+                patientGender,
+                patientAge,
+            )
         ) {
             setData('service', '');
         }
-    }, [data.service, patientGender, patientAge, setData]);
+    }, [services, data.service, patientGender, patientAge, setData]);
 
-    const virtualAllowed = supportsVirtual(data.service);
+    const virtualAllowed = supportsVirtual(services, data.service);
 
     // Switching to a service that must happen at the clinic forces the mode
     // back. Same pattern as the service-eligibility reset above: correct it in
@@ -77,6 +93,16 @@ export default function StepAppointment({
             setData('consultationType', 'in_person');
         }
     }, [virtualAllowed, data.consultationType, setData]);
+
+    // Consent is to *this* video consultation, so it does not outlive the
+    // choice. Switching back to in-person — by hand, or because the service
+    // forced it above — clears the tick rather than leaving a hidden true in
+    // the payload for a visit that is not virtual at all.
+    useEffect(() => {
+        if (data.consultationType !== 'virtual' && data.consentTelemedicine) {
+            setData('consentTelemedicine', false);
+        }
+    }, [data.consultationType, data.consentTelemedicine, setData]);
 
     // Both bounds arrive from the server, already ISO and already in the clinic's
     // timezone. Deriving them here with `new Date().toISOString()` is what used
@@ -104,7 +130,7 @@ export default function StepAppointment({
                 <span
                     className="wc-label"
                     style={{
-                        color: 'var(--wc-sky-500)',
+                        color: 'var(--wc-link)',
                         display: 'block',
                         marginBottom: 'var(--space-2)',
                     }}
@@ -122,10 +148,10 @@ export default function StepAppointment({
                     required
                     error={errors.service}
                 >
-                    <BrandSelect
+                    <Select
                         value={data.service}
                         onChange={(v) => setData('service', v)}
-                        options={services}
+                        options={options}
                         invalid={Boolean(errors.service)}
                         aria-label="Service to be availed"
                     />
@@ -164,6 +190,32 @@ export default function StepAppointment({
                     </div>
                 </Field>
 
+                {/* Telemedicine consent — SC-4 / C-5, DOH AO 2020-0030.
+                    Asked here, beside the choice it is about, rather than at
+                    Submit: a video visit is a materially different thing from
+                    an in-person one, and the server refuses to book one
+                    without this. It used to refuse silently, because nothing
+                    in the wizard ever sent the field. */}
+                {data.consultationType === 'virtual' && (
+                    <div>
+                        <ConsentCheckbox
+                            name="consent_telemedicine"
+                            checked={data.consentTelemedicine}
+                            onChange={(e) =>
+                                setData('consentTelemedicine', e.target.checked)
+                            }
+                            title={telemedicineConsent.title}
+                            summary={telemedicineConsent.summary}
+                            body={telemedicineConsent.body}
+                            // Optional at sign-up, mandatory to book a video
+                            // consultation — hence the literal, not the flag
+                            // off the document.
+                            required
+                            error={errors.consentTelemedicine}
+                        />
+                    </div>
+                )}
+
                 {/* New vs returning is not asked here. It is derived from this
                     patient's own visit history when the booking is created. */}
 
@@ -194,9 +246,9 @@ export default function StepAppointment({
                         >
                             <IconCalendar />
                         </span>
-                        <input
-                            className={`wc-input${errors.appointmentDate ? 'wc-input-error' : ''}`}
-                            type="date"
+                        <DateField
+                            kind="date"
+                            invalid={Boolean(errors.appointmentDate)}
                             min={minDate}
                             max={maxDate}
                             value={data.appointmentDate}

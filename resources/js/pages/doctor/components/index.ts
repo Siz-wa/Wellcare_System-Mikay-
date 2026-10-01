@@ -1,12 +1,13 @@
-// resources/js/pages/user/dashboard/components/index.ts
+// resources/js/pages/doctor/components/index.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// Barrel export for dashboard page components.
+// What remains after the mock doctor dashboard was removed.
 //
+// StatCards, PatientActivity, ClinicWorkflow, AppointmentList and
+// PendingLabReviews lived here to render `/doctor/dashboard`, a route with no
+// controller behind it — every figure they drew came from the hardcoded arrays
+// in dashboard-data.ts. That route is now a redirect to /doctor/appointments
+// and the components went with it, so nothing in the app can render invented
+// clinical numbers.
 
-export { StatCards } from './stat-cards';
-export { PatientActivity } from './patient-activity';
-export { ClinicWorkflow } from './clinic-workflow';
-export { AppointmentList } from './appointment-list';
-export { PendingLabReviews } from './pending-lab-reviews';
 export { WellcareLogo } from './well-care-logo';
 export { NavIcon, StatIcon, WorkflowIcon, StatusBadge } from '../icons/index';

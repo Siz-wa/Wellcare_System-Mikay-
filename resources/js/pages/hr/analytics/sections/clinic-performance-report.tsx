@@ -58,8 +58,8 @@ export function ClinicPerformanceReport({
             <p
                 style={{
                     margin: '0 0 var(--space-6)',
-                    fontSize: 11,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 Lead time averages {data.stats.leadTimeSample} forward-booked
@@ -98,7 +98,7 @@ export function ClinicPerformanceReport({
                         margin: '0 0 var(--space-1)',
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-800)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {chartTitles.doctorLoad}
@@ -106,8 +106,8 @@ export function ClinicPerformanceReport({
                 <p
                     style={{
                         margin: '0 0 var(--space-4)',
-                        fontSize: 11,
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     Cancelled and no-show appointments are excluded — they

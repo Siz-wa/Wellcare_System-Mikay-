@@ -1,14 +1,25 @@
-// resources/js/components/NotificationBell.tsx
+// resources/js/design-system/components/notification-bell.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Centralized notification bell — reads from Inertia shared props.
-// Drop this into any layout: Navbar, dashboard topbar, patient header, etc.
+// The notification bell. Reads from the Inertia props HandleInertiaRequests
+// shares on every request, so it drops into any layout — navbar, dashboard
+// topbar, patient header — with no wiring.
 //
-// FIX: backend sends `subject` (not `title`) — supports both fields so this
-//      works with all roles (doctor, patient, HR) without backend changes.
+// Presentation lives in components.css under .wc-bell / .wc-notif. It used to
+// be inline style objects with hover implemented by assigning to
+// `el.style.background` in onMouseEnter and un-hiding the dismiss button via
+// querySelector. That is why the panel had no keyboard affordance, no narrow
+// screen layout, and a palette of hardcoded hexes beside the design tokens:
+// an inline style cannot express :hover, :focus-visible, a pseudo-element or
+// a media query, so none of those existed.
+//
+// The backend sends `subject` for appointment notifications and `title` on
+// some channels; both are read.
 
 import { router, usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState, useEffect, useRef } from 'react';
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications';
+import type { ReverbConfig } from '@/lib/echo';
 import type { PageProps } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -25,6 +36,14 @@ export interface NotificationItem {
     action_url?: string | null;
     role_hint?: string | null;
     read: boolean;
+    /**
+     * Task 1.3 — a critical lab result is not finished when it is read.
+     * Reading is passive; acknowledging is the clinician accepting the value,
+     * and only that stops the escalation sweep re-raising it to nurses and
+     * admins. The two are recorded separately, so they are shown separately.
+     */
+    requires_acknowledgement?: boolean;
+    acknowledged?: boolean;
     time: string;
     created_at?: string;
 }
@@ -32,6 +51,7 @@ export interface NotificationItem {
 interface SharedProps extends PageProps {
     notifications: NotificationItem[];
     unreadCount: number;
+    realtime?: ReverbConfig | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,129 +61,247 @@ function getTitle(n: NotificationItem): string {
     return n.title ?? n.subject ?? 'Notification';
 }
 
+/** A critical result nobody has accepted yet — outstanding clinical work. */
+function isAwaitingAcknowledgement(n: NotificationItem): boolean {
+    return Boolean(n.requires_acknowledgement) && !n.acknowledged;
+}
+
+/**
+ * The row's modifier classes.
+ *
+ * Unacknowledged critical results outrank read/unread: marking one read would
+ * otherwise return it to the same plain white as a cancelled appointment,
+ * which is the state the escalation sweep exists to catch.
+ */
+function rowClass(n: NotificationItem): string {
+    const classes = ['wc-notif-row'];
+
+    if (isAwaitingAcknowledgement(n)) {
+        classes.push('wc-notif-row--critical');
+    } else if (!n.read) {
+        classes.push('wc-notif-row--unread');
+    }
+
+    return classes.join(' ');
+}
+
 // ── Icon resolver ─────────────────────────────────────────────────────────────
 
-function NotifIcon({ type }: { type: string }): ReactElement {
-    const iconMap: Record<string, ReactElement> = {
-        calendar: (
-            <svg
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-            >
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-        ),
-        'check-circle': (
-            <svg
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-            >
-                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-        ),
-        'x-circle': (
-            <svg
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-            >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-        ),
-        'user-check': (
-            <svg
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-            >
-                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <polyline points="16 11 18 13 22 9" />
-            </svg>
-        ),
-        'clipboard-check': (
-            <svg
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-            >
-                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-                <rect x="9" y="3" width="6" height="4" rx="1" />
-                <polyline points="9 12 11 14 15 10" />
-            </svg>
-        ),
-    };
+const ICONS: Record<string, ReactElement> = {
+    calendar: (
+        <>
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+        </>
+    ),
+    'check-circle': (
+        <>
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+        </>
+    ),
+    'x-circle': (
+        <>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+        </>
+    ),
+    'user-check': (
+        <>
+            <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <polyline points="16 11 18 13 22 9" />
+        </>
+    ),
+    'clipboard-check': (
+        <>
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+            <rect x="9" y="3" width="6" height="4" rx="1" />
+            <polyline points="9 12 11 14 15 10" />
+        </>
+    ),
+    alert: (
+        <>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+        </>
+    ),
+};
 
-    const colorMap: Record<string, string> = {
-        confirmed: '#16a34a',
-        appointment_confirmed: '#16a34a',
-        cancelled: '#b91c1c',
-        appointment_cancelled: '#b91c1c',
-        checked_in: '#1d4ed8',
-        patient_checked_in: '#1d4ed8',
-        consultation_done: '#7c3aed',
-        consultation_finalized: '#7c3aed',
-        requested: '#ca8a04',
-        appointment_requested: '#ca8a04',
-    };
+/** Type keyword → tint. Everything unmatched takes the brand blue. */
+const TONES: Record<string, string> = {
+    confirmed: 'var(--wc-success)',
+    done: 'var(--wc-success)',
+    finalized: 'var(--wc-success)',
+    cancelled: 'var(--wc-error-dark)',
+    no_show: 'var(--wc-error-dark)',
+    checked_in: 'var(--wc-info-dark)',
+    consultation: '#7c3aed',
+    requested: 'var(--wc-warning)',
+    pending: 'var(--wc-warning)',
+    result: 'var(--wc-error-dark)',
+    critical: 'var(--wc-error-dark)',
+};
 
-    const color = colorMap[type] ?? 'var(--wc-blue-600)';
+function toneFor(type: string, critical: boolean): string {
+    if (critical) {
+        return 'var(--wc-error-dark)';
+    }
 
-    // Resolve icon by type keyword
-    let icon = iconMap['calendar'];
+    const hit = Object.keys(TONES).find((k) => type.includes(k));
+
+    return hit ? TONES[hit] : 'var(--wc-blue-600)';
+}
+
+function iconKeyFor(type: string, critical: boolean): string {
+    if (critical || type.includes('critical') || type.includes('result')) {
+        return 'alert';
+    }
 
     if (
         type.includes('confirmed') ||
         type.includes('done') ||
         type.includes('finalized')
     ) {
-        icon = iconMap['check-circle'];
-    } else if (type.includes('cancelled')) {
-        icon = iconMap['x-circle'];
-    } else if (type.includes('checked_in')) {
-        icon = iconMap['user-check'];
-    } else if (type.includes('consultation')) {
-        icon = iconMap['clipboard-check'];
+        return 'check-circle';
     }
 
+    if (type.includes('cancelled') || type.includes('no_show')) {
+        return 'x-circle';
+    }
+
+    if (type.includes('checked_in')) {
+        return 'user-check';
+    }
+
+    if (type.includes('consultation')) {
+        return 'clipboard-check';
+    }
+
+    return 'calendar';
+}
+
+function NotifChip({
+    type,
+    critical,
+}: {
+    type: string;
+    critical: boolean;
+}): ReactElement {
     return (
-        <div
-            style={{
-                width: 34,
-                height: 34,
-                borderRadius: '10px',
-                background: `${color}18`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color,
-                flexShrink: 0,
-            }}
+        <span
+            className="wc-notif-chip"
+            style={{ '--chip': toneFor(type, critical) } as React.CSSProperties}
+            aria-hidden="true"
         >
-            {icon}
+            <svg
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                viewBox="0 0 24 24"
+            >
+                {ICONS[iconKeyFor(type, critical)]}
+            </svg>
+        </span>
+    );
+}
+
+// ── One row ───────────────────────────────────────────────────────────────────
+
+function NotificationRow({
+    n,
+    onOpen,
+    onAcknowledge,
+    onDismiss,
+}: {
+    n: NotificationItem;
+    onOpen: (n: NotificationItem) => void;
+    onAcknowledge: (id: string) => void;
+    onDismiss: (id: string) => void;
+}): ReactElement {
+    const critical = isAwaitingAcknowledgement(n);
+
+    return (
+        <div className={rowClass(n)}>
+            <NotifChip type={n.type} critical={critical} />
+
+            <div className="wc-notif-row__body">
+                {/*
+                 * The whole row used to be a <div> with an onClick, which is
+                 * unreachable by keyboard and announces nothing. A real button
+                 * spanning the row gives it a name, a role and Enter/Space —
+                 * and it must not wrap the Acknowledge and Dismiss controls,
+                 * because a button inside a button is invalid and collapses
+                 * them into the parent's hit area.
+                 */}
+                <button
+                    type="button"
+                    className="wc-notif-row__hit"
+                    onClick={() => onOpen(n)}
+                >
+                    <p className="wc-notif-row__title">{getTitle(n)}</p>
+                    <p className="wc-notif-row__text">{n.body}</p>
+                    <span className="wc-notif-row__time">{n.time}</span>
+                </button>
+
+                {critical && (
+                    <button
+                        type="button"
+                        className="wc-notif-row__ack"
+                        onClick={() => onAcknowledge(n.id)}
+                    >
+                        Acknowledge result
+                    </button>
+                )}
+
+                {n.requires_acknowledgement && n.acknowledged && (
+                    <p className="wc-notif-row__acked">
+                        <svg
+                            width="12"
+                            height="12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                        >
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Acknowledged
+                    </p>
+                )}
+            </div>
+
+            <button
+                type="button"
+                className="wc-notif-row__dismiss"
+                onClick={() => onDismiss(n.id)}
+                aria-label={`Dismiss “${getTitle(n)}”`}
+            >
+                <svg
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
         </div>
     );
 }
@@ -185,6 +323,22 @@ function NotificationDropdown({
 
     function markAllRead(): void {
         router.post('/notifications/read-all', {}, { preserveScroll: true });
+    }
+
+    /**
+     * Accept a critical result.
+     *
+     * Deliberately its own control rather than a side effect of opening the
+     * notification: `read_at` and `acknowledged_at` are separate columns
+     * because they are separate acts, and the audit trail must not claim a
+     * doctor accepted a panic value merely because the bell was opened.
+     */
+    function acknowledge(id: string): void {
+        router.post(
+            `/notifications/${id}/acknowledge`,
+            {},
+            { preserveScroll: true },
+        );
     }
 
     /**
@@ -220,272 +374,107 @@ function NotificationDropdown({
         }
     }
 
-    function dismiss(e: React.MouseEvent, id: string): void {
-        e.stopPropagation();
+    function dismiss(id: string): void {
         router.delete(`/notifications/${id}`, { preserveScroll: true } as any);
     }
 
+    // Unread first, under their own heading. A bell whose whole purpose is
+    // "what is new" was previously a single undifferentiated list, so the one
+    // notification the user opened it for sat between two they had already
+    // read and dealt with.
+    const unread = notifications.filter((n) => !n.read);
+    const earlier = notifications.filter((n) => n.read);
+    const grouped = unread.length > 0 && earlier.length > 0;
+
     return (
         <div
-            style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: 380,
-                maxHeight: 'min(520px, 80vh)',
-                background: 'var(--wc-white)',
-                borderRadius: 'var(--radius-2xl)',
-                boxShadow: 'var(--shadow-2xl)',
-                border: '1px solid var(--wc-gray-100)',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                zIndex: 9999,
-            }}
+            className="wc-notif"
+            role="dialog"
+            aria-label="Notifications"
             onClick={(e) => e.stopPropagation()}
         >
-            {/* Header */}
-            <div
-                style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid var(--wc-gray-100)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexShrink: 0,
-                }}
-            >
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                    }}
-                >
-                    <p
-                        style={{
-                            margin: 0,
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 800,
-                            color: 'var(--wc-dark)',
-                        }}
-                    >
-                        Notifications
-                    </p>
+            <div className="wc-notif__head">
+                <p className="wc-notif__title">
+                    Notifications
                     {unreadCount > 0 && (
-                        <span
-                            style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                background: 'var(--wc-blue-600)',
-                                color: '#fff',
-                                padding: '2px 8px',
-                                borderRadius: '100px',
-                            }}
-                        >
-                            {unreadCount} new
-                        </span>
+                        <span className="wc-notif__count">{unreadCount}</span>
                     )}
-                </div>
+                </p>
                 {unreadCount > 0 && (
                     <button
+                        type="button"
+                        className="wc-notif__link"
                         onClick={markAllRead}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: 'var(--text-xs)',
-                            fontWeight: 700,
-                            color: 'var(--wc-blue-600)',
-                            padding: 0,
-                        }}
                     >
                         Mark all read
                     </button>
                 )}
             </div>
 
-            {/* List */}
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div className="wc-notif__list">
                 {notifications.length === 0 ? (
-                    <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-                        <p
-                            style={{
-                                margin: '0 0 4px',
-                                fontSize: 'var(--text-sm)',
-                                fontWeight: 600,
-                                color: 'var(--wc-gray-500)',
-                            }}
-                        >
-                            You're all caught up
+                    <div className="wc-notif__empty">
+                        <span className="wc-notif__empty-icon">
+                            <svg
+                                width="22"
+                                height="22"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={1.8}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                <path d="M13.73 21a2 2 0 01-3.46 0" />
+                            </svg>
+                        </span>
+                        <p className="wc-notif__empty-title">
+                            You&rsquo;re all caught up
                         </p>
-                        <p
-                            style={{
-                                margin: 0,
-                                fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
-                            }}
-                        >
-                            No notifications yet.
+                        <p className="wc-notif__empty-text">
+                            Appointment updates and results will appear here.
                         </p>
                     </div>
                 ) : (
-                    notifications.map((n) => (
-                        <div
-                            key={n.id}
-                            onClick={() => handleClick(n)}
-                            style={{
-                                padding: '12px 20px',
-                                borderBottom: '1px solid var(--wc-gray-100)',
-                                background: n.read
-                                    ? 'var(--wc-white)'
-                                    : 'var(--wc-blue-50)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                gap: '12px',
-                                alignItems: 'flex-start',
-                                transition: 'background 0.15s ease',
-                                position: 'relative',
-                            }}
-                            onMouseEnter={(e) => {
-                                const el = e.currentTarget as HTMLDivElement;
-                                el.style.background = n.read
-                                    ? 'var(--wc-gray-50)'
-                                    : '#e0edff';
-                                // Show dismiss button on hover
-                                const btn =
-                                    el.querySelector<HTMLButtonElement>(
-                                        '.notif-dismiss',
-                                    );
-
-                                if (btn) {
-                                    btn.style.opacity = '1';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                const el = e.currentTarget as HTMLDivElement;
-                                el.style.background = n.read
-                                    ? 'var(--wc-white)'
-                                    : 'var(--wc-blue-50)';
-                                const btn =
-                                    el.querySelector<HTMLButtonElement>(
-                                        '.notif-dismiss',
-                                    );
-
-                                if (btn) {
-                                    btn.style.opacity = '0';
-                                }
-                            }}
-                        >
-                            <NotifIcon type={n.type} />
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                {/* ── Title / Subject — THIS is the heading fix ── */}
-                                <p
-                                    style={{
-                                        margin: '0 0 2px',
-                                        fontSize: 'var(--text-sm)',
-                                        fontWeight: n.read ? 500 : 700,
-                                        color: 'var(--wc-dark)',
-                                        lineHeight: 1.3,
-                                        paddingRight: '20px',
-                                    }}
-                                >
-                                    {getTitle(n)}
-                                </p>
-                                <p
-                                    style={{
-                                        margin: '0 0 4px',
-                                        fontSize: 'var(--text-xs)',
-                                        color: 'var(--wc-gray-500)',
-                                        lineHeight: 1.5,
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 2,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    {n.body}
-                                </p>
-                                <p
-                                    style={{
-                                        margin: 0,
-                                        fontSize: '10px',
-                                        color: 'var(--wc-gray-400)',
-                                        fontWeight: 500,
-                                    }}
-                                >
-                                    {n.time}
-                                </p>
-                            </div>
-
-                            {/* Unread dot */}
-                            {!n.read && (
-                                <div
-                                    style={{
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: '50%',
-                                        background: 'var(--wc-blue-600)',
-                                        flexShrink: 0,
-                                        marginTop: 4,
-                                    }}
-                                />
-                            )}
-
-                            {/* Dismiss × */}
-                            <button
-                                onClick={(e) => dismiss(e, n.id)}
-                                style={{
-                                    position: 'absolute',
-                                    top: '10px',
-                                    right: '12px',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--wc-gray-400)',
-                                    padding: '2px',
-                                    fontSize: '16px',
-                                    lineHeight: 1,
-                                    opacity: 0,
-                                    transition: 'opacity 0.15s',
-                                }}
-                                className="notif-dismiss"
-                                aria-label="Dismiss"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    ))
+                    <>
+                        {grouped && <p className="wc-notif__group">New</p>}
+                        {unread.map((n) => (
+                            <NotificationRow
+                                key={n.id}
+                                n={n}
+                                onOpen={handleClick}
+                                onAcknowledge={acknowledge}
+                                onDismiss={dismiss}
+                            />
+                        ))}
+                        {grouped && <p className="wc-notif__group">Earlier</p>}
+                        {earlier.map((n) => (
+                            <NotificationRow
+                                key={n.id}
+                                n={n}
+                                onOpen={handleClick}
+                                onAcknowledge={acknowledge}
+                                onDismiss={dismiss}
+                            />
+                        ))}
+                    </>
                 )}
             </div>
 
-            {/* Footer */}
             {notifications.length > 0 && (
-                <div
-                    style={{
-                        padding: '10px 20px',
-                        borderTop: '1px solid var(--wc-gray-100)',
-                        flexShrink: 0,
-                    }}
-                >
+                <div className="wc-notif__foot">
                     <button
+                        type="button"
+                        className="wc-notif__link"
                         onClick={() =>
                             router.delete('/notifications', {
                                 preserveScroll: true,
                             } as any)
                         }
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: 'var(--text-xs)',
-                            color: 'var(--wc-gray-400)',
-                            fontWeight: 600,
-                            padding: 0,
-                        }}
                     >
-                        Clear all notifications
+                        Clear all
                     </button>
                 </div>
             )}
@@ -496,7 +485,13 @@ function NotificationDropdown({
 // ── Bell button ───────────────────────────────────────────────────────────────
 
 export function NotificationBell(): ReactElement {
-    const { props } = usePage<SharedProps>();
+    const { props, url } = usePage<SharedProps>();
+
+    useRealtimeNotifications(
+        (props.auth as { user?: { id?: number } | null } | undefined)?.user?.id,
+        props.realtime,
+        url,
+    );
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -514,6 +509,25 @@ export function NotificationBell(): ReactElement {
 
         return () => document.removeEventListener('mousedown', handleOutside);
     }, []);
+
+    // Escape closes it, which is what a dialog anchored to a button owes a
+    // keyboard user — there was previously no way out except a mouse click
+    // somewhere else on the page.
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        function handleKey(e: KeyboardEvent): void {
+            if (e.key === 'Escape') {
+                setOpen(false);
+            }
+        }
+
+        document.addEventListener('keydown', handleKey);
+
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [open]);
 
     /**
      * Close when the user actually navigates — not on every re-render.
@@ -534,71 +548,36 @@ export function NotificationBell(): ReactElement {
     useEffect(() => router.on('navigate', () => setOpen(false)), []);
 
     return (
-        <div ref={ref} style={{ position: 'relative' }}>
+        <div className="wc-bell" ref={ref}>
             <button
+                type="button"
+                className={
+                    unreadCount > 0
+                        ? 'wc-bell__btn wc-bell__btn--unread'
+                        : 'wc-bell__btn'
+                }
                 onClick={() => setOpen((o) => !o)}
+                aria-expanded={open}
+                aria-haspopup="dialog"
                 aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-                style={{
-                    position: 'relative',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: 'var(--radius-lg)',
-                    color: 'var(--wc-gray-500)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background 0.15s, color 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                        'var(--wc-gray-100)';
-                    (e.currentTarget as HTMLButtonElement).style.color =
-                        'var(--wc-dark)';
-                }}
-                onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                        'transparent';
-                    (e.currentTarget as HTMLButtonElement).style.color =
-                        'var(--wc-gray-500)';
-                }}
             >
-                {/* Bell icon */}
                 <svg
                     width="20"
                     height="20"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth={2}
+                    strokeWidth={1.9}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                 >
                     <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
                     <path d="M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
 
-                {/* Unread badge */}
                 {unreadCount > 0 && (
-                    <span
-                        style={{
-                            position: 'absolute',
-                            top: '4px',
-                            right: '4px',
-                            minWidth: '16px',
-                            height: '16px',
-                            borderRadius: '100px',
-                            background: 'var(--wc-error)',
-                            color: '#fff',
-                            fontSize: '9px',
-                            fontWeight: 800,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '0 3px',
-                            lineHeight: 1,
-                            border: '2px solid var(--wc-white)',
-                        }}
-                    >
+                    <span className="wc-bell__badge" aria-hidden="true">
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}

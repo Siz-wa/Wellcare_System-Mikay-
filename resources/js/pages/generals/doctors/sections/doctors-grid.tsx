@@ -1,9 +1,15 @@
 // resources/js/pages/user/doctors/sections/DoctorsGridSection.tsx
 import { Link } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
+import { DoctorAvatar } from '@/components/doctor-avatar';
 import SearchInput from '@/design-system/components/search-input';
+import { useCanBook } from '@/hooks/use-can-book';
 import { useInView } from '@/hooks/useInView';
-import { specialtyLabel, doctorRoleLabel } from '@/lib/specialties';
+import {
+    specialtyLabel,
+    doctorRoleLabel,
+    doctorCredentialLine,
+} from '@/lib/specialties';
 import type { DoctorSummary } from '@/lib/specialties';
 import { book } from '@/routes';
 
@@ -49,6 +55,7 @@ const ArrowRight = () => (
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
     const { ref, inView } = useInView();
+    const canBook = useCanBook();
     const [activeSpecialty, setActiveSpecialty] = useState<string>('All');
     const [search, setSearch] = useState('');
 
@@ -137,7 +144,7 @@ export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
                 {/* ── Result count ── */}
                 <p
                     className="mb-8 text-sm font-medium"
-                    style={{ color: 'var(--wc-gray-400)' }}
+                    style={{ color: 'var(--wc-text-muted)' }}
                 >
                     Showing {filtered.length} doctor
                     {filtered.length !== 1 ? 's' : ''}
@@ -152,7 +159,7 @@ export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
                     <div className="py-20 text-center">
                         <p
                             className="text-lg"
-                            style={{ color: 'var(--wc-gray-400)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             No doctors found. Try a different search or filter.
                         </p>
@@ -175,29 +182,46 @@ export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
                             }}
                         >
                             <div className="wc-card-body flex flex-1 flex-col gap-0">
-                                {/* Avatar */}
-                                <div
-                                    className="mb-4 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full font-display text-xl font-extrabold shadow-[var(--shadow-md)]"
-                                    style={{
-                                        background: doc.color,
-                                        color: '#ffffff',
-                                    }}
-                                >
-                                    {doc.initials}
-                                </div>
+                                {/* Avatar — the doctor's photograph once they
+                                    have published one, their initials until
+                                    then. */}
+                                <DoctorAvatar
+                                    photoUrl={doc.photo_url}
+                                    initials={doc.initials}
+                                    color={doc.color}
+                                    name={doc.name}
+                                    size={64}
+                                    className="mb-4 shadow-[var(--shadow-md)]"
+                                />
 
                                 {/* Specialization label */}
                                 <p
-                                    className="mb-1 text-[10px] font-bold tracking-[var(--tracking-widest)] uppercase"
+                                    className="mb-1 text-xs font-bold tracking-[var(--tracking-widest)] uppercase"
                                     style={{ color: doc.color }}
                                 >
                                     {doctorRoleLabel(doc)}
                                 </p>
 
                                 {/* Name */}
-                                <h3 className="mb-4 text-sm leading-snug">
+                                <h3 className="mb-1 text-sm leading-snug">
                                     {doc.name}
                                 </h3>
+
+                                {/* PRC registration and board standing — the
+                                    part a patient can verify for themselves on
+                                    the PRC portal, which is why it is shown at
+                                    all. Absent unless the clinic has verified
+                                    the file; see DoctorResource. */}
+                                {doctorCredentialLine(doc) && (
+                                    <p
+                                        className="mb-4 text-xs"
+                                        style={{
+                                            color: 'var(--wc-text-muted)',
+                                        }}
+                                    >
+                                        {doctorCredentialLine(doc)}
+                                    </p>
+                                )}
 
                                 {/* Schedules */}
                                 <div className="mb-5 flex flex-1 flex-col gap-2">
@@ -223,7 +247,7 @@ export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
                                                     <p
                                                         className="text-xs leading-tight font-semibold"
                                                         style={{
-                                                            color: 'var(--wc-gray-700)',
+                                                            color: 'var(--wc-text-secondary)',
                                                         }}
                                                     >
                                                         {sched.days}
@@ -231,7 +255,7 @@ export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
                                                     <p
                                                         className="mt-0.5 text-xs leading-tight"
                                                         style={{
-                                                            color: 'var(--wc-gray-400)',
+                                                            color: 'var(--wc-text-muted)',
                                                         }}
                                                     >
                                                         {sched.hours}
@@ -242,13 +266,32 @@ export default function DoctorsGridSection({ doctors }: DoctorsGridProps) {
                                     ))}
                                 </div>
 
-                                {/* Book button */}
-                                <Link
-                                    href={book()}
-                                    className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill mt-auto w-full justify-center"
-                                >
-                                    Book Appointment <ArrowRight />
-                                </Link>
+                                {/* Book button — patients and guests only.
+                                    /book is gated role:user, so for a doctor or
+                                    any other staff account this was a button
+                                    that led to a 403. */}
+                                <div className="mt-auto flex flex-col gap-2">
+                                    {canBook && (
+                                        <Link
+                                            href={book({
+                                                query: { doctor: doc.id },
+                                            })}
+                                            className="wc-btn wc-btn-primary wc-btn-sm wc-btn-pill w-full justify-center"
+                                        >
+                                            Book Appointment <ArrowRight />
+                                        </Link>
+                                    )}
+                                    <Link
+                                        href={doc.profile_url}
+                                        className={`wc-btn wc-btn-sm wc-btn-pill w-full justify-center ${
+                                            canBook
+                                                ? 'wc-btn-ghost'
+                                                : 'wc-btn-primary'
+                                        }`}
+                                    >
+                                        View profile
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     ))}

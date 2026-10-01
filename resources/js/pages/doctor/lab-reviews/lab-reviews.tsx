@@ -44,7 +44,7 @@ function SearchFilterBar(): ReactElement {
                         left: 'var(--space-4)',
                         top: '50%',
                         transform: 'translateY(-50%)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         display: 'flex',
                         pointerEvents: 'none',
                     }}
@@ -72,7 +72,6 @@ function SearchFilterBar(): ReactElement {
                         fontSize: 'var(--text-sm)',
                         background: 'var(--wc-white)',
                         border: '1px solid var(--wc-gray-200)',
-                        height: 44,
                     }}
                 />
             </div>
@@ -86,7 +85,6 @@ function SearchFilterBar(): ReactElement {
                     alignItems: 'center',
                     gap: 'var(--space-2)',
                     flexShrink: 0,
-                    height: 44,
                     paddingInline: 'var(--space-5)',
                 }}
             >
@@ -150,7 +148,7 @@ export default function LabReviewsPage({ results }: PageData): ReactElement {
                         display: 'inline-flex',
                         alignItems: 'center',
                         marginBottom: 'var(--space-4)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         textDecoration: 'none',
                         transition: `color var(--duration-base) var(--ease-out)`,
                     }}
@@ -185,8 +183,8 @@ export default function LabReviewsPage({ results }: PageData): ReactElement {
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.pageTitle}
@@ -195,7 +193,7 @@ export default function LabReviewsPage({ results }: PageData): ReactElement {
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.pageSubtitle}

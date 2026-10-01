@@ -40,6 +40,19 @@ export function doctorRoleLabel(doctor: {
     return doctor.specialization?.trim() || specialtyLabel(doctor.specialty);
 }
 
+/**
+ * The two credentials a patient may be shown, and only while the doctor's
+ * credentialing file is verified and unlapsed. Null on the whole object when it
+ * is not — see App\Http\Resources\DoctorResource, which is the only place
+ * that decision is made.
+ */
+export interface DoctorCredentials {
+    prc_license_no: string | null;
+    verified_on: string | null;
+    /** "Diplomate, Philippine Board of Pediatrics", or null for a GP. */
+    board: string | null;
+}
+
 /** Doctor shape shared by the booking picker and the public doctors page. */
 export interface DoctorSummary {
     id: number;
@@ -49,5 +62,35 @@ export interface DoctorSummary {
     initials: string;
     color: string;
     is_active: boolean;
+    /** Null unless the doctor has consented to their photograph being shown. */
+    photo_url: string | null;
+    profile_url: string;
+    bio: string | null;
+    languages: string | null;
+    practising_since: number | null;
+    credentials: DoctorCredentials | null;
     schedules?: { days: string; hours: string }[];
+}
+
+/**
+ * The credential line under a doctor's name — "PRC 0123456 · Diplomate,
+ * Philippine Board of Pediatrics" — or null when there is nothing verified to
+ * show.
+ *
+ * Here rather than in a component for the same reason doctorRoleLabel is: every
+ * surface that lists a doctor renders this, and three copies of the formatting
+ * is how the same doctor ends up reading differently on different pages.
+ */
+export function doctorCredentialLine(doctor: {
+    credentials?: DoctorCredentials | null;
+}): string | null {
+    const credentials = doctor.credentials;
+
+    if (!credentials?.prc_license_no) {
+        return null;
+    }
+
+    return credentials.board
+        ? `PRC ${credentials.prc_license_no} · ${credentials.board}`
+        : `PRC ${credentials.prc_license_no}`;
 }

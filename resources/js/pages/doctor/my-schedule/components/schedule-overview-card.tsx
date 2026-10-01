@@ -47,7 +47,7 @@ function QuickTaskRow({
                     style={{
                         margin: '2px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         lineHeight: 1,
                     }}
                 >
@@ -133,7 +133,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                             margin: 0,
                             fontSize: 'var(--text-lg)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {ov.title}
@@ -143,7 +143,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                         style={{
                             fontSize: 'var(--text-xs)',
                             fontWeight: 700,
-                            color: 'var(--wc-sky-500)',
+                            color: 'var(--wc-link)',
                             textDecoration: 'none',
                             letterSpacing: '0.06em',
                         }}
@@ -159,7 +159,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                             margin: '0 0 var(--space-3)',
                             fontSize: 'var(--text-base)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {ov.dailyProgressLabel}
@@ -178,7 +178,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                             style={{
                                 fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 letterSpacing: '0.06em',
                             }}
                         >
@@ -188,7 +188,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                             style={{
                                 fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {ov.completedPercent}%
@@ -220,7 +220,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-xs)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             lineHeight: 1.5,
                         }}
                     >
@@ -244,7 +244,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                             margin: 0,
                             fontSize: 'var(--text-lg)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         Quick Tasks
@@ -254,7 +254,7 @@ export default function ScheduleOverviewCard(): ReactElement {
                         style={{
                             fontSize: 'var(--text-xs)',
                             fontWeight: 700,
-                            color: 'var(--wc-sky-500)',
+                            color: 'var(--wc-link)',
                             textDecoration: 'none',
                             letterSpacing: '0.06em',
                         }}

@@ -6,6 +6,7 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { Select } from '@/design-system';
 import {
     labOrderStatusColors,
     labOrdersCopy,
@@ -16,19 +17,34 @@ import {
 import type { LabOrder } from '../consultations-data';
 
 interface LabOrdersProps {
-    /** null when the editor was opened as a brand-new session with no booking */
-    appointmentId: number | null;
+    /**
+     * Always a real appointment. A lab test is ordered against a booking, and
+     * the editor can no longer be opened without one — see the
+     * `sessionOriginNote` comment in consultations-data.ts.
+     */
+    appointmentId: number;
     orders: LabOrder[];
+    /**
+     * Fires once the order is actually on file. Without a confirmation the
+     * doctor has no signal the click landed, and the natural response is to
+     * click again — which is how the same test ended up ordered twice.
+     */
+    onOrdered?: (testName: string) => void;
+    /**
+     * Keep the page mounted across the order. Required inside the video room:
+     * a remount there tears down the peer connection and drops the call.
+     */
+    preserveState?: boolean;
 }
 
 const LABEL_STYLE = {
     display: 'block',
     marginBottom: 'var(--space-2)',
-    fontSize: '10px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 800,
     letterSpacing: '0.07em',
     textTransform: 'uppercase' as const,
-    color: 'var(--wc-gray-500)',
+    color: 'var(--wc-text-muted)',
 };
 
 // ── One previously ordered test ───────────────────────────────────────────────
@@ -66,7 +82,7 @@ function OrderRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {order.testName}
@@ -75,8 +91,8 @@ function OrderRow({
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: '11px',
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {order.requestedAt}
@@ -89,7 +105,7 @@ function OrderRow({
                     flexShrink: 0,
                     padding: '3px 10px',
                     borderRadius: 999,
-                    fontSize: '10px',
+                    fontSize: 'var(--text-xs)',
                     fontWeight: 800,
                     letterSpacing: '0.04em',
                     background: `${accent}15`,
@@ -107,6 +123,8 @@ function OrderRow({
 export function LabOrders({
     appointmentId,
     orders,
+    onOrdered,
+    preserveState = false,
 }: LabOrdersProps): ReactElement {
     const copy = labOrdersCopy;
 
@@ -114,6 +132,8 @@ export function LabOrders({
     const [customName, setCustomName] = useState('');
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    /** The test just requested, so the confirmation names it. */
+    const [lastOrdered, setLastOrdered] = useState<string | null>(null);
 
     const isCustom = preset === copy.customOption;
     const testName = isCustom ? customName.trim() : preset;
@@ -131,15 +151,19 @@ export function LabOrders({
 
         setProcessing(true);
         setError(null);
+        setLastOrdered(null);
 
         router.post(
             `/doctor/consultations/${appointmentId}/lab-request`,
             { test_name: testName },
             {
                 preserveScroll: true,
+                preserveState,
                 onSuccess: () => {
                     setCustomName('');
                     setPreset(labTestPresets[0]);
+                    setLastOrdered(testName);
+                    onOrdered?.(testName);
                 },
                 onError: (errors) =>
                     setError(
@@ -167,7 +191,7 @@ export function LabOrders({
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {copy.emptyMessage}
@@ -196,98 +220,77 @@ export function LabOrders({
             >
                 <span style={LABEL_STYLE}>{copy.requestTitle}</span>
 
-                {appointmentId === null ? (
+                <div
+                    style={{
+                        display: 'flex',
+                        gap: 'var(--space-2)',
+                        flexWrap: 'wrap',
+                    }}
+                >
+                    <Select
+                        aria-label={copy.presetLabel}
+                        value={preset}
+                        onChange={setPreset}
+                        style={{ flex: '2 1 200px' }}
+                        options={[
+                            ...labTestPresets.map((name) => ({
+                                value: name,
+                                label: name,
+                            })),
+                            {
+                                value: copy.customOption,
+                                label: copy.customOption,
+                            },
+                        ]}
+                    />
+
+                    <button
+                        type="button"
+                        className="wc-btn wc-btn-primary wc-btn-md"
+                        onClick={handleRequest}
+                        disabled={processing}
+                        style={{ flexShrink: 0 }}
+                    >
+                        {processing ? copy.submittingLabel : copy.submitLabel}
+                    </button>
+                </div>
+
+                {isCustom && (
+                    <input
+                        className="wc-input"
+                        aria-label={copy.customPlaceholder}
+                        placeholder={copy.customPlaceholder}
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        style={{
+                            marginTop: 'var(--space-2)',
+                            width: '100%',
+                            fontSize: 'var(--text-sm)',
+                        }}
+                    />
+                )}
+
+                {error ? (
                     <p
                         style={{
-                            margin: 0,
+                            margin: 'var(--space-2) 0 0',
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: '#dc2626',
                         }}
                     >
-                        {copy.noAppointment}
+                        {error}
                     </p>
-                ) : (
-                    <>
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: 'var(--space-2)',
-                                flexWrap: 'wrap',
-                            }}
-                        >
-                            <select
-                                className="wc-input"
-                                aria-label={copy.presetLabel}
-                                value={preset}
-                                onChange={(e) => setPreset(e.target.value)}
-                                style={{
-                                    flex: '2 1 200px',
-                                    height: 40,
-                                    fontSize: 'var(--text-sm)',
-                                }}
-                            >
-                                {labTestPresets.map((name) => (
-                                    <option key={name} value={name}>
-                                        {name}
-                                    </option>
-                                ))}
-                                <option value={copy.customOption}>
-                                    {copy.customOption}
-                                </option>
-                            </select>
-
-                            <button
-                                type="button"
-                                className="wc-btn wc-btn-primary wc-btn-md"
-                                onClick={handleRequest}
-                                disabled={processing}
-                                style={{ flexShrink: 0 }}
-                            >
-                                {processing
-                                    ? copy.submittingLabel
-                                    : copy.submitLabel}
-                            </button>
-                        </div>
-
-                        {isCustom && (
-                            <input
-                                className="wc-input"
-                                aria-label={copy.customPlaceholder}
-                                placeholder={copy.customPlaceholder}
-                                value={customName}
-                                onChange={(e) => setCustomName(e.target.value)}
-                                style={{
-                                    marginTop: 'var(--space-2)',
-                                    width: '100%',
-                                    height: 40,
-                                    fontSize: 'var(--text-sm)',
-                                }}
-                            />
-                        )}
-
-                        {error ? (
-                            <p
-                                style={{
-                                    margin: 'var(--space-2) 0 0',
-                                    fontSize: 'var(--text-sm)',
-                                    color: '#dc2626',
-                                }}
-                            >
-                                {error}
-                            </p>
-                        ) : (
-                            <p
-                                style={{
-                                    margin: 'var(--space-2) 0 0',
-                                    fontSize: '11px',
-                                    color: 'var(--wc-gray-500)',
-                                }}
-                            >
-                                {copy.successHint}
-                            </p>
-                        )}
-                    </>
-                )}
+                ) : lastOrdered ? (
+                    <p
+                        style={{
+                            margin: 'var(--space-2) 0 0',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
+                        }}
+                    >
+                        {lastOrdered}: {copy.successHint}
+                    </p>
+                ) : null}
             </div>
         </div>
     );

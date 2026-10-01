@@ -13,6 +13,7 @@ import {
     Settings,
     LogOut,
     ChevronRight,
+    Wallet,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
@@ -34,6 +35,7 @@ const ICON_MAP: Record<IconKey, ReactElement> = {
     labreviews: <FlaskConical size={17} strokeWidth={1.8} />,
     records: <FolderOpen size={17} strokeWidth={1.8} />,
     settings: <Settings size={17} strokeWidth={1.8} />,
+    payments: <Wallet size={17} strokeWidth={1.8} />,
 };
 
 function NavLink({
@@ -142,8 +144,8 @@ export function HRAppSidebar({ activeId }: HRAppSidebarProps): ReactElement {
         <aside
             style={{
                 width: 260,
-                minHeight: '100vh',
-                height: '100vh',
+                minHeight: '100dvh',
+                height: '100dvh',
                 position: 'sticky',
                 top: 0,
                 flexShrink: 0,
@@ -180,7 +182,7 @@ export function HRAppSidebar({ activeId }: HRAppSidebarProps): ReactElement {
                             style={{
                                 margin: '0 0 6px',
                                 padding: '0 4px',
-                                fontSize: '10px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 color: '#94a3b8',
                                 textTransform: 'uppercase',

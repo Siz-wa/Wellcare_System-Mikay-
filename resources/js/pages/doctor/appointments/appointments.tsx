@@ -30,6 +30,7 @@ interface AppointmentItem {
     patientStatus: string;
     coverage: string;
     hmo: string | null;
+    consultationType: string | null;
     status: string;
     additionalInfo: string | null;
     isToday: boolean;
@@ -129,7 +130,7 @@ function LocalToast({
                     color: 'inherit',
                     opacity: 0.6,
                     padding: 0,
-                    fontSize: '16px',
+                    fontSize: 'var(--text-base)',
                     lineHeight: 1,
                 }}
             >
@@ -168,7 +169,7 @@ function StatusBadge({ status }: { status: string }): ReactElement {
     const c = config[status] ?? {
         label: status,
         bg: 'var(--wc-gray-100)',
-        color: 'var(--wc-gray-500)',
+        color: 'var(--wc-text-muted)',
     };
 
     return (
@@ -180,7 +181,7 @@ function StatusBadge({ status }: { status: string }): ReactElement {
                 borderRadius: '100px',
                 background: c.bg,
                 color: c.color,
-                fontSize: '11px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 700,
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
@@ -240,7 +241,7 @@ function StatCard({
                     margin: 0,
                     fontSize: 'var(--text-sm)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {label}
@@ -289,14 +290,12 @@ function CancelModal({
 
     return (
         <div
+            className="fixed inset-0 flex items-center justify-center p-4 sm:p-6"
             style={{
-                position: 'fixed',
-                inset: 0,
                 background: 'rgba(15,23,42,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
+                // Was a bare 1000 — below --z-nav (5000), so the shell's
+                // sidebar and topbar painted over this dialog.
+                zIndex: 'var(--z-modal)',
                 backdropFilter: 'blur(4px)',
             }}
             onClick={onClose}
@@ -317,7 +316,7 @@ function CancelModal({
                         margin: '0 0 6px',
                         fontSize: 'var(--text-lg)',
                         fontWeight: 800,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     Cancel Appointment
@@ -326,7 +325,7 @@ function CancelModal({
                     style={{
                         margin: '0 0 20px',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     This will notify <strong>{appointment.patient}</strong> via
@@ -358,7 +357,7 @@ function CancelModal({
                             fontWeight: 600,
                             fontSize: 'var(--text-sm)',
                             cursor: 'pointer',
-                            color: 'var(--wc-gray-600)',
+                            color: 'var(--wc-text-secondary)',
                         }}
                     >
                         Keep
@@ -465,7 +464,7 @@ function AppointmentRow({
                                 margin: 0,
                                 fontSize: 'var(--text-sm)',
                                 fontWeight: 700,
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                             }}
                         >
                             {appt.patient}
@@ -474,7 +473,7 @@ function AppointmentRow({
                             style={{
                                 margin: '1px 0 0',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {appt.age} yrs ·{' '}
@@ -495,16 +494,37 @@ function AppointmentRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 600,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {appt.service}
+                    <span
+                        style={{
+                            marginLeft: 8,
+                            fontSize: 'var(--text-xs)',
+                            fontWeight: 700,
+                            padding: '1px 8px',
+                            borderRadius: 999,
+                            color:
+                                appt.consultationType === 'virtual'
+                                    ? '#6d28d9'
+                                    : 'var(--wc-text-muted)',
+                            background:
+                                appt.consultationType === 'virtual'
+                                    ? '#ede9fe'
+                                    : 'var(--wc-gray-100)',
+                        }}
+                    >
+                        {appt.consultationType === 'virtual'
+                            ? 'Video'
+                            : 'In person'}
+                    </span>
                 </p>
                 <p
                     style={{
                         margin: '1px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         textTransform: 'capitalize',
                     }}
                 >
@@ -531,7 +551,7 @@ function AppointmentRow({
                     style={{
                         margin: '1px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {appt.time}
@@ -587,7 +607,7 @@ function AppointmentRow({
                                 padding: '0 14px',
                                 borderRadius: 'var(--radius-full)',
                                 background: 'transparent',
-                                color: 'var(--wc-error)',
+                                color: 'var(--wc-text-error)',
                                 border: '1px solid var(--wc-error)',
                                 cursor: 'pointer',
                                 fontSize: 'var(--text-xs)',
@@ -601,7 +621,7 @@ function AppointmentRow({
                         <span
                             style={{
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 fontWeight: 500,
                             }}
                         >
@@ -641,14 +661,9 @@ export default function DoctorAppointmentsPage(): ReactElement {
     return (
         <DashboardLayout activeId="appointments">
             {/* ── Header ── */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 'var(--space-8)',
-                }}
-            >
+            {/* Title and its actions stack on a phone and sit side by side
+                from `sm`. */}
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h1
                         style={{
@@ -657,7 +672,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
                             lineHeight: 1.15,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                             fontFamily: 'var(--font-display)',
                         }}
                     >
@@ -666,7 +681,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
                     <p
                         style={{
                             margin: 0,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             fontSize: 'var(--text-base)',
                         }}
                     >
@@ -676,14 +691,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
             </div>
 
             {/* ── Stat cards ── */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 'var(--space-4)',
-                    marginBottom: 'var(--space-8)',
-                }}
-            >
+            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatCard
                     value={props.stats.pending}
                     label="Awaiting Confirmation"
@@ -711,7 +719,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
                         left: 'var(--space-4)',
                         top: '50%',
                         transform: 'translateY(-50%)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         display: 'flex',
                         pointerEvents: 'none',
                     }}
@@ -769,7 +777,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
                                 margin: 0,
                                 fontSize: 'var(--text-base)',
                                 fontWeight: 700,
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                             }}
                         >
                             Today
@@ -799,9 +807,9 @@ export default function DoctorAppointmentsPage(): ReactElement {
                                                     col === 'Actions'
                                                         ? 'right'
                                                         : 'left',
-                                                fontSize: '10px',
+                                                fontSize: 'var(--text-xs)',
                                                 fontWeight: 700,
-                                                color: 'var(--wc-gray-400)',
+                                                color: 'var(--wc-text-muted)',
                                                 letterSpacing: '0.07em',
                                                 textTransform: 'uppercase',
                                                 borderBottom:
@@ -858,7 +866,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
                             margin: 0,
                             fontSize: 'var(--text-base)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         Upcoming
@@ -885,9 +893,9 @@ export default function DoctorAppointmentsPage(): ReactElement {
                                                 col === 'Actions'
                                                     ? 'right'
                                                     : 'left',
-                                            fontSize: '10px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             letterSpacing: '0.07em',
                                             textTransform: 'uppercase',
                                             borderBottom:
@@ -907,7 +915,7 @@ export default function DoctorAppointmentsPage(): ReactElement {
                                         style={{
                                             padding: '48px',
                                             textAlign: 'center',
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             fontSize: 'var(--text-sm)',
                                         }}
                                     >

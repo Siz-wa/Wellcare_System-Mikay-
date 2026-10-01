@@ -17,6 +17,15 @@ import { loginFormData } from './login-data';
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface LoginFormPanelProps {
     status?: string;
+    /**
+     * Why the app ended a session — an idle timeout (GV-8) or a deactivation.
+     *
+     * Its own prop rather than a member of the `errors` bag: this page reads
+     * `errors` from the Inertia `<Form>` render-prop below, which only ever
+     * carries that form's own submission errors, so a bag flashed by a redirect
+     * never rendered. T-13 of the 2026-09-11 walkthrough is that bug.
+     */
+    notice?: string | null;
     canResetPassword: boolean;
     canRegister: boolean;
 }
@@ -24,6 +33,7 @@ interface LoginFormPanelProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function LoginFormPanel({
     status,
+    notice,
     canResetPassword,
     canRegister,
 }: LoginFormPanelProps) {
@@ -47,14 +57,14 @@ export default function LoginFormPanel({
                         style={{
                             fontFamily: 'var(--font-display)',
                             fontWeight: 800,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {d.heading}
                     </h1>
                     <p
                         className="text-sm"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         {d.subheading}
                     </p>
@@ -76,6 +86,33 @@ export default function LoginFormPanel({
                             <polyline points="22 4 12 14.01 9 11.01" />
                         </svg>
                         <span>{status}</span>
+                    </div>
+                )}
+
+                {/* Sits above the form, not beside a field: nothing is wrong
+                    with what the person typed — they have not typed anything
+                    yet. It explains a page they did not ask to be on. */}
+                {notice && (
+                    <div
+                        className="wc-alert wc-alert-warning mb-6"
+                        role="status"
+                        data-test="login-notice"
+                    >
+                        <svg
+                            className="wc-alert-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 8v4" />
+                            <path d="M12 16h.01" />
+                        </svg>
+                        <span>{notice}</span>
                     </div>
                 )}
 
@@ -155,7 +192,9 @@ export default function LoginFormPanel({
                                 <Label
                                     htmlFor="remember"
                                     className="cursor-pointer text-sm"
-                                    style={{ color: 'var(--wc-gray-600)' }}
+                                    style={{
+                                        color: 'var(--wc-text-secondary)',
+                                    }}
                                 >
                                     {d.rememberLabel}
                                 </Label>
@@ -177,7 +216,7 @@ export default function LoginFormPanel({
                             {canRegister && (
                                 <p
                                     className="mt-2 text-center text-sm"
-                                    style={{ color: 'var(--wc-gray-500)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {d.registerPrompt}{' '}
                                     <TextLink
@@ -196,7 +235,7 @@ export default function LoginFormPanel({
                                 <Link
                                     href={home.url()}
                                     className="text-xs"
-                                    style={{ color: 'var(--wc-gray-400)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {d.backLabel}
                                 </Link>

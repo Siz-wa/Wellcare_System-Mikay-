@@ -10,7 +10,6 @@ export * from './time-slot-picker';
 export * from './review-row';
 export * from './review-group';
 export * from './step-nav';
-export * from './brand-select';
 export * from './doctor-picker';
 export * from './patient-summary-card';
 export { default as StepIndicator } from './step-indicator';

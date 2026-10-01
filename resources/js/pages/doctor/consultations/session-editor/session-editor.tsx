@@ -8,10 +8,12 @@
 //   - Added local inline feedback label under the save indicator so the doctor
 //     sees "Saved" confirmation even without a full toast.
 
-import { router } from '@inertiajs/react';
-import { FlaskConical } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { FlaskConical, Pill } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import type { ReactElement } from 'react';
+import { ConfirmDialog } from '@/design-system';
+import type { VitalsSource } from '@/lib/vitals';
 import { IconX, IconSoap, IconVitals, IconHistory } from '@/pages/doctor/icons';
 import {
     consultationsMeta,
@@ -24,15 +26,19 @@ import type {
     SoapFields,
     VitalsFields,
     ConsultationRecord,
+    Medication,
+    AllergyConflict,
 } from '../consultations-data';
+import { AllergyPanel } from './allergy-panel';
 import { LabOrders } from './lab-orders';
 import { PatientVitals } from './patient-vitals';
+import { Prescription } from './prescription';
 import { SoapNotes } from './soap-notes';
 
 function TabIcon({
     iconKey,
 }: {
-    iconKey: 'soap' | 'vitals' | 'labs';
+    iconKey: 'soap' | 'vitals' | 'labs' | 'meds';
 }): ReactElement {
     if (iconKey === 'soap') {
         return <IconSoap />;
@@ -42,14 +48,80 @@ function TabIcon({
         return <FlaskConical size={16} strokeWidth={1.9} />;
     }
 
+    if (iconKey === 'meds') {
+        return <Pill size={16} strokeWidth={1.9} />;
+    }
+
     return <IconVitals />;
 }
 
+/** The saved draft's SOAP fields, or blanks for a session never saved. */
+function soapFrom(consultation: ConsultationRecord): SoapFields {
+    return {
+        ...emptySoap,
+        subjective: consultation.soap?.subjective ?? '',
+        objective: consultation.soap?.objective ?? '',
+        assessment: consultation.soap?.assessment ?? '',
+        plan: consultation.soap?.plan ?? '',
+    };
+}
+
+/** The saved draft's vitals, defaulting provenance the way the server does. */
+function vitalsFrom(consultation: ConsultationRecord): VitalsFields {
+    return {
+        ...defaultVitals,
+        bloodPressure: consultation.vitals?.bloodPressure ?? '',
+        heartRate: consultation.vitals?.heartRate ?? '',
+        temperature: consultation.vitals?.temperature ?? '',
+        oxygenSaturation: consultation.vitals?.oxygenSaturation ?? '',
+        weight: consultation.vitals?.weight ?? '',
+        height: consultation.vitals?.height ?? '',
+        // Falls back to the mode-appropriate default the server already
+        // applied, so an unopened session does not present the doctor with
+        // a blank provenance they can silently save past.
+        source: consultation.vitals?.source ?? 'clinic_measured',
+    };
+}
+
+/** The saved draft's prescriptions. */
+function medicationsFrom(consultation: ConsultationRecord): Medication[] {
+    return (consultation.prescriptions ?? []).map((p, i) => ({
+        id: p.id ?? `med-existing-${i}`,
+        name: p.name,
+        instructions: p.instructions,
+    }));
+}
+
+/** Which tab holds the field a server error was raised against. */
+function tabForError(key: string): SessionTab | null {
+    if (key.startsWith('soap')) {
+        return 'soap';
+    }
+
+    if (key.startsWith('vitals')) {
+        return 'vitals';
+    }
+
+    if (key.startsWith('medications') || key === 'allergyOverrideReason') {
+        return 'meds';
+    }
+
+    return null;
+}
+
 interface SessionEditorProps {
-    consultation: ConsultationRecord | null;
+    /**
+     * Never null. The editor documents a booked visit the patient checked in
+     * for — it was previously openable with nothing behind it, which produced a
+     * complete clinical form whose Save and Finalize buttons were both disabled.
+     * See the `sessionOriginNote` comment in consultations-data.ts.
+     */
+    consultation: ConsultationRecord;
     onClose: () => void;
     onSaveSuccess?: () => void; // called after Save Draft succeeds
     onFinalizeSuccess?: () => void; // called after Finalize succeeds
+    /** Called after a lab test is successfully ordered, with its name. */
+    onLabOrdered?: (testName: string) => void;
 }
 
 export function SessionEditor({
@@ -57,17 +129,88 @@ export function SessionEditor({
     onClose,
     onSaveSuccess,
     onFinalizeSuccess,
+    onLabOrdered,
 }: SessionEditorProps): ReactElement {
     const meta = consultationsMeta;
 
+    /**
+     * The provenance vocabulary, served by DoctorConsultationController::index
+     * so the select and the validator share one definition.
+     */
+    const { vitalsSources, flash } = usePage<{
+        vitalsSources: Record<VitalsSource, string>;
+        flash?: { allergyConflicts?: AllergyConflict[] };
+    }>().props;
+
     const [activeTab, setActiveTab] = useState<SessionTab>('soap');
-    const [soap, setSoap] = useState<SoapFields>({ ...emptySoap });
-    const [vitals, setVitals] = useState<VitalsFields>({ ...defaultVitals });
+    // Seeded from the saved draft on mount. The editor unmounts when it is
+    // closed, so starting from blanks here meant every reopen showed an empty
+    // form, and the next Save or Finalize wrote those blanks over the notes.
+    const [soap, setSoap] = useState<SoapFields>(() => soapFrom(consultation));
+    const [vitals, setVitals] = useState<VitalsFields>(() =>
+        vitalsFrom(consultation),
+    );
+    const [medications, setMedications] = useState<Medication[]>(() =>
+        medicationsFrom(consultation),
+    );
+
+    /**
+     * A medicine typed into the add row but not yet confirmed with "Add".
+     * Held here so Save and Finalize include it instead of dropping it.
+     */
+    const [draftMed, setDraftMed] = useState({ name: '', instructions: '' });
+
+    /** Field-level messages from the last refused save. */
+    const [serverErrors, setServerErrors] = useState<Record<string, string>>(
+        {},
+    );
+
+    /**
+     * Conflicts the server refused the save over, and the acknowledgement the
+     * doctor types to proceed. Held here rather than in the Prescription tab
+     * because the refusal can arrive from a Finalize on any tab.
+     */
+    const [allergyConflicts, setAllergyConflicts] = useState<AllergyConflict[]>(
+        [],
+    );
+    const [overrideReason, setOverrideReason] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveLabel, setSaveLabel] = useState<'idle' | 'saved' | 'error'>(
         'idle',
     );
     const [mountAnim, setMountAnim] = useState(false);
+    /** Finalize is irreversible, so it is confirmed first. */
+    const [confirmFinalize, setConfirmFinalize] = useState(false);
+
+    /**
+     * Read the refusal from the shared flash prop rather than from the save
+     * visit's callbacks.
+     *
+     * The server answers a contraindication with BOTH `withErrors` and the
+     * flash. A non-empty `props.errors` makes Inertia treat the response as a
+     * failed visit, so it calls onError — and reading the conflicts in
+     * onSuccess alone meant the panel never rendered: the save was refused and
+     * the doctor was shown nothing at all, which is the one outcome a
+     * drug-allergy check must never produce.
+     *
+     * Watching the prop covers both handlers, and any future caller that
+     * refuses a save the same way.
+     */
+    const flashedConflicts = flash?.allergyConflicts;
+
+    // Adjusted during render when the prop changes (React's recommended form
+    // of "reset state on prop change"), rather than in an effect.
+    const [seenConflicts, setSeenConflicts] = useState(flashedConflicts);
+
+    if (flashedConflicts !== seenConflicts) {
+        setSeenConflicts(flashedConflicts);
+
+        if (flashedConflicts && flashedConflicts.length > 0) {
+            setAllergyConflicts(flashedConflicts);
+            setActiveTab('meds');
+            setSaveLabel('error');
+        }
+    }
 
     /**
      * Pre-populate the editor when a *different* consultation is opened.
@@ -79,26 +222,20 @@ export function SessionEditor({
      * open overwrote whatever the doctor had typed with the last saved values.
      * That is silent clinical-note loss, not just a wasted render.
      */
-    const [loadedId, setLoadedId] = useState(consultation?.id);
+    const [loadedId, setLoadedId] = useState(consultation.id);
 
-    if (consultation?.id !== loadedId) {
-        setLoadedId(consultation?.id);
+    if (consultation.id !== loadedId) {
+        setLoadedId(consultation.id);
 
-        setSoap({
-            subjective: consultation?.soap?.subjective ?? '',
-            objective: consultation?.soap?.objective ?? '',
-            assessment: consultation?.soap?.assessment ?? '',
-            plan: consultation?.soap?.plan ?? '',
-        });
+        setSoap(soapFrom(consultation));
+        setVitals(vitalsFrom(consultation));
+        setMedications(medicationsFrom(consultation));
+        setDraftMed({ name: '', instructions: '' });
+        setServerErrors({});
 
-        setVitals({
-            bloodPressure: consultation?.vitals?.bloodPressure ?? '',
-            heartRate: consultation?.vitals?.heartRate ?? '',
-            temperature: consultation?.vitals?.temperature ?? '',
-            oxygenSaturation: consultation?.vitals?.oxygenSaturation ?? '',
-            weight: consultation?.vitals?.weight ?? '',
-            height: consultation?.vitals?.height ?? '',
-        });
+        // A different patient's conflicts must never carry over.
+        setAllergyConflicts([]);
+        setOverrideReason('');
     }
 
     useEffect(() => {
@@ -127,7 +264,23 @@ export function SessionEditor({
 
     const handleVitalsChange = useCallback(
         (key: keyof VitalsFields, value: string): void => {
-            setVitals((prev) => ({ ...prev, [key]: value }));
+            setVitals((prev) => ({
+                ...prev,
+                // "Nothing was obtained" and six numbers cannot both be true,
+                // so choosing it clears them. The server normalises the same
+                // way for saves that never came through this form.
+                ...(key === 'source' && value === 'not_obtained'
+                    ? {
+                          bloodPressure: '',
+                          heartRate: '',
+                          temperature: '',
+                          oxygenSaturation: '',
+                          weight: '',
+                          height: '',
+                      }
+                    : null),
+                [key]: value,
+            }));
         },
         [],
     );
@@ -135,12 +288,9 @@ export function SessionEditor({
     // ── Submit ────────────────────────────────────────────────────────────────
 
     function handleSave(finalize: boolean): void {
-        if (!consultation) {
-            return;
-        }
-
         setSaving(true);
         setSaveLabel('idle');
+        setServerErrors({});
 
         router.post(
             `/doctor/consultations/${consultation.id}/save`,
@@ -155,12 +305,54 @@ export function SessionEditor({
                 'vitals[oxygenSaturation]': vitals.oxygenSaturation,
                 'vitals[weight]': vitals.weight,
                 'vitals[height]': vitals.height,
+                'vitals[source]': vitals.source,
+                medications: [
+                    ...medications,
+                    ...(draftMed.name.trim()
+                        ? [
+                              {
+                                  name: draftMed.name.trim(),
+                                  instructions: draftMed.instructions.trim(),
+                              },
+                          ]
+                        : []),
+                ].map((m) => ({
+                    name: m.name,
+                    instructions: m.instructions,
+                })),
+                // Only sent once the doctor has acknowledged a warning. Absent
+                // on a first attempt, which is what makes the server refuse.
+                ...(overrideReason.trim()
+                    ? { allergyOverrideReason: overrideReason.trim() }
+                    : {}),
                 finalize: finalize ? '1' : '0',
             },
             {
                 preserveScroll: true,
                 onFinish: () => setSaving(false),
                 onSuccess: () => {
+                    // A refusal never reaches here — the server sends it with
+                    // `withErrors`, so Inertia routes it to onError. The
+                    // conflicts are read from the shared flash prop by the
+                    // effect above, which fires for either handler. Reaching
+                    // this point means the save actually committed.
+                    setAllergyConflicts([]);
+                    setOverrideReason('');
+
+                    // The pending row went up with this save; list it so it
+                    // is not sent twice.
+                    if (draftMed.name.trim()) {
+                        setMedications((prev) => [
+                            ...prev,
+                            {
+                                id: `med-${Date.now()}`,
+                                name: draftMed.name.trim(),
+                                instructions: draftMed.instructions.trim(),
+                            },
+                        ]);
+                        setDraftMed({ name: '', instructions: '' });
+                    }
+
                     setSaveLabel('saved');
                     // Reset "Saved" label back to idle after 3 s
                     setTimeout(() => setSaveLabel('idle'), 3000);
@@ -172,15 +364,25 @@ export function SessionEditor({
                         onSaveSuccess?.();
                     }
                 },
-                onError: () => {
+                onError: (errors) => {
                     setSaveLabel('error');
-                    setTimeout(() => setSaveLabel('idle'), 4000);
+                    setServerErrors(errors);
+
+                    // Take the doctor to the tab holding the first problem,
+                    // unless the allergy panel has already claimed the view.
+                    const firstTab = Object.keys(errors)
+                        .map(tabForError)
+                        .find((t): t is SessionTab => t !== null);
+
+                    if (firstTab && !flashedConflicts?.length) {
+                        setActiveTab(firstTab);
+                    }
                 },
             },
         );
     }
 
-    const patientName = consultation?.patient ?? meta.editorPatientEmpty;
+    const patientName = consultation.patient;
 
     // ── Save status indicator label ───────────────────────────────────────────
     const statusDot = saving
@@ -291,7 +493,7 @@ export function SessionEditor({
                                         margin: 0,
                                         fontSize: 'var(--text-base)',
                                         fontWeight: 700,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                         lineHeight: 1.2,
                                     }}
                                 >
@@ -301,7 +503,7 @@ export function SessionEditor({
                                     style={{
                                         margin: 0,
                                         fontSize: 'var(--text-xs)',
-                                        color: 'var(--wc-gray-400)',
+                                        color: 'var(--wc-text-muted)',
                                         letterSpacing: '0.05em',
                                     }}
                                 >
@@ -329,7 +531,7 @@ export function SessionEditor({
                                 borderRadius: 'var(--radius-full)',
                                 border: '1px solid var(--wc-gray-200)',
                                 background: 'var(--wc-white)',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                                 cursor: 'pointer',
                                 flexShrink: 0,
                             }}
@@ -420,7 +622,7 @@ export function SessionEditor({
                                             'var(--space-2) var(--space-4)',
                                         border: 'none',
                                         background: 'transparent',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                         fontSize: 'var(--text-xs)',
                                         fontWeight: 600,
                                         cursor: 'pointer',
@@ -452,17 +654,99 @@ export function SessionEditor({
                             {activeTab === 'vitals' && (
                                 <PatientVitals
                                     values={vitals}
+                                    sources={vitalsSources}
+                                    baseline={consultation.baseline}
                                     onChange={handleVitalsChange}
                                 />
                             )}
+                            {activeTab === 'meds' && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 'var(--space-4)',
+                                        flex: 1,
+                                    }}
+                                >
+                                    <AllergyPanel
+                                        allergies={consultation.allergies ?? []}
+                                        conflicts={allergyConflicts}
+                                        reason={overrideReason}
+                                        onReasonChange={setOverrideReason}
+                                    />
+                                    <Prescription
+                                        medications={medications}
+                                        draft={draftMed}
+                                        onDraftChange={setDraftMed}
+                                        onAdd={(med) => {
+                                            setMedications((prev) => [
+                                                ...prev,
+                                                med,
+                                            ]);
+                                            // A changed list invalidates the
+                                            // warning it was raised against.
+                                            setAllergyConflicts([]);
+                                        }}
+                                        onRemove={(id) => {
+                                            setMedications((prev) =>
+                                                prev.filter((m) => m.id !== id),
+                                            );
+                                            setAllergyConflicts([]);
+                                        }}
+                                    />
+                                </div>
+                            )}
                             {activeTab === 'labs' && (
                                 <LabOrders
-                                    appointmentId={consultation?.id ?? null}
-                                    orders={consultation?.labs ?? []}
+                                    appointmentId={consultation.id}
+                                    orders={consultation.labs ?? []}
+                                    onOrdered={onLabOrdered}
                                 />
                             )}
                         </div>
                     </div>
+
+                    {Object.keys(serverErrors).length > 0 && (
+                        <div
+                            role="alert"
+                            style={{
+                                padding: 'var(--space-3) var(--space-6)',
+                                borderTop: '1px solid #fecaca',
+                                background: '#fef2f2',
+                                color: '#991b1b',
+                                fontSize: 'var(--text-sm)',
+                                flexShrink: 0,
+                            }}
+                        >
+                            <p style={{ margin: 0, fontWeight: 700 }}>
+                                {meta.saveRefusedTitle}
+                            </p>
+                            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                                {Object.entries(serverErrors).map(
+                                    ([key, message]) => (
+                                        <li key={key}>{message}</li>
+                                    ),
+                                )}
+                            </ul>
+                        </div>
+                    )}
+
+                    <ConfirmDialog
+                        open={confirmFinalize}
+                        onOpenChange={setConfirmFinalize}
+                        title="Finalize this consultation?"
+                        description={
+                            'Finalizing signs the note and completes the visit. It cannot be reopened for editing afterwards.'
+                        }
+                        confirmLabel="Finalize and close the visit"
+                        cancelLabel="Keep editing"
+                        destructive={false}
+                        processing={saving}
+                        onConfirm={() => {
+                            setConfirmFinalize(false);
+                            handleSave(true);
+                        }}
+                    />
 
                     {/* Footer */}
                     <div
@@ -526,7 +810,7 @@ export function SessionEditor({
                                     borderRadius: 'var(--radius-full)',
                                     border: '1px solid var(--wc-gray-200)',
                                     background: 'var(--wc-white)',
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
                                     cursor: 'pointer',
@@ -536,7 +820,7 @@ export function SessionEditor({
                             </button>
                             <button
                                 type="button"
-                                disabled={saving || !consultation}
+                                disabled={saving}
                                 onClick={() => handleSave(false)}
                                 style={{
                                     padding: 'var(--space-3) var(--space-6)',
@@ -554,8 +838,8 @@ export function SessionEditor({
                             </button>
                             <button
                                 type="button"
-                                disabled={saving || !consultation}
-                                onClick={() => handleSave(true)}
+                                disabled={saving}
+                                onClick={() => setConfirmFinalize(true)}
                                 className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
                                 style={{
                                     display: 'flex',

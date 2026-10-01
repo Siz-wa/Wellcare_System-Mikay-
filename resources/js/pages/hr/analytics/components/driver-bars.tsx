@@ -45,7 +45,7 @@ export function DriverBars({
                     margin: '0 0 var(--space-3)',
                     fontSize: 'var(--text-sm)',
                     fontWeight: 700,
-                    color: 'var(--wc-gray-800)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {dimension.dimension}
@@ -55,8 +55,8 @@ export function DriverBars({
                 <p
                     style={{
                         margin: 0,
-                        fontSize: 12,
-                        color: 'var(--wc-gray-400)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {diagnosticsCopy.driversEmpty}
@@ -70,22 +70,28 @@ export function DriverBars({
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     gap: 'var(--space-2)',
-                                    fontSize: 12,
+                                    fontSize: 'var(--text-xs)',
                                     marginBottom: 4,
                                 }}
                             >
                                 <span
                                     style={{
                                         fontWeight: 600,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {segment.label}
                                 </span>
-                                <span style={{ color: 'var(--wc-gray-600)' }}>
+                                <span
+                                    style={{
+                                        color: 'var(--wc-text-secondary)',
+                                    }}
+                                >
                                     {segment.rate}%{' '}
                                     <span
-                                        style={{ color: 'var(--wc-gray-400)' }}
+                                        style={{
+                                            color: 'var(--wc-text-muted)',
+                                        }}
                                     >
                                         ({segment.failed} of {segment.total})
                                     </span>
@@ -126,8 +132,8 @@ export function DriverBars({
                             <p
                                 style={{
                                     margin: '4px 0 0',
-                                    fontSize: 11,
-                                    color: 'var(--wc-gray-500)',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 +{segment.lift}pp above baseline ·{' '}
@@ -142,8 +148,8 @@ export function DriverBars({
                 <p
                     style={{
                         margin: 'var(--space-3) 0 0',
-                        fontSize: 11,
-                        color: 'var(--wc-gray-400)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {dimension.suppressed} segment

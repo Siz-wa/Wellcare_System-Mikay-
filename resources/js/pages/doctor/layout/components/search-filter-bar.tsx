@@ -91,7 +91,7 @@ export function SearchFilterBar({
                         left: 'var(--space-4)',
                         top: '50%',
                         transform: 'translateY(-50%)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         display: 'flex',
                         pointerEvents: 'none',
                     }}
@@ -109,7 +109,6 @@ export function SearchFilterBar({
                         fontSize: 'var(--text-sm)',
                         background: 'var(--wc-white)',
                         border: '1px solid var(--wc-gray-200)',
-                        height: 44,
                     }}
                 />
             </div>
@@ -125,7 +124,6 @@ export function SearchFilterBar({
                         alignItems: 'center',
                         gap: 'var(--space-2)',
                         flexShrink: 0,
-                        height: 44,
                         paddingInline: 'var(--space-5)',
                     }}
                 >

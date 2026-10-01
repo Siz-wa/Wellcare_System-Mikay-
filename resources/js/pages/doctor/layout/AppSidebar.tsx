@@ -5,8 +5,8 @@
 // Spec:
 //   • w-[260px] fixed left sidebar, h-screen, white bg, border-r border-slate-100
 //   • Logo: Stethoscope in rounded-xl #0056b3 box · WELLCARE slate-900 · CLINICS #0056b3
-//   • Group headers: text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]
-//   • Inactive items: text-slate-500, hover → bg-[#eff6ff] text-[#0056b3], rounded-2xl
+//   • Group headers: text-xs font-bold text-ink-muted uppercase tracking-widest
+//   • Inactive items: text-ink-secondary, hover → bg-[#eff6ff] text-[#0056b3], rounded-2xl
 //   • Active item: bg-[#0056b3] text-white rounded-2xl shadow-[0_4px_14px_-2px_rgba(0,86,179,0.35)]
 //   • Hover animation: translateX(4px) 180ms cubic-bezier(0.16,1,0.3,1)
 //   • Bottom: "Switch to Patient" + "Logout" (red on hover), border-t border-slate-100
@@ -94,7 +94,7 @@ function NavLink({ item, active }: NavLinkProps): ReactElement {
                 background: active ? BRAND : hovered ? BRAND_BG : 'transparent',
                 color: active ? '#ffffff' : hovered ? BRAND_TXT : '#64748b', // slate-500
                 boxShadow: active ? ACTIVE_SHADOW : 'none',
-                fontFamily: "var(--font-sans,'DM Sans')",
+                fontFamily: 'var(--font-sans)',
                 fontWeight: active ? 600 : 500,
             }}
             onMouseEnter={() => setHovered(true)}
@@ -145,7 +145,7 @@ function LogoutButton(): ReactElement {
                 color: hovered ? '#ef4444' : '#64748b',
                 border: 'none',
                 cursor: 'pointer',
-                fontFamily: "var(--font-sans,'DM Sans')",
+                fontFamily: 'var(--font-sans)',
                 fontWeight: 500,
                 textAlign: 'left',
             }}
@@ -173,12 +173,12 @@ function GroupHeader({ label }: { label: string }): ReactElement {
             className="mt-1 mb-1 px-4"
             style={{
                 margin: '0 0 6px 0',
-                fontSize: '10px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 700,
                 color: '#94a3b8', // slate-400 ≈ --wc-gray-400
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em',
-                fontFamily: "var(--font-sans,'DM Sans')",
+                fontFamily: 'var(--font-sans)',
             }}
         >
             {label}
@@ -200,8 +200,8 @@ export function AppSidebar({ activeId }: AppSidebarProps): ReactElement {
         <aside
             style={{
                 width: 260,
-                minHeight: '100vh',
-                height: '100vh',
+                minHeight: '100dvh',
+                height: '100dvh',
                 position: 'sticky',
                 top: 0,
                 flexShrink: 0,

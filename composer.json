@@ -52,9 +52,19 @@
             "npm install",
             "npm run build"
         ],
+        "deploy": [
+            "Composer\\Config::disableProcessTimeout",
+            "composer install --no-dev --optimize-autoloader --no-interaction",
+            "@php artisan migrate --force",
+            "npm ci",
+            "npm run build",
+            "@php artisan optimize",
+            "@php artisan queue:restart",
+            "@php artisan reverb:restart"
+        ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74,#f9a8d4\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"npm run dev\" \"php artisan reverb:start\" --names='server,queue,vite,reverb'"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74,#f9a8d4,#86efac\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"npm run dev\" \"php artisan reverb:start\" \"php artisan schedule:work\" --names='server,queue,vite,reverb,scheduler'"
         ],
         "dev:ssr": [
             "npm run build:ssr",
@@ -114,5 +124,8 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "scripts-descriptions": {
+        "deploy": "Production release: no-dev install, migrate, build assets, cache config/routes/views/events, restart queue and Reverb workers."
+    }
 }

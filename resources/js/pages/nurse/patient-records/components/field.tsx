@@ -2,27 +2,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Labelled input / select / read-only value used by the record forms.
 
+import { useId } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
+import { DateField, Input, Select } from '@/design-system';
+import type { DateFieldProps } from '@/design-system';
+
+/** Types the native picker handles, and which therefore go to DateField. */
+function isDateLike(type: string): type is NonNullable<DateFieldProps['kind']> {
+    return ['date', 'time', 'datetime-local', 'month'].includes(type);
+}
 
 const LABEL: React.CSSProperties = {
     display: 'block',
     marginBottom: 4,
-    fontSize: '10px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     letterSpacing: '0.12em',
     textTransform: 'uppercase',
-    color: 'var(--wc-gray-500)',
-};
-
-const CONTROL: React.CSSProperties = {
-    width: '100%',
-    padding: '9px 12px',
-    borderRadius: 10,
-    border: '1px solid var(--wc-gray-200)',
-    background: 'var(--wc-white)',
-    fontSize: 'var(--text-sm)',
-    fontFamily: 'var(--font-sans)',
-    color: 'var(--wc-gray-700)',
+    color: 'var(--wc-text-muted)',
 };
 
 export function ReadOnlyField({
@@ -39,7 +36,9 @@ export function ReadOnlyField({
                 style={{
                     margin: 0,
                     fontSize: 'var(--text-sm)',
-                    color: value ? 'var(--wc-dark)' : 'var(--wc-gray-400)',
+                    color: value
+                        ? 'var(--wc-text-primary)'
+                        : 'var(--wc-text-muted)',
                 }}
             >
                 {value || '—'}
@@ -55,6 +54,9 @@ export function TextField({
     error,
     type = 'text',
     placeholder,
+    inputMode,
+    maxLength,
+    onPaste,
 }: {
     label: string;
     value: string;
@@ -62,23 +64,44 @@ export function TextField({
     error?: string;
     type?: string;
     placeholder?: string;
+    inputMode?: 'text' | 'numeric' | 'decimal' | 'tel';
+    maxLength?: number;
+    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 }): ReactElement {
+    const id = `nurse-field-${useId()}`;
+    const errorId = `${id}-error`;
+
     return (
         <div>
-            <label style={LABEL}>{label}</label>
-            <input
-                type={type}
-                value={value}
-                placeholder={placeholder}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    onChange(e.target.value)
-                }
-                style={{
-                    ...CONTROL,
-                    borderColor: error ? '#dc2626' : 'var(--wc-gray-200)',
-                }}
-            />
-            {error && <FieldError message={error} />}
+            <label style={LABEL} htmlFor={id}>
+                {label}
+            </label>
+            {isDateLike(type) ? (
+                <DateField
+                    id={id}
+                    kind={type}
+                    aria-describedby={error ? errorId : undefined}
+                    invalid={Boolean(error)}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                />
+            ) : (
+                <Input
+                    id={id}
+                    type={type}
+                    inputMode={inputMode}
+                    maxLength={maxLength}
+                    value={value}
+                    placeholder={placeholder}
+                    error={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
+                    onPaste={onPaste}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                        onChange(e.target.value)
+                    }
+                />
+            )}
+            {error && <FieldError message={error} id={errorId} />}
         </div>
     );
 }
@@ -96,36 +119,41 @@ export function SelectField({
     options: { value: string; label: string }[];
     error?: string;
 }): ReactElement {
+    const id = `nurse-field-${useId()}`;
+    const errorId = `${id}-error`;
+
     return (
         <div>
-            <label style={LABEL}>{label}</label>
-            <select
+            <label style={LABEL} htmlFor={id}>
+                {label}
+            </label>
+            <Select
+                id={id}
+                aria-describedby={error ? errorId : undefined}
+                invalid={Boolean(error)}
                 value={value}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    onChange(e.target.value)
-                }
-                style={{
-                    ...CONTROL,
-                    borderColor: error ? '#dc2626' : 'var(--wc-gray-200)',
-                }}
-            >
-                {options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                        {option.label}
-                    </option>
-                ))}
-            </select>
-            {error && <FieldError message={error} />}
+                onChange={onChange}
+                options={options}
+            />
+            {error && <FieldError message={error} id={errorId} />}
         </div>
     );
 }
 
-export function FieldError({ message }: { message: string }): ReactElement {
+export function FieldError({
+    message,
+    id,
+}: {
+    message: string;
+    id?: string;
+}): ReactElement {
     return (
         <p
+            id={id}
+            role="alert"
             style={{
                 margin: '4px 0 0',
-                fontSize: '11px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 600,
                 color: '#dc2626',
             }}

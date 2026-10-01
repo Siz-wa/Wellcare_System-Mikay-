@@ -1,12 +1,11 @@
-// resources/js/layouts/app/PatientDashboardLayout.tsx
-import { router } from '@inertiajs/react';
-import { Menu, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+// resources/js/pages/user/layout/patient-dashboard-layout.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// The patient shell.
+
 import type { ReactElement, ReactNode } from 'react';
 import { AppTopbar } from '@/design-system/components/AppTopbar';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { PatientAppSidebar } from '@/pages/user/layout/components/PatientAppSidebar';
-import { patientDashboardMeta } from '@/pages/user/layout/patient-dashboard-data';
+import { PatientTabBar } from '@/pages/user/layout/components/PatientTabBar';
 
 interface PatientDashboardLayoutProps {
     activeId: string;
@@ -14,123 +13,49 @@ interface PatientDashboardLayoutProps {
 }
 
 /**
- * The patient shell.
+ * Sidebar at >= 768px, bottom tab bar below it.
  *
- * The sidebar collapses to an off-canvas drawer below 768px, and that is not
- * polish — the patient is the party who is always on a phone, and this layout
- * previously rendered a hard `width: 260, flexShrink: 0` sidebar with no media
- * query anywhere. On a 390px handset that left roughly 66px of content width,
- * so the video consultation the patient had joined was a sliver a thumb wide.
+ * Both are rendered on every request and swapped by media query. The previous
+ * version picked between them in JavaScript with `useIsMobile()`, whose server
+ * snapshot is `false` — so SSR always emitted the desktop tree and the phone
+ * layout appeared only after hydration, as a visible reflow on the devices most
+ * of this portal's traffic uses. The cost of rendering both is a nav's worth of
+ * markup; the benefit is that the first paint is already correct.
  *
- * `useIsMobile()` is SSR-safe (its server snapshot is `false`), so the desktop
- * layout is what renders during `npm run build:ssr`.
+ * The document is the only scroll container. The old layout gave the content
+ * column `height: 100vh; overflow-y: auto`, which on a handset both fights the
+ * browser's collapsing URL bar and measures `100vh` against the viewport that
+ * bar is covering — the bottom of every page sat under the chrome.
  */
 export function PatientDashboardLayout({
     activeId,
     children,
 }: PatientDashboardLayoutProps): ReactElement {
-    const isMobile = useIsMobile();
-    const [navOpen, setNavOpen] = useState(false);
-
-    // Close the drawer once a navigation completes, or tapping a nav item
-    // leaves it hanging over the page it just opened. Subscribing to the router
-    // rather than reacting to `url` in an effect body keeps this out of
-    // react-hooks/set-state-in-effect and is the same thing semantically.
-    useEffect(() => router.on('navigate', () => setNavOpen(false)), []);
-
     return (
-        <div
-            style={{
-                display: 'flex',
-                minHeight: '100vh',
-                background: 'var(--wc-gray-50)',
-                fontFamily: "var(--font-sans,'DM Sans')",
-            }}
-        >
-            {!isMobile && <PatientAppSidebar activeId={activeId} />}
+        <div className="flex min-h-[100dvh] bg-wc-gray-50 font-sans">
+            <div className="hidden shrink-0 md:block">
+                <PatientAppSidebar activeId={activeId} />
+            </div>
 
-            {isMobile && navOpen && (
-                <>
-                    <button
-                        type="button"
-                        aria-label="Close menu"
-                        onClick={() => setNavOpen(false)}
-                        style={{
-                            position: 'fixed',
-                            inset: 0,
-                            zIndex: 200,
-                            border: 'none',
-                            background: 'rgba(15,23,42,0.45)',
-                        }}
-                    />
-                    <div
-                        style={{
-                            position: 'fixed',
-                            insetBlock: 0,
-                            insetInlineStart: 0,
-                            zIndex: 201,
-                            boxShadow: 'var(--shadow-lg)',
-                        }}
-                    >
-                        <PatientAppSidebar activeId={activeId} />
-                    </div>
-                </>
-            )}
-
-            <div
-                style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minWidth: 0,
-                    height: '100vh',
-                    overflowY: 'auto',
-                    position: 'relative',
-                }}
-            >
-                <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
-                    <AppTopbar
-                        searchPlaceholder={
-                            patientDashboardMeta.searchPlaceholder
-                        }
-                    />
+            <div className="relative flex min-w-0 flex-1 flex-col">
+                <div
+                    className="sticky top-0"
+                    style={{ zIndex: 'var(--z-overlay)' }}
+                >
+                    <AppTopbar />
                 </div>
 
-                {isMobile && (
-                    <button
-                        type="button"
-                        aria-label="Open menu"
-                        aria-expanded={navOpen}
-                        onClick={() => setNavOpen((open) => !open)}
-                        className="wc-btn wc-btn-sm wc-btn-pill"
-                        style={{
-                            alignSelf: 'flex-start',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 'var(--space-2)',
-                            margin: 'var(--space-3) 0 0 var(--space-4)',
-                            background: 'var(--wc-white)',
-                            border: '1px solid var(--wc-gray-200)',
-                        }}
-                    >
-                        {navOpen ? <X size={16} /> : <Menu size={16} />}
-                        Menu
-                    </button>
-                )}
-
+                {/* `pb-28` clears the 64px tab bar plus the home indicator. A
+                    phone cannot spare the 32px side padding the desktop uses. */}
                 <main
-                    style={{
-                        flex: 1,
-                        // A phone cannot spare 64px of horizontal padding.
-                        padding: isMobile ? 'var(--space-4)' : 'var(--space-8)',
-                        paddingTop: isMobile
-                            ? 'var(--space-4)'
-                            : 'var(--space-6)',
-                    }}
+                    id="main-content"
+                    className="flex-1 px-4 pt-4 pb-28 md:px-8 md:pt-6 md:pb-8"
                 >
                     {children}
                 </main>
             </div>
+
+            <PatientTabBar activeId={activeId} />
         </div>
     );
 }

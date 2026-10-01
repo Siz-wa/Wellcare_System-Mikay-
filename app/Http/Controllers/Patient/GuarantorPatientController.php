@@ -40,7 +40,7 @@ class GuarantorPatientController extends Controller
         Patient::ensureSelfPatient($user);
 
         $patients = Patient::where('guarantor_id', $user->id)
-            ->withCount(['appointments', 'documents'])
+            ->withCount(Patient::recordCounts())
             ->orderByRaw("relationship_to_guarantor = 'self' DESC")
             ->orderBy('first_name')
             ->get();
@@ -129,7 +129,11 @@ class GuarantorPatientController extends Controller
 
     private function authorizePatient(Patient $patient): void
     {
-        abort_if($patient->guarantor_id !== Auth::id(), 403);
+        // SC-2: same rule, one definition. `accessAsGuarantor` is the
+        // guarantor-only ability — deliberately not `updateDemographics`, which
+        // also admits nurses and admins and would widen this portal surface for
+        // anyone holding both a staff role and `user`.
+        $this->authorize('accessAsGuarantor', $patient);
     }
 
     /**

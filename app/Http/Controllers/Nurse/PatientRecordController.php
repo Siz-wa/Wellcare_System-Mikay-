@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Nurse;
 
+use App\Concerns\LogsRecordAccess;
 use App\Concerns\ReadsPatientRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nurse\UpdatePatientDemographicsRequest;
 use App\Models\Patient;
 use App\Models\PatientAllergy;
 use App\Models\PatientDocument;
+use App\Services\PatientDocumentStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -49,15 +50,24 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class PatientRecordController extends Controller
 {
+    /** SC-3 — every read of a chart is recorded. */
+    use LogsRecordAccess;
+
+    public function __construct(private readonly PatientDocumentStorage $documents) {}
+
     use ReadsPatientRecords;
 
     // ── Read ──────────────────────────────────────────────────────────────────
 
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', Patient::class);
+
         $patients = $this->patientRecordQuery($request)
             ->paginate(20)
             ->through(fn (Patient $p) => $this->mapPatientSummary($p));
+
+        $this->logRecordAccess('searched');
 
         return Inertia::render('nurse/patient-records/patient-records', [
             'patients' => $patients,
@@ -70,8 +80,13 @@ class PatientRecordController extends Controller
 
     public function show(Patient $patient): Response
     {
+        $this->authorize('view', $patient);
+
         $patient->load(['allergies', 'diagnoses', 'documents']);
+        $patient->loadCount(Patient::recordCounts());
         $this->applyLegacyRecordFallback($patient);
+
+        $this->logRecordAccess('viewed', $patient, $patient);
 
         return Inertia::render('nurse/patient-records/patient-record-detail', [
             'patient' => $this->mapPatientSummary($patient),
@@ -94,6 +109,8 @@ class PatientRecordController extends Controller
      */
     public function update(UpdatePatientDemographicsRequest $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('updateDemographics', $patient);
+
         $patient->update($request->validated());
 
         return back()->with('success', "{$patient->first_name}'s details updated.");
@@ -103,6 +120,8 @@ class PatientRecordController extends Controller
 
     public function storeAllergy(Request $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('recordObservation', $patient);
+
         $validated = $request->validate([
             'allergen' => ['required', 'string', 'max:255'],
             'severity' => ['required', 'in:mild,moderate,severe'],
@@ -129,6 +148,8 @@ class PatientRecordController extends Controller
 
     public function destroyAllergy(PatientAllergy $allergy): RedirectResponse
     {
+        $this->authorize('delete', $allergy);
+
         $allergy->delete();
 
         return back()->with('success', 'Allergy record removed.');
@@ -138,6 +159,8 @@ class PatientRecordController extends Controller
 
     public function uploadDocument(Request $request, Patient $patient): RedirectResponse
     {
+        $this->authorize('recordObservation', $patient);
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'type' => ['required', 'in:lab,imaging,referral,prescription,report,other'],
@@ -152,7 +175,12 @@ class PatientRecordController extends Controller
         ]);
 
         $file = $request->file('file');
-        $path = $file->store("patient-documents/{$patient->id}", 'local');
+
+        // SC-6 — encrypted on disk. Never `$file->store(...)` directly here: a
+        // plaintext file beside an `is_encrypted = true` row downloads as a
+        // corrupt scan, and the failure would surface to a clinician rather
+        // than to whoever wrote the line.
+        $path = $this->documents->store($file, $patient->id);
 
         PatientDocument::create([
             'patient_id' => $patient->id,
@@ -165,6 +193,7 @@ class PatientRecordController extends Controller
             'file_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
+            'is_encrypted' => true,
         ]);
 
         return back()->with('success', 'Document uploaded.');
@@ -172,8 +201,13 @@ class PatientRecordController extends Controller
 
     public function downloadDocument(PatientDocument $document): StreamedResponse
     {
-        abort_unless(Storage::disk('local')->exists($document->file_path), 404);
+        $this->authorize('view', $document);
 
-        return Storage::disk('local')->download($document->file_path, $document->file_name);
+        $this->logRecordAccess('downloaded', $document->patient_id, $document);
+
+        // Honours the per-document `is_encrypted` flag, so files predating
+        // SC-6 still serve correctly while the backfill command works through
+        // them. See PatientDocumentStorage.
+        return $this->documents->download($document) ?? abort(404);
     }
 }

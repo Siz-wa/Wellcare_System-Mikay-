@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\User;
 use App\Services\StaffAccountService;
+use Illuminate\Auth\Passwords\PasswordBroker;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -58,7 +59,20 @@ class AdminUserController extends Controller
 
         return Inertia::render('admin/users/users', [
             'users' => $users->map(fn (User $user) => $this->mapUser($user))->values(),
+            // The full list, for the FILTER bar: an administrator must be able
+            // to filter the table by `admin` to see who holds it, even though
+            // they cannot grant it.
             'roles' => StoreUserRequest::ROLES,
+            // Only the roles THIS actor may hand out, for the two FORMS. GV-6:
+            // an administrator sits at tier 2, so `admin` and `dpo` drop out of
+            // their list and stay in the owner's. Filtered here rather than
+            // left to fail validation, because a select that offers a choice
+            // and then refuses it teaches people the system is unreliable —
+            // StaffAccountService is the wall, this is the signage.
+            'grantableRoles' => array_values(array_filter(
+                StoreUserRequest::ROLES,
+                fn (string $role) => $request->user()->mayGrantRole($role),
+            )),
             'stats' => [
                 'total' => User::count(),
                 'active' => User::active()->count(),
@@ -77,19 +91,94 @@ class AdminUserController extends Controller
     {
         $validated = $request->validated();
 
-        $user = $this->accounts->create($validated, $validated['role']);
+        // GV-6: creating an account is granting a role, so it answers to the
+        // same rule changeRole() does — an administrator cannot mint a second
+        // administrator. Checked here rather than inside the service because
+        // StaffAccountService::create() is also the public-registration path
+        // (App\Actions\Fortify\CreateNewUser), which has no actor to check.
+        if (! $request->user()->mayGrantRole($validated['role'])) {
+            return back()->with(
+                'error',
+                "You do not have the authority to create a {$validated['role']} account. "
+                .'Only the system owner can appoint an account at or above your own '
+                .'level of access.'
+            );
+        }
+
+        // GV-9: `mustChangePassword: true`. The administrator typed this
+        // password, so two people know it; the account is held at the password
+        // screen on first sign-in until only one does.
+        if ($validated['send_invite'] ?? false) {
+            $user = $this->accounts->invite($validated, $validated['role']);
+
+            return back()->with(
+                'success',
+                "{$user->name} was added as a {$validated['role']} account. "
+                ."An invitation to set their own password was emailed to {$user->email}."
+            );
+        }
+
+        $user = $this->accounts->create(
+            $validated,
+            $validated['role'],
+            verified: true,
+            mustChangePassword: true,
+        );
 
         return back()->with(
             'success',
-            "{$user->name} was added as a {$validated['role']} account."
+            "{$user->name} was added as a {$validated['role']} account. "
+            .'They will be asked to set their own password when they first sign in.'
         );
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $this->accounts->update($user, $request->validated());
+        try {
+            $this->accounts->update($user, $request->validated(), $request->user());
+        } catch (AccountActionNotAllowedException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('success', "{$user->fresh()->name}'s account was updated.");
+    }
+
+    /**
+     * Restore access to somebody else's account without ever holding its
+     * password — GV-1 in WELLCARE-GOVERNANCE-PLAN.md.
+     *
+     * Replaces the password field that used to sit on the edit form. The
+     * administrator triggers the recovery; Fortify's broker mails a signed,
+     * expiring link to the address on the account, and only the account holder
+     * completes it. That keeps every subsequent action attributable to the
+     * person who actually took it (HIPAA §164.312(a)(2)(i)).
+     *
+     * A throttle is reported as a throttle rather than folded into the success
+     * message: Laravel rate-limits reset links per address, and telling an
+     * administrator that a colleague should check a mailbox nothing was sent to
+     * is how a locked-out nurse stays locked out for an hour.
+     */
+    public function resetPassword(Request $request, User $user): RedirectResponse
+    {
+        try {
+            $status = $this->accounts->sendPasswordReset($user, $request->user());
+        } catch (AccountActionNotAllowedException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        if ($status !== PasswordBroker::RESET_LINK_SENT) {
+            return back()->with(
+                'error',
+                "A reset link was requested for {$user->name} very recently. "
+                .'Please wait a minute before trying again.'
+            );
+        }
+
+        return back()->with(
+            'success',
+            "A password reset link was sent to {$user->email}. "
+            .'Only the account holder can complete the reset.'
+        );
     }
 
     /**
@@ -168,6 +257,11 @@ class AdminUserController extends Controller
             // Drives the disabled state on the row's own deactivate button, so
             // the refusal is visible before it is attempted.
             'isSelf' => $user->id === Auth::id(),
+            // GV-1: the same refusal, rendered rather than only enforced. The
+            // service is still the authority — this exists so an administrator
+            // sees that a peer account is out of reach instead of discovering
+            // it from a flash error after filling in a form.
+            'canAdminister' => Auth::user()?->mayAdminister($user) ?? false,
         ];
     }
 

@@ -203,7 +203,7 @@ export default function MissionSection() {
                                 <h3 className="mb-3 text-xl">{item.heading}</h3>
                                 <p
                                     className="text-sm leading-relaxed"
-                                    style={{ color: 'var(--wc-gray-500)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {item.body}
                                 </p>
@@ -234,7 +234,7 @@ export default function MissionSection() {
                                 <h4 className="mb-2 text-base">{v.title}</h4>
                                 <p
                                     className="m-0 text-sm leading-relaxed"
-                                    style={{ color: 'var(--wc-gray-500)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {v.desc}
                                 </p>

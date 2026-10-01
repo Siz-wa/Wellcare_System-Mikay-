@@ -23,7 +23,7 @@ export default function MyPatientsPage(): ReactElement {
                         display: 'inline-flex',
                         alignItems: 'center',
                         marginBottom: 'var(--space-3)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         textDecoration: 'none',
                         transition: 'color 0.15s ease',
                     }}
@@ -57,9 +57,8 @@ export default function MyPatientsPage(): ReactElement {
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
-                        fontFamily:
-                            "var(--font-display, 'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.pageTitle}
@@ -67,7 +66,7 @@ export default function MyPatientsPage(): ReactElement {
                 <p
                     style={{
                         margin: 0,
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         fontSize: 'var(--text-base)',
                     }}
                 >
@@ -92,7 +91,7 @@ export default function MyPatientsPage(): ReactElement {
                 {/* Search icon */}
                 <span
                     style={{
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         display: 'flex',
                         flexShrink: 0,
                     }}
@@ -123,7 +122,7 @@ export default function MyPatientsPage(): ReactElement {
                         border: 'none',
                         outline: 'none',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         background: 'transparent',
                         padding: 'var(--space-1) 0',
                     }}
@@ -142,7 +141,7 @@ export default function MyPatientsPage(): ReactElement {
                         cursor: 'pointer',
                         fontSize: 'var(--text-sm)',
                         fontWeight: 600,
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         padding: 'var(--space-1) var(--space-2)',
                         borderRadius: 'var(--radius-md)',
                         transition: 'color 0.15s ease',

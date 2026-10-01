@@ -85,17 +85,40 @@ function SubmissionRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 600,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         lineHeight: 1.3,
                     }}
                 >
                     {item.name}
+                    {item.status && item.status !== 'normal' && (
+                        <span
+                            style={{
+                                marginLeft: 8,
+                                fontSize: 'var(--text-xs)',
+                                fontWeight: 800,
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                padding: '1px 8px',
+                                borderRadius: 999,
+                                color:
+                                    item.status === 'critical'
+                                        ? '#991b1b'
+                                        : '#92400e',
+                                background:
+                                    item.status === 'critical'
+                                        ? '#fee2e2'
+                                        : '#fef3c7',
+                            }}
+                        >
+                            {item.status}
+                        </span>
+                    )}
                 </p>
                 <p
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                         lineHeight: 1.3,
                     }}
                 >
@@ -105,7 +128,7 @@ function SubmissionRow({
                     style={{
                         margin: 'var(--space-1) 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         lineHeight: 1,
                     }}
                 >
@@ -121,7 +144,7 @@ function SubmissionRow({
                     flexShrink: 0,
                     fontSize: 'var(--text-sm)',
                     fontWeight: 600,
-                    color: 'var(--wc-sky-500)',
+                    color: 'var(--wc-link)',
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
@@ -176,7 +199,7 @@ export function LabSubmissionsCard({
                         margin: 0,
                         fontSize: 'var(--text-lg)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {meta.cardTitle}
@@ -186,7 +209,7 @@ export function LabSubmissionsCard({
                     style={{
                         fontSize: 'var(--text-xs)',
                         fontWeight: 700,
-                        color: 'var(--wc-sky-500)',
+                        color: 'var(--wc-link)',
                         textDecoration: 'none',
                         letterSpacing: '0.06em',
                     }}
@@ -203,7 +226,7 @@ export function LabSubmissionsCard({
                             margin: 0,
                             padding: 'var(--space-6)',
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {meta.emptyMessage}

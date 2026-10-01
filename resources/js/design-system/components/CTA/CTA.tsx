@@ -2,6 +2,7 @@
 
 import { Link } from '@inertiajs/react';
 import { ctaData } from '@/design-system/components/CTA/CTA-data';
+import { useCanBook } from '@/hooks/use-can-book';
 import { useInView } from '@/hooks/useInView';
 import { book as appointmentsCreate } from '@/routes';
 
@@ -40,7 +41,20 @@ const PhoneIcon = () => (
 
 export default function CTASection() {
     const { ref, inView } = useInView();
+    const canBook = useCanBook();
     const { badge, heading, desc, ctas } = ctaData;
+
+    /*
+     * Nothing but a booking pitch: a badge reading "Book Today", a heading
+     * asking whether the reader is ready to take control of their health, and
+     * a button to /book — which is gated `role:user`, so for a doctor, nurse,
+     * HR officer or administrator it answers 403. Removing only the button
+     * would leave the pitch and no way to act on it, so the whole band goes.
+     * Guests keep it: they are sent to log in and continue.
+     */
+    if (!canBook) {
+        return null;
+    }
 
     return (
         <section className="py-20">

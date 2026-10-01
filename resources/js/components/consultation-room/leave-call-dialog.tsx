@@ -88,16 +88,22 @@ export function LeaveCallDialog({
                     boxShadow: 'var(--shadow-2xl)',
                 }}
             >
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                <h2
+                    style={{
+                        margin: 0,
+                        fontSize: 'var(--text-lg)',
+                        fontWeight: 700,
+                    }}
+                >
                     {copy.title}
                 </h2>
 
                 <p
                     style={{
                         margin: 'var(--space-3) 0 0',
-                        fontSize: 14,
+                        fontSize: 'var(--text-sm)',
                         lineHeight: 1.6,
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {copy.body}

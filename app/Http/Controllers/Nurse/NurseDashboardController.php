@@ -50,7 +50,7 @@ class NurseDashboardController extends Controller
             'upcoming' => (clone $today)
                 ->whereNotIn('status', ['cancelled', 'no_show'])
                 ->with(['patientRecord', 'doctor.profile'])
-                ->orderBy('appointment_time')
+                ->orderBy('appointment_at')
                 ->limit(self::UPCOMING_LIMIT)
                 ->get()
                 ->map(fn (Appointment $a) => [

@@ -35,6 +35,19 @@ export function VitalsSection({ vitals }: VitalsSectionProps): ReactElement {
 
     return (
         <RecordSection title={meta.vitalsTitle}>
+            {/* Provenance above the numbers, because it qualifies all of them.
+                A video visit's readings come from the patient's own devices;
+                a nurse reading this needs to know that before acting on one. */}
+            <p
+                style={{
+                    margin: '0 0 var(--space-3)',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 600,
+                    color: 'var(--wc-text-muted)',
+                }}
+            >
+                {vitals.sourceLabel ?? meta.vitalsSourceUnknown}
+            </p>
             <div
                 style={{
                     display: 'grid',
@@ -47,11 +60,11 @@ export function VitalsSection({ vitals }: VitalsSectionProps): ReactElement {
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: '10px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 letterSpacing: '0.12em',
                                 textTransform: 'uppercase',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {row.label}
@@ -64,8 +77,7 @@ export function VitalsSection({ vitals }: VitalsSectionProps): ReactElement {
                                 color: vitals[row.key]
                                     ? 'var(--wc-dark)'
                                     : 'var(--wc-gray-400)',
-                                fontFamily:
-                                    "var(--font-display,'Bricolage Grotesque')",
+                                fontFamily: 'var(--font-display)',
                             }}
                         >
                             {vitals[row.key] || '—'}

@@ -19,6 +19,28 @@ export interface TimeOffEntry {
     isAvailable: boolean;
 }
 
+/** Where the doctor's proposed weekly hours stand (Phase 9). */
+export interface ScheduleApproval {
+    pendingDays: number;
+    draftDays: number;
+    publishedDays: number;
+    /** The administrator's reason, when a schedule was sent back. */
+    reviewRemarks: string | null;
+}
+
+/** The doctor's own credentialing standing (Phase 9). */
+export interface CredentialState {
+    status: string;
+    label: string;
+    tone: string;
+    prcExpiresOn: string | null;
+    daysUntilExpiry: number | null;
+    hasLapsed: boolean;
+    /** Whether patients can currently book them. */
+    isPublished: boolean;
+    remarks: string | null;
+}
+
 // ── Weekday rows ──────────────────────────────────────────────────────────────
 
 /**
@@ -79,7 +101,7 @@ export const availabilityMeta = {
 
     timeOffTitle: 'Time Off',
     timeOffHint:
-        'Blocking a date cancels any pending appointments on it and notifies nobody automatically — tell affected patients yourself.',
+        'Blocking a date cancels every open appointment on it and notifies each patient. Any fee already paid is sent to HR for a refund decision.',
     timeOffEmpty: 'No upcoming time off.',
     timeOffDateLabel: 'Date',
     timeOffReasonLabel: 'Reason (optional)',
@@ -92,3 +114,32 @@ export const availabilityMeta = {
     // Active nav id — must match NavItem.id in dashboard-data.ts
     activeNavId: 'availability',
 };
+
+// ── Credentialing and roster status copy (Phase 9) ────────────────────────────
+//
+// The wording is deliberate about cause. "Your schedule is not live" tells a
+// doctor nothing actionable; naming the approval step or the lapsed licence
+// tells them who to speak to.
+
+export const statusCopy = {
+    lapsedTitle: 'Your PRC licence has lapsed',
+    lapsedBody: (expiredOn: string | null): string =>
+        `Your PRC registration expired${expiredOn ? ` on ${expiredOn}` : ''}, so you have been withdrawn from booking. Renew it with the Professional Regulation Commission, then give the details to the clinic administrator to be verified.`,
+
+    unpublishedTitle: (label: string): string =>
+        `You are not bookable — credentials: ${label.toLowerCase()}`,
+    unpublishedBody:
+        'Patients cannot book you until an administrator verifies your credentialing file.',
+
+    expiringTitle: 'Your PRC licence is due for renewal',
+    expiringBody: (days: number | null, expiresOn: string | null): string =>
+        `Your PRC registration lapses${expiresOn ? ` on ${expiresOn}` : ''}${days !== null ? ` — ${days} day${days === 1 ? '' : 's'} from now` : ''}. Renew it before then, or you will be withdrawn from booking automatically.`,
+
+    pendingTitle: 'Your hours are awaiting approval',
+    pendingBody: (days: number): string =>
+        `${days} day${days === 1 ? '' : 's'} of proposed hours are with the clinic administrator. Patients cannot book these times until the schedule is published. Time off you add is applied immediately and does not wait for approval.`,
+
+    sentBackTitle: 'Your schedule was sent back',
+    sentBackBody:
+        'The administrator asked for a change before these hours go live. Edit them below and save to resubmit.',
+} as const;

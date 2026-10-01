@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Concerns\LogsRecordAccess;
 use App\Http\Controllers\Controller;
 use App\Services\AnalyticsService;
 use App\Services\ClinicDiagnosticsService;
@@ -23,6 +24,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AnalyticsController extends Controller
 {
+    /**
+     * QW-8 / AU-3. Aggregates rather than a named record, so no patient_id is
+     * attached — but a CSV of clinic activity leaving the building is still an
+     * export, and "which reports were pulled, by whom, when" is a question a
+     * breach review will ask.
+     */
+    use LogsRecordAccess;
+
     public function __construct(
         private readonly AnalyticsService $analytics,
         private readonly ClinicDiagnosticsService $diagnostics,
@@ -60,6 +69,8 @@ class AnalyticsController extends Controller
         $data = $report === 'diagnostics'
             ? $this->diagnostics->rowsFor($range)
             : $this->analytics->rowsFor($report, $range);
+
+        $this->logRecordAccess('exported');
 
         $filename = sprintf('wellcare-%s-%s-%s.csv', $report, $range, now()->format('Y-m-d'));
 

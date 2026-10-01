@@ -4,9 +4,20 @@ import type { ReactElement } from 'react';
 import { consultationRoomMeta } from '@/components/consultation-room/consultation-room-data';
 import { LeaveCallDialog } from '@/components/consultation-room/leave-call-dialog';
 import { VideoStage } from '@/components/consultation-room/video-stage';
+import { ConfirmDialog, Select } from '@/design-system';
 import { useWebRtc } from '@/hooks/use-web-rtc';
 import type { ReverbConfig } from '@/lib/echo';
+import type { VitalsSource } from '@/lib/vitals';
 import { DashboardLayout } from '../../layout/dashboard-layout';
+import type {
+    AllergyConflict,
+    LabOrder,
+    Medication,
+    RecordedAllergy,
+} from '../consultations-data';
+import { AllergyPanel } from '../session-editor/allergy-panel';
+import { LabOrders } from '../session-editor/lab-orders';
+import { Prescription } from '../session-editor/prescription';
 
 /**
  * The doctor's video console — video on the left, SOAP and vitals on the right.
@@ -26,17 +37,35 @@ interface RoomPageProps {
         time: string;
         age: number;
         gender: string;
+        patientRecordId: number | null;
     };
     room: { id: string; status: string; startedAt: string | null };
     soap: Record<'subjective' | 'objective' | 'assessment' | 'plan', string>;
-    vitals: Record<string, string>;
+    vitals: Record<string, string> & { source: VitalsSource };
+    /** value -> label, straight from ConsultationSession::VITALS_SOURCE_LABELS. */
+    vitalsSources: Record<VitalsSource, string>;
     isInitiator: boolean;
     selfUserId: number;
     iceServers: RTCIceServer[];
     reverb: ReverbConfig;
     csrfToken: string;
+    /** Prescribing and lab orders, so a video visit can do both. */
+    prescriptions: { id: string; name: string; instructions: string }[];
+    allergies: RecordedAllergy[];
+    labs: LabOrder[];
+    flash?: { allergyConflicts?: AllergyConflict[] };
     [key: string]: unknown;
 }
+
+/** Every measurement blanked — see `notObtained` in the component. */
+const BLANK_MEASUREMENTS = {
+    bloodPressure: '',
+    heartRate: '',
+    temperature: '',
+    oxygenSaturation: '',
+    weight: '',
+    height: '',
+} as const;
 
 /** Long enough not to post on every keystroke, short enough to lose nothing. */
 const AUTOSAVE_IDLE_MS = 4000;
@@ -48,6 +77,13 @@ const SOAP_FIELDS = [
     { key: 'plan', label: 'Plan' },
 ] as const;
 
+/**
+ * The six measurements — and not one of them can be taken by a doctor looking
+ * at a screen. Every number entered here during a video call is one the patient
+ * read off their own cuff, thermometer, scale or oximeter, which is ordinary
+ * telehealth practice on one condition: the record has to say so. That is what
+ * the source control below the grid is for, and why it is not optional here.
+ */
 const VITAL_FIELDS = [
     { key: 'bloodPressure', label: 'BP', unit: 'mmHg' },
     { key: 'heartRate', label: 'HR', unit: 'bpm' },
@@ -63,19 +99,35 @@ export default function DoctorConsultationRoom(): ReactElement {
         room,
         soap,
         vitals,
+        vitalsSources,
         isInitiator,
         selfUserId,
         iceServers,
         reverb,
         csrfToken,
     } = usePage<RoomPageProps>().props;
+    const pageProps = usePage<RoomPageProps>().props;
 
     const [soapState, setSoapState] = useState(soap);
+    const [medications, setMedications] = useState<Medication[]>(() =>
+        (pageProps.prescriptions ?? []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            instructions: p.instructions,
+        })),
+    );
+    const [draftMed, setDraftMed] = useState({ name: '', instructions: '' });
+    const [overrideReason, setOverrideReason] = useState('');
+    const allergyConflicts = pageProps.flash?.allergyConflicts ?? [];
     const [vitalsState, setVitalsState] = useState(vitals);
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
+    /** Field-level reasons the last save was refused, e.g. an out-of-range vital. */
+    const [saveErrors, setSaveErrors] = useState<string[]>([]);
     const [dirty, setDirty] = useState(false);
     const [confirmLeave, setConfirmLeave] = useState(false);
+    /** Finalize ends the call and signs the note, so it is confirmed first. */
+    const [confirmFinalize, setConfirmFinalize] = useState(false);
     /** Disarms the navigation guard for an exit the doctor deliberately chose. */
     const [leaving, setLeaving] = useState(false);
 
@@ -93,6 +145,14 @@ export default function DoctorConsultationRoom(): ReactElement {
     });
 
     const callIsLive = call.phase !== 'ended' && call.phase !== 'failed';
+
+    /**
+     * "Nothing was obtained" and six numbers cannot both be true, so choosing it
+     * clears the grid and closes it. The record then reads as one coherent
+     * clinical statement instead of a contradiction. The server enforces the
+     * same rule — this endpoint is reachable without this page.
+     */
+    const notObtained = vitalsState.source === 'not_obtained';
 
     /**
      * @param finalize Sign the note and close the visit.
@@ -118,6 +178,17 @@ export default function DoctorConsultationRoom(): ReactElement {
                 'vitals[oxygenSaturation]': vitalsState.oxygenSaturation,
                 'vitals[weight]': vitalsState.weight,
                 'vitals[height]': vitalsState.height,
+                'vitals[source]': vitalsState.source,
+                medications: [
+                    ...medications,
+                    ...(draftMed.name.trim() ? [draftMed] : []),
+                ].map((m) => ({
+                    name: m.name.trim(),
+                    instructions: m.instructions.trim(),
+                })),
+                ...(overrideReason.trim()
+                    ? { allergyOverrideReason: overrideReason.trim() }
+                    : {}),
                 finalize: finalize ? '1' : '0',
             },
             {
@@ -129,13 +200,16 @@ export default function DoctorConsultationRoom(): ReactElement {
                 preserveState: true,
                 preserveScroll: true,
                 onFinish: () => setSaving(false),
-                onError: () => {
+                onError: (errors) => {
                     setDirty(true);
                     setSaveStatus(consultationRoomMeta.saveFailed);
+                    setSaveErrors(Object.values(errors));
                 },
                 // Finalizing ends the call server-side and completes the visit,
                 // so there is nothing left on this page to come back to.
                 onSuccess: () => {
+                    setSaveErrors([]);
+
                     if (finalize) {
                         router.visit('/doctor/consultations');
 
@@ -252,14 +326,20 @@ export default function DoctorConsultationRoom(): ReactElement {
                 }}
             >
                 <header style={{ flexShrink: 0 }}>
-                    <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+                    <h1
+                        style={{
+                            fontSize: 'var(--text-xl)',
+                            fontWeight: 700,
+                            margin: 0,
+                        }}
+                    >
                         {consultationRoomMeta.doctorTitle}
                     </h1>
                     <p
                         style={{
                             margin: '4px 0 0',
-                            fontSize: 14,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {appointment.patient} · {appointment.service} ·{' '}
@@ -270,8 +350,8 @@ export default function DoctorConsultationRoom(): ReactElement {
                     <p
                         style={{
                             margin: '4px 0 0',
-                            fontSize: 13,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {consultationRoomMeta.doctorSubtitle}
@@ -289,7 +369,7 @@ export default function DoctorConsultationRoom(): ReactElement {
                             padding: 'var(--space-4)',
                             borderRadius: 'var(--radius-lg)',
                             background: 'rgba(185,28,28,.10)',
-                            fontSize: 14,
+                            fontSize: 'var(--text-sm)',
                         }}
                     >
                         {consultationRoomMeta.secureContextWarning}
@@ -334,7 +414,7 @@ export default function DoctorConsultationRoom(): ReactElement {
                         <div>
                             <h2
                                 style={{
-                                    fontSize: 14,
+                                    fontSize: 'var(--text-sm)',
                                     margin: '0 0 var(--space-3)',
                                 }}
                             >
@@ -377,6 +457,65 @@ export default function DoctorConsultationRoom(): ReactElement {
                                 ))}
                             </div>
                         </div>
+
+                        <div
+                            style={{
+                                marginTop: 'var(--space-5)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 'var(--space-4)',
+                            }}
+                        >
+                            <h2
+                                style={{
+                                    fontSize: 'var(--text-sm)',
+                                    margin: 0,
+                                }}
+                            >
+                                Prescriptions &amp; lab orders
+                            </h2>
+                            {appointment.patientRecordId && (
+                                <a
+                                    href={`/doctor/patient-records/${appointment.patientRecordId}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ fontSize: 'var(--text-sm)' }}
+                                >
+                                    Record a diagnosis or allergy on the
+                                    patient&apos;s chart (opens in a new tab,
+                                    the call stays up)
+                                </a>
+                            )}
+                            <AllergyPanel
+                                allergies={pageProps.allergies ?? []}
+                                conflicts={allergyConflicts}
+                                reason={overrideReason}
+                                onReasonChange={setOverrideReason}
+                            />
+                            <Prescription
+                                medications={medications}
+                                draft={draftMed}
+                                onDraftChange={(d) => {
+                                    setDraftMed(d);
+                                    setDirty(true);
+                                }}
+                                onAdd={(med) => {
+                                    setMedications((prev) => [...prev, med]);
+                                    setDirty(true);
+                                }}
+                                onRemove={(id) => {
+                                    setMedications((prev) =>
+                                        prev.filter((m) => m.id !== id),
+                                    );
+                                    setDirty(true);
+                                }}
+                            />
+                            <LabOrders
+                                appointmentId={appointment.id}
+                                orders={pageProps.labs ?? []}
+                                preserveState
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -385,20 +524,85 @@ export default function DoctorConsultationRoom(): ReactElement {
                 the last thing on a scrolling page. auto-fit also gives free
                 reflow on a narrow window. */}
                 <div style={{ ...panel, flexShrink: 0 }}>
-                    <h2
+                    <div
                         style={{
-                            fontSize: 14,
-                            margin: '0 0 var(--space-3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 'var(--space-3)',
+                            flexWrap: 'wrap',
+                            marginBottom: 'var(--space-2)',
                         }}
                     >
-                        Vitals
-                    </h2>
+                        <h2 style={{ fontSize: 'var(--text-sm)', margin: 0 }}>
+                            {consultationRoomMeta.vitalsTitle}
+                        </h2>
+
+                        {/* The provenance control sits IN the panel header, not
+                            after the six inputs. It qualifies every number in
+                            the grid, so it has to be read before them — and a
+                            doctor who scrolls past it has recorded an unlabelled
+                            measurement, which is the whole failure being fixed. */}
+                        <label
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 'var(--space-2)',
+                            }}
+                        >
+                            <span
+                                className="wc-label"
+                                style={{
+                                    marginBottom: 0,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {consultationRoomMeta.vitalsSourceLabel}
+                            </span>
+                            <Select
+                                aria-label="Vitals source"
+                                style={{ width: 'auto', minWidth: '12rem' }}
+                                value={vitalsState.source}
+                                onChange={(value) => {
+                                    const source = value as VitalsSource;
+
+                                    setDirty(true);
+                                    setVitalsState((v) => ({
+                                        ...v,
+                                        ...(source === 'not_obtained'
+                                            ? BLANK_MEASUREMENTS
+                                            : null),
+                                        source,
+                                    }));
+                                }}
+                                options={Object.entries(vitalsSources).map(
+                                    ([value, label]) => ({ value, label }),
+                                )}
+                            />
+                        </label>
+                    </div>
+
+                    <p
+                        style={{
+                            margin: '0 0 var(--space-3)',
+                            fontSize: 'var(--text-xs)',
+                            color: 'var(--wc-text-muted)',
+                        }}
+                    >
+                        {notObtained
+                            ? consultationRoomMeta.vitalsNotObtainedNote
+                            : consultationRoomMeta.vitalsVirtualNote}
+                    </p>
+
                     <div
                         style={{
                             display: 'grid',
                             gridTemplateColumns:
                                 'repeat(auto-fit, minmax(120px, 1fr))',
                             gap: 'var(--space-3)',
+                            // Closed, not hidden: the doctor can still see which
+                            // six readings the visit went without.
+                            opacity: notObtained ? 0.5 : 1,
                         }}
                     >
                         {VITAL_FIELDS.map((f) => (
@@ -415,6 +619,7 @@ export default function DoctorConsultationRoom(): ReactElement {
                                 <input
                                     className="wc-input"
                                     type="text"
+                                    disabled={notObtained}
                                     value={vitalsState[f.key] ?? ''}
                                     onChange={(e) => {
                                         setDirty(true);
@@ -432,6 +637,7 @@ export default function DoctorConsultationRoom(): ReactElement {
                 <div
                     style={{
                         display: 'flex',
+                        flexWrap: 'wrap',
                         gap: 'var(--space-2)',
                         alignItems: 'center',
                         flexShrink: 0,
@@ -449,21 +655,52 @@ export default function DoctorConsultationRoom(): ReactElement {
                         type="button"
                         className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
                         disabled={saving}
-                        onClick={() => save(true)}
+                        onClick={() => setConfirmFinalize(true)}
                     >
                         Finalize Consultation
                     </button>
                     <span
                         aria-live="polite"
                         style={{
-                            fontSize: 13,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {saveStatus}
                     </span>
+                    {saveErrors.length > 0 && (
+                        <ul
+                            role="alert"
+                            style={{
+                                margin: 0,
+                                paddingLeft: 18,
+                                fontSize: 'var(--text-sm)',
+                                color: '#b91c1c',
+                                flexBasis: '100%',
+                            }}
+                        >
+                            {saveErrors.map((message) => (
+                                <li key={message}>{message}</li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={confirmFinalize}
+                onOpenChange={setConfirmFinalize}
+                title="Finalize and end the call?"
+                description="Finalizing signs the note, completes the visit and ends the video call for both of you. It cannot be reopened for editing afterwards."
+                confirmLabel="Finalize and end call"
+                cancelLabel="Keep the call open"
+                destructive={false}
+                processing={saving}
+                onConfirm={() => {
+                    setConfirmFinalize(false);
+                    save(true);
+                }}
+            />
 
             <LeaveCallDialog
                 open={confirmLeave}

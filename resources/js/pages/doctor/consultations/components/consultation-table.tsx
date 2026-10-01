@@ -98,7 +98,7 @@ function ConsultationStatusBadge({
                 borderRadius: '100px',
                 background: bg,
                 color: color,
-                fontSize: '11px',
+                fontSize: 'var(--text-xs)',
                 fontWeight: 700,
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
@@ -167,7 +167,7 @@ function ConsultationRow({
                                 margin: 0,
                                 fontSize: 'var(--text-sm)',
                                 fontWeight: 600,
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                                 lineHeight: 1.3,
                             }}
                         >
@@ -177,7 +177,7 @@ function ConsultationRow({
                             style={{
                                 margin: '2px 0 0',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 lineHeight: 1.3,
                             }}
                         >
@@ -194,12 +194,12 @@ function ConsultationRow({
                         display: 'flex',
                         alignItems: 'center',
                         gap: 'var(--space-2)',
-                        color: 'var(--wc-gray-700)',
+                        color: 'var(--wc-text-secondary)',
                         fontSize: 'var(--text-sm)',
                         marginBottom: '4px',
                     }}
                 >
-                    <span style={{ color: 'var(--wc-gray-400)' }}>
+                    <span style={{ color: 'var(--wc-text-muted)' }}>
                         <IconCalendar />
                     </span>
                     {record.date}
@@ -209,7 +209,7 @@ function ConsultationRow({
                         display: 'flex',
                         alignItems: 'center',
                         gap: 'var(--space-2)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         fontSize: 'var(--text-xs)',
                     }}
                 >
@@ -224,16 +224,43 @@ function ConsultationRow({
                         margin: 0,
                         fontSize: 'var(--text-base)',
                         fontWeight: 600,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {record.diagnosis}
+                    {record.consultationType === 'virtual' && (
+                        <span
+                            style={{
+                                marginLeft: 8,
+                                fontSize: 'var(--text-xs)',
+                                fontWeight: 700,
+                                color: '#6d28d9',
+                                background: '#ede9fe',
+                                padding: '1px 8px',
+                                borderRadius: 999,
+                                verticalAlign: 'middle',
+                            }}
+                        >
+                            Video
+                        </span>
+                    )}
                 </p>
+                {record.assessment && (
+                    <p
+                        style={{
+                            margin: '2px 0 0',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-secondary)',
+                        }}
+                    >
+                        {record.assessment}
+                    </p>
+                )}
                 <p
                     style={{
                         margin: '2px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         textTransform: 'capitalize',
                     }}
                 >
@@ -377,7 +404,7 @@ export function ConsultationsTable({
                         margin: 0,
                         fontSize: 'var(--text-lg)',
                         fontWeight: 700,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {meta.recentTitle}
@@ -386,7 +413,7 @@ export function ConsultationsTable({
                     style={{
                         fontSize: 'var(--text-xs)',
                         fontWeight: 700,
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {records.length} record{records.length !== 1 ? 's' : ''}
@@ -412,9 +439,9 @@ export function ConsultationsTable({
                                             col === meta.colActions
                                                 ? 'right'
                                                 : 'left',
-                                        fontSize: '11px',
+                                        fontSize: 'var(--text-xs)',
                                         fontWeight: 700,
-                                        color: 'var(--wc-gray-400)',
+                                        color: 'var(--wc-text-muted)',
                                         letterSpacing: '0.06em',
                                         textTransform: 'uppercase',
                                         borderBottom:
@@ -442,7 +469,7 @@ export function ConsultationsTable({
                                     style={{
                                         padding: '48px',
                                         textAlign: 'center',
-                                        color: 'var(--wc-gray-400)',
+                                        color: 'var(--wc-text-muted)',
                                         fontSize: 'var(--text-sm)',
                                     }}
                                 >

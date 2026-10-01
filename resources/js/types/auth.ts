@@ -11,8 +11,20 @@ export type User = {
     last_name: string;
     email: string;
     avatar?: string;
+    /**
+     * The signed-in doctor's own headshot, shared by
+     * HandleInertiaRequests::resolvePhotoUrl. Null for every other role, and
+     * for a doctor who has not uploaded one — the topbar falls back to initials.
+     */
+    photo_url?: string | null;
     /** Spatie role names. Optional — not every payload carries them. */
     roles?: string[];
+    /**
+     * Spatie permission names, flattened across the account's roles. Used to
+     * hide nav links the account cannot open — display only; every route is
+     * gated server-side regardless.
+     */
+    permissions?: string[];
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
     created_at: string;

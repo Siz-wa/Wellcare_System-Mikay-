@@ -35,7 +35,7 @@ export function RoleForm({ user, roles, onDone }: RoleFormProps): ReactElement {
                 style={{
                     margin: '0 0 var(--space-4)',
                     fontSize: 'var(--text-sm)',
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {user.name} — {user.email}
@@ -47,8 +47,8 @@ export function RoleForm({ user, roles, onDone }: RoleFormProps): ReactElement {
                 <Field label="Role" required error={errors.role}>
                     <Select
                         value={data.role}
-                        onChange={(e) => setData('role', e.target.value)}
-                        error={Boolean(errors.role)}
+                        onChange={(value) => setData('role', value)}
+                        invalid={Boolean(errors.role)}
                         options={roles.map((role) => ({
                             value: role,
                             label: roleLabels[role] ?? role,

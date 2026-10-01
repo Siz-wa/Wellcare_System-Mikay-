@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\AvailabilityBlock;
+use App\Models\User;
 use App\Services\AvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,66 @@ class AvailabilityController extends Controller
                 ])->values(),
 
             'dailyCap' => $this->availability->dailyPatientCapFor($doctorId),
+
+            // Phase 9. Without these the page is silently misleading: a doctor
+            // saves their hours, sees them listed, and cannot tell that nothing
+            // is bookable because the schedule is awaiting approval or because
+            // their PRC licence has lapsed.
+            'approval' => $this->approvalStateFor($doctorId),
+            'credential' => $this->credentialStateFor(Auth::user()),
         ]);
+    }
+
+    /**
+     * Where this doctor's proposed weekly hours stand.
+     *
+     * @return array<string, mixed>
+     */
+    private function approvalStateFor(int $doctorId): array
+    {
+        $weekly = AvailabilityBlock::where('doctor_id', $doctorId)
+            ->whereNotNull('day_of_week')
+            ->whereNull('specific_date')
+            ->get();
+
+        $pending = $weekly->where('approval_status', AvailabilityBlock::APPROVAL_PENDING);
+        $draft = $weekly->where('approval_status', AvailabilityBlock::APPROVAL_DRAFT);
+
+        return [
+            'pendingDays' => $pending->count(),
+            'draftDays' => $draft->count(),
+            'publishedDays' => $weekly
+                ->where('approval_status', AvailabilityBlock::APPROVAL_PUBLISHED)
+                ->count(),
+            // The administrator's reason for sending a schedule back, so the
+            // doctor knows what to change rather than guessing.
+            'reviewRemarks' => $draft->first()?->review_remarks,
+        ];
+    }
+
+    /**
+     * This doctor's own credentialing standing.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function credentialStateFor(User $doctor): ?array
+    {
+        $credential = $doctor->credential;
+
+        if (! $credential) {
+            return null;
+        }
+
+        return [
+            'status' => $credential->status->value,
+            'label' => $credential->status->label(),
+            'tone' => $credential->status->tone(),
+            'prcExpiresOn' => $credential->prc_expires_on?->format('d M Y'),
+            'daysUntilExpiry' => $credential->daysUntilExpiry(),
+            'hasLapsed' => $credential->hasLapsed(),
+            'isPublished' => (bool) $doctor->doctorProfile?->is_active,
+            'remarks' => $credential->remarks,
+        ];
     }
 
     public function updateWeekly(Request $request): RedirectResponse
@@ -82,13 +142,15 @@ class AvailabilityController extends Controller
             return back()->withErrors(['days' => 'Each weekday can only be listed once.']);
         }
 
-        $this->availability->replaceWeeklySchedule(Auth::id(), $validated['days']);
+        $proposed = $this->availability->replaceWeeklySchedule(Auth::id(), $validated['days']);
 
         if (isset($validated['daily_cap'])) {
             $this->availability->setDailyPatientCap(Auth::id(), $validated['daily_cap']);
         }
 
-        return back()->with('success', 'Your weekly schedule has been updated.');
+        return back()->with('success', $proposed
+            ? 'Your new hours were sent for approval. Your current hours stay bookable until they are published.'
+            : 'Your weekly hours are unchanged.');
     }
 
     public function storeTimeOff(Request $request): RedirectResponse
@@ -106,7 +168,7 @@ class AvailabilityController extends Controller
             $validated['reason'] ?? null,
         );
 
-        return back()->with('success', 'Time off saved. Any pending appointments that day were cancelled.');
+        return back()->with('success', 'Time off saved. Open appointments that day were cancelled and the patients notified.');
     }
 
     public function destroy(AvailabilityBlock $availabilityBlock): RedirectResponse

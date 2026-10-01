@@ -5,8 +5,11 @@ import type { ReactElement } from 'react';
 import { useInView } from '@/hooks/useInView';
 import { bookingMeta } from '@/pages/user/book-appointment/sections/bookingdata';
 
-// Wayfinder — generated from AppointmentController in web.php
-import { index as appointmentsIndex } from '@/routes/appointments';
+// Wayfinder — route name `user.dashboard` → file @/routes/user, export `dashboard`.
+// The patient dashboard, not `appointments.index`: the booking they just made
+// is one of the things on it, alongside the rest of their upcoming visits and
+// the check-in and cancel controls that act on them.
+import { dashboard as patientDashboard } from '@/routes/user';
 
 const IconCheckCircle = () => (
     <svg
@@ -32,7 +35,7 @@ export default function BookingSuccess(): ReactElement {
         <section className="wc-section">
             <div
                 ref={ref}
-                className="wc-container"
+                className="wc-container px-0"
                 style={{
                     maxWidth: 540,
                     margin: '0 auto',
@@ -84,7 +87,7 @@ export default function BookingSuccess(): ReactElement {
                         Back to Home
                     </Link>
                     <Link
-                        href={appointmentsIndex().url}
+                        href={patientDashboard().url}
                         className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
                     >
                         View My Appointments

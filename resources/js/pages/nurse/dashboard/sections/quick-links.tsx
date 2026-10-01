@@ -17,8 +17,8 @@ export function QuickLinks(): ReactElement {
                     margin: '0 0 var(--space-4)',
                     fontSize: 'var(--text-base)',
                     fontWeight: 700,
-                    color: 'var(--wc-dark)',
-                    fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                    color: 'var(--wc-text-primary)',
+                    fontFamily: 'var(--font-display)',
                 }}
             >
                 {meta.quickLinksTitle}
@@ -52,7 +52,7 @@ export function QuickLinks(): ReactElement {
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
                                 {link.label}
@@ -61,7 +61,7 @@ export function QuickLinks(): ReactElement {
                                 style={{
                                     margin: '2px 0 0',
                                     fontSize: 'var(--text-xs)',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {link.description}

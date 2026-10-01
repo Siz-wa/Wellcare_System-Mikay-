@@ -6,6 +6,7 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { DateField, Select } from '@/design-system';
 import {
     availabilityMeta,
     dailyCapOptions,
@@ -111,8 +112,8 @@ export function WeeklyHours({
                     margin: '0 0 var(--space-1)',
                     fontSize: 'var(--text-base)',
                     fontWeight: 800,
-                    color: 'var(--wc-dark)',
-                    fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                    color: 'var(--wc-text-primary)',
+                    fontFamily: 'var(--font-display)',
                 }}
             >
                 {meta.weeklyTitle}
@@ -121,7 +122,7 @@ export function WeeklyHours({
                 style={{
                     margin: '0 0 var(--space-5)',
                     fontSize: 'var(--text-sm)',
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {meta.weeklyHint}
@@ -142,39 +143,32 @@ export function WeeklyHours({
                     style={{
                         display: 'block',
                         marginBottom: 'var(--space-2)',
-                        fontSize: '11px',
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 800,
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.capLabel}
                 </label>
 
-                <select
+                <Select
                     id="daily-cap"
-                    className="wc-input"
-                    value={cap}
-                    onChange={(e) => setCap(Number(e.target.value))}
-                    style={{
-                        height: 40,
-                        width: 160,
-                        fontSize: 'var(--text-sm)',
-                    }}
-                >
-                    {dailyCapOptions.map((n) => (
-                        <option key={n} value={n}>
-                            {n} {meta.capSuffix}
-                        </option>
-                    ))}
-                </select>
+                    value={String(cap)}
+                    onChange={(value) => setCap(Number(value))}
+                    style={{ width: 'auto', minWidth: '11rem' }}
+                    options={dailyCapOptions.map((n) => ({
+                        value: String(n),
+                        label: `${n} ${meta.capSuffix}`,
+                    }))}
+                />
 
                 <p
                     style={{
                         margin: 'var(--space-2) 0 0',
-                        fontSize: '12px',
-                        color: 'var(--wc-gray-500)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.capHint}
@@ -221,7 +215,7 @@ export function WeeklyHours({
                                     padding: '6px 10px',
                                     borderRadius: 999,
                                     cursor: 'pointer',
-                                    fontSize: '11px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 800,
                                     letterSpacing: '0.06em',
                                     border: `1.5px solid ${draft.enabled ? 'var(--wc-blue-600)' : 'var(--wc-gray-200)'}`,
@@ -238,16 +232,19 @@ export function WeeklyHours({
 
                             {draft.enabled ? (
                                 <>
-                                    <label
+                                    <span
                                         style={{
-                                            fontSize: '11px',
-                                            color: 'var(--wc-gray-500)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 'var(--space-2)',
+                                            fontSize: 'var(--text-xs)',
+                                            fontWeight: 600,
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
-                                        {meta.fromLabel}{' '}
-                                        <input
-                                            type="time"
-                                            className="wc-input"
+                                        {meta.fromLabel}
+                                        <DateField
+                                            kind="time"
                                             aria-label={`${label} ${meta.fromLabel}`}
                                             value={draft.startTime}
                                             onChange={(e) =>
@@ -256,23 +253,25 @@ export function WeeklyHours({
                                                 })
                                             }
                                             style={{
-                                                height: 36,
-                                                width: 120,
-                                                fontSize: 'var(--text-sm)',
+                                                width: 'auto',
+                                                minWidth: '9rem',
                                             }}
                                         />
-                                    </label>
+                                    </span>
 
-                                    <label
+                                    <span
                                         style={{
-                                            fontSize: '11px',
-                                            color: 'var(--wc-gray-500)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 'var(--space-2)',
+                                            fontSize: 'var(--text-xs)',
+                                            fontWeight: 600,
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
-                                        {meta.toLabel}{' '}
-                                        <input
-                                            type="time"
-                                            className="wc-input"
+                                        {meta.toLabel}
+                                        <DateField
+                                            kind="time"
                                             aria-label={`${label} ${meta.toLabel}`}
                                             value={draft.endTime}
                                             onChange={(e) =>
@@ -281,50 +280,49 @@ export function WeeklyHours({
                                                 })
                                             }
                                             style={{
-                                                height: 36,
-                                                width: 120,
-                                                fontSize: 'var(--text-sm)',
+                                                width: 'auto',
+                                                minWidth: '9rem',
                                             }}
                                         />
-                                    </label>
+                                    </span>
 
-                                    <label
+                                    <span
                                         style={{
-                                            fontSize: '11px',
-                                            color: 'var(--wc-gray-500)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 'var(--space-2)',
+                                            fontSize: 'var(--text-xs)',
+                                            fontWeight: 600,
+                                            color: 'var(--wc-text-muted)',
                                         }}
                                     >
-                                        {meta.slotLabel}{' '}
-                                        <select
-                                            className="wc-input"
+                                        {meta.slotLabel}
+                                        <Select
                                             aria-label={`${label} ${meta.slotLabel}`}
-                                            value={draft.slotDuration}
-                                            onChange={(e) =>
+                                            value={String(draft.slotDuration)}
+                                            onChange={(value) =>
                                                 update(isoDay, {
-                                                    slotDuration: Number(
-                                                        e.target.value,
-                                                    ),
+                                                    slotDuration: Number(value),
                                                 })
                                             }
                                             style={{
-                                                height: 36,
-                                                width: 104,
-                                                fontSize: 'var(--text-sm)',
+                                                width: 'auto',
+                                                minWidth: '8rem',
                                             }}
-                                        >
-                                            {slotDurationOptions.map((n) => (
-                                                <option key={n} value={n}>
-                                                    {n} {meta.minutesSuffix}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
+                                            options={slotDurationOptions.map(
+                                                (n) => ({
+                                                    value: String(n),
+                                                    label: `${n} ${meta.minutesSuffix}`,
+                                                }),
+                                            )}
+                                        />
+                                    </span>
                                 </>
                             ) : (
                                 <span
                                     style={{
                                         fontSize: 'var(--text-sm)',
-                                        color: 'var(--wc-gray-400)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {meta.dayOffLabel}

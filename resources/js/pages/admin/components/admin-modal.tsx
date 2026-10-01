@@ -55,7 +55,12 @@ export function AdminModal({
             style={{
                 position: 'fixed',
                 inset: 0,
-                zIndex: 9998,
+                // The scale from tokens.css, never a literal. This was 9998 —
+                // a number picked to clear the nav, which also cleared the
+                // popover layer, so a <Select> inside an admin form portalled
+                // its panel to <body> at --z-popover and painted *behind* this
+                // backdrop. The options were there and invisible.
+                zIndex: 'var(--z-modal)' as React.CSSProperties['zIndex'],
                 background: 'rgba(15, 23, 42, 0.45)',
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -94,9 +99,8 @@ export function AdminModal({
                             margin: 0,
                             fontSize: 'var(--text-lg)',
                             fontWeight: 700,
-                            color: 'var(--wc-dark)',
-                            fontFamily:
-                                "var(--font-display,'Bricolage Grotesque')",
+                            color: 'var(--wc-text-primary)',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {title}

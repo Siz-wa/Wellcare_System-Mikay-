@@ -27,7 +27,14 @@ import type { PageProps } from '@/types';
 
 interface PageData extends PageProps {
     users: AdminUserRow[];
+    /** Every role, for the filter bar — you may filter by what you cannot grant. */
     roles: string[];
+    /**
+     * Only the roles the signed-in actor may hand out, for the two forms.
+     * GV-6: `admin` and `dpo` are absent for an administrator and present for
+     * the system owner. See AdminUserController::index().
+     */
+    grantableRoles: string[];
     stats: UserStats;
     filters: UserFilters;
 }
@@ -41,6 +48,7 @@ type ModalState =
 export default function AdminUsersPage({
     users,
     roles,
+    grantableRoles,
     stats,
     filters,
 }: PageData): ReactElement {
@@ -92,7 +100,7 @@ export default function AdminUsersPage({
                 open={modal.kind === 'create'}
                 onClose={close}
             >
-                <UserForm roles={roles} onDone={close} />
+                <UserForm roles={grantableRoles} onDone={close} />
             </AdminModal>
 
             <AdminModal
@@ -107,7 +115,7 @@ export default function AdminUsersPage({
                     <UserForm
                         key={modal.user.id}
                         user={modal.user}
-                        roles={roles}
+                        roles={grantableRoles}
                         onDone={close}
                     />
                 )}
@@ -122,7 +130,7 @@ export default function AdminUsersPage({
                     <RoleForm
                         key={modal.user.id}
                         user={modal.user}
-                        roles={roles}
+                        roles={grantableRoles}
                         onDone={close}
                     />
                 )}

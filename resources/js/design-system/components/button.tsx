@@ -52,6 +52,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             children,
             className = '',
             disabled,
+            title,
             ...props
         },
         ref,
@@ -66,12 +67,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             .filter(Boolean)
             .join(' ');
 
-        return (
+        const isDisabled = Boolean(disabled || loading);
+
+        const button = (
             <button
                 ref={ref}
                 className={classes}
-                disabled={disabled || loading}
+                disabled={isDisabled}
                 aria-busy={loading}
+                title={title}
                 {...props}
             >
                 {loading ? (
@@ -94,6 +98,32 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 )}
             </button>
         );
+
+        // A `title` on a disabled button is unreachable: browsers fire no mouse
+        // events on a disabled control, so the tooltip never opens and the
+        // reason for the refusal stays in the DOM where only a developer finds
+        // it. The 2026-09-11 governance walkthrough caught this on the peer
+        // admin row (T-03) — the wording was exactly right and no user could
+        // ever read it.
+        //
+        // Wrapping in an enabled element that carries the same title restores
+        // hover without re-enabling anything. Applied here rather than at each
+        // call site so every disabled-with-a-reason button in the app is fixed
+        // at once.
+        //
+        // `disabled` only, never `loading`: a loading button is momentary and
+        // its spinner already explains itself, while wrapping one would put an
+        // inline-flex span around a `w-full` submit and collapse it to its
+        // content width mid-request.
+        if (disabled && !loading && title) {
+            return (
+                <span className="wc-btn-hint" title={title}>
+                    {button}
+                </span>
+            );
+        }
+
+        return button;
     },
 );
 

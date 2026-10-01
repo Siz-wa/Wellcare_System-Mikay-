@@ -6,11 +6,13 @@
 //   - ReviewRow for preferred doctor now looks up the name by id.
 
 import type { ReactElement } from 'react';
+import { formatIsoDate } from '@/lib/local-date';
 import type {
     BookingFormData,
     StepId,
     DoctorOption,
     PatientOption,
+    ServiceDefinition,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import {
     genderOptions,
@@ -66,6 +68,8 @@ interface StepReviewProps {
     onChangePatient: () => void;
     /** Passed from the Inertia page prop to resolve display name from doctorId */
     doctors: DoctorOption[];
+    /** The bookable catalogue, for resolving the service's display name. */
+    services: ServiceDefinition[];
 }
 
 export default function StepReview({
@@ -78,42 +82,88 @@ export default function StepReview({
     onGoToStep,
     onChangePatient,
     doctors,
+    services,
 }: StepReviewProps): ReactElement {
     const { title, subtitle } = STEP_HEADINGS[3];
-    const { disclaimer, hipaa } = bookingMeta;
+    const { disclaimer, dataPrivacy } = bookingMeta;
 
-    const twoColGrid: React.CSSProperties = {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '0 var(--space-4)',
-    };
+    // `additionalInfo` is excluded because it renders inline on its own field
+    // below; everything else has no home on this screen and would otherwise be
+    // invisible.
+    const messages = Object.entries(errors)
+        .filter(([field, message]) => field !== 'additionalInfo' && !!message)
+        .map(([, message]) => message as string);
+
+    // One column on a phone, two from `sm`. A hard `1fr 1fr` put two label +
+    // value pairs into 358px, so a value like a full name or an HMO card
+    // number wrapped over three lines against a half-empty neighbour.
+    //
+    // Row gap only matters once the pairs stack, hence `gap-y-3 sm:gap-y-0`.
+    const twoColGrid =
+        'grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 sm:gap-y-0';
 
     return (
         <div>
             <div style={{ marginBottom: 'var(--space-8)' }}>
-                {errors.appointmentTime && (
+                {/* Every rejection the server can return, not just the one the
+                    slot check produces. A validation error on a Step 1 or
+                    Step 2 field — an ineligible service, a minor filed under an
+                    HMO, missing telemedicine consent — arrives while the
+                    patient is standing on Step 3, and used to be dropped on the
+                    floor: the page simply did not move, with nothing said. */}
+                {messages.length > 0 && (
                     <div
                         style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 'var(--space-3)',
                             marginBottom: 'var(--space-6)',
                             padding: 'var(--space-4) var(--space-5)',
                             borderRadius: 'var(--radius-lg)',
                             background: '#fee2e2',
                             border: '1px solid var(--wc-error)',
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-error)',
+                            color: 'var(--wc-text-error)',
                             fontWeight: 600,
                         }}
+                        role="alert"
                     >
-                        ⚠ {errors.appointmentTime}
+                        {messages.length === 1 ? (
+                            <span
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--space-3)',
+                                }}
+                            >
+                                ⚠ {messages[0]}
+                            </span>
+                        ) : (
+                            <>
+                                <span
+                                    style={{
+                                        display: 'block',
+                                        marginBottom: 'var(--space-2)',
+                                    }}
+                                >
+                                    ⚠ This booking could not be submitted:
+                                </span>
+                                <ul
+                                    style={{
+                                        margin: 0,
+                                        paddingLeft: 'var(--space-6)',
+                                        fontWeight: 500,
+                                    }}
+                                >
+                                    {messages.map((m) => (
+                                        <li key={m}>{m}</li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
                     </div>
                 )}
                 <span
                     className="wc-label"
                     style={{
-                        color: 'var(--wc-sky-500)',
+                        color: 'var(--wc-link)',
                         display: 'block',
                         marginBottom: 'var(--space-2)',
                     }}
@@ -124,14 +174,7 @@ export default function StepReview({
                 <p style={{ margin: 0 }}>{subtitle}</p>
             </div>
 
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 'var(--space-5)',
-                    marginBottom: 'var(--space-6)',
-                }}
-            >
+            <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
                 {/* ── Patient ──
                     Read from the record, not from form inputs — these details
                     were typed once when the patient was added. "Edit" reopens
@@ -141,7 +184,7 @@ export default function StepReview({
                     title="Patient"
                     onEdit={onChangePatient}
                 >
-                    <div style={twoColGrid}>
+                    <div className={twoColGrid}>
                         <ReviewRow
                             label={REVIEW_LABELS.fullName}
                             value={patient.name}
@@ -167,10 +210,13 @@ export default function StepReview({
                     title="Appointment"
                     onEdit={() => onGoToStep(1)}
                 >
-                    <div style={twoColGrid}>
+                    <div className={twoColGrid}>
                         <ReviewRow
                             label={REVIEW_LABELS.service}
-                            value={resolveLabel(data.service, serviceOptions)}
+                            value={resolveLabel(
+                                data.service,
+                                serviceOptions(services),
+                            )}
                         />
                         <ReviewRow
                             label={REVIEW_LABELS.consultationType}
@@ -181,7 +227,7 @@ export default function StepReview({
                         />
                         <ReviewRow
                             label={REVIEW_LABELS.appointmentDate}
-                            value={data.appointmentDate}
+                            value={formatIsoDate(data.appointmentDate)}
                         />
                         <ReviewRow
                             label={REVIEW_LABELS.appointmentTime}
@@ -197,18 +243,26 @@ export default function StepReview({
                     onEdit={() => onGoToStep(2)}
                     fullWidth
                 >
-                    <div style={twoColGrid}>
+                    <div className={twoColGrid}>
                         <ReviewRow
                             label={REVIEW_LABELS.coverage}
                             value={resolveLabel(data.coverage, coverageOptions)}
                         />
-                        {data.hmo && (
+                        {/* Only under HMO coverage. The wizard pre-fills these
+                            from the patient's last visit, so a self-paid
+                            booking by someone who used Maxicare in September
+                            still carries the card in form state — and this
+                            summary used to print "MODE OF COVERAGE Self-Pay"
+                            directly above "HMO PROVIDER Maxicare". The request
+                            now clears the pair server-side too, so the stored
+                            row cannot disagree with itself either. */}
+                        {data.coverage === 'hmo' && data.hmo && (
                             <ReviewRow
                                 label={REVIEW_LABELS.hmo}
                                 value={resolveLabel(data.hmo, hmoOptions)}
                             />
                         )}
-                        {data.hmoId && (
+                        {data.coverage === 'hmo' && data.hmoId && (
                             <ReviewRow
                                 label={REVIEW_LABELS.hmoId}
                                 value={data.hmoId}
@@ -277,10 +331,10 @@ export default function StepReview({
                     gap: 'var(--space-1)',
                     marginTop: 'var(--space-3)',
                     fontSize: 'var(--text-xs)',
-                    color: 'var(--wc-gray-400)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
-                <IconLock /> {hipaa}
+                <IconLock /> {dataPrivacy}
             </p>
         </div>
     );

@@ -45,7 +45,7 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                     style={{
                                         fontSize: 'var(--text-sm)',
                                         fontWeight: 700,
-                                        color: 'var(--wc-dark)',
+                                        color: 'var(--wc-text-primary)',
                                     }}
                                 >
                                     {visit.service}
@@ -53,7 +53,7 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                 <span
                                     style={{
                                         fontSize: 'var(--text-xs)',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     {visit.date}
@@ -65,12 +65,12 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                     style={{
                                         margin: '0 0 4px',
                                         fontSize: 'var(--text-sm)',
-                                        color: 'var(--wc-gray-700)',
+                                        color: 'var(--wc-text-secondary)',
                                     }}
                                 >
                                     <strong
                                         style={{
-                                            color: 'var(--wc-gray-500)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 700,
                                         }}
                                     >
@@ -85,12 +85,12 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                     style={{
                                         margin: '0 0 4px',
                                         fontSize: 'var(--text-sm)',
-                                        color: 'var(--wc-gray-700)',
+                                        color: 'var(--wc-text-secondary)',
                                     }}
                                 >
                                     <strong
                                         style={{
-                                            color: 'var(--wc-gray-500)',
+                                            color: 'var(--wc-text-muted)',
                                             fontWeight: 700,
                                         }}
                                     >
@@ -105,7 +105,7 @@ export function VisitsSection({ visits }: VisitsSectionProps): ReactElement {
                                     style={{
                                         margin: '4px 0 0',
                                         fontSize: 'var(--text-xs)',
-                                        color: 'var(--wc-gray-500)',
+                                        color: 'var(--wc-text-muted)',
                                     }}
                                 >
                                     <strong style={{ fontWeight: 700 }}>

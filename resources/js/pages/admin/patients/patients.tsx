@@ -96,7 +96,7 @@ export default function AdminPatientsPage({
                 <div style={{ minWidth: 190 }}>
                     <Select
                         value={filters.coverage}
-                        onChange={(e) => go({ coverage: e.target.value })}
+                        onChange={(value) => go({ coverage: value })}
                         options={[
                             { value: '', label: patientsCopy.allCoverage },
                             ...coverageOptions.filter((o) => o.value !== ''),

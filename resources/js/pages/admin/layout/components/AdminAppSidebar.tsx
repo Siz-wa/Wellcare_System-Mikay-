@@ -2,23 +2,69 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // System Administrator sidebar — same visual spec as HRAppSidebar.
 
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     CalendarCheck2,
     ChevronRight,
+    Eye,
     FlaskConical,
     FolderOpen,
     LayoutDashboard,
     LogOut,
     MessageSquare,
     Settings,
+    ShieldCheck,
     Users,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import type { NavItem } from '@/pages/admin/layout/admin-dashboard-data';
+import type {
+    NavGroup,
+    NavItem,
+} from '@/pages/admin/layout/admin-dashboard-data';
 import { navGroups } from '@/pages/admin/layout/admin-dashboard-data';
 import { SidebarLogo } from '@/pages/user/layout/components/PatientAppSidebar';
+import type { PageProps } from '@/types';
+
+/**
+ * Drop links the signed-in account cannot open, and any group left empty.
+ *
+ * This sidebar is shared by three tiers — administrator, System Owner and, via
+ * SettingsShell, anyone whose settings page renders inside it. The routes
+ * behind it are gated per capability (`permission:`) or per role (`role:`), and
+ * an owner holds neither the patient, archive nor credentialing permissions.
+ * Until 2026-09-11 that meant an owner browsing /admin/users was offered seven
+ * links that all 403 — the governance walkthrough logged it as OB-02.
+ *
+ * A courtesy, not a control: every route stays enforced server-side. The point
+ * is that navigation should not advertise doors the account is designed never
+ * to open.
+ */
+function visibleGroups(
+    groups: NavGroup[],
+    roles: string[],
+    permissions: string[],
+): NavGroup[] {
+    return groups
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => {
+                if (item.permission && !permissions.includes(item.permission)) {
+                    return false;
+                }
+
+                if (
+                    item.roles &&
+                    !item.roles.some((role) => roles.includes(role))
+                ) {
+                    return false;
+                }
+
+                return true;
+            }),
+        }))
+        .filter((group) => group.items.length > 0);
+}
 
 const BRAND = '#0056b3';
 const BRAND_BG = '#eff6ff';
@@ -34,6 +80,10 @@ const ICON_MAP: Record<IconKey, ReactElement> = {
     labreviews: <FlaskConical size={17} strokeWidth={1.8} />,
     records: <FolderOpen size={17} strokeWidth={1.8} />,
     settings: <Settings size={17} strokeWidth={1.8} />,
+    // Governance roles — GV-5 and GV-6. `governance` is the control plane
+    // (appointing administrators); `oversight` is watching it.
+    governance: <ShieldCheck size={17} strokeWidth={1.8} />,
+    oversight: <Eye size={17} strokeWidth={1.8} />,
 };
 
 function NavLink({
@@ -135,17 +185,37 @@ function LogoutButton(): ReactElement {
 
 interface AdminAppSidebarProps {
     activeId: string;
+    /**
+     * The nav to render. Defaults to the administrator's.
+     *
+     * Parameterised rather than copied for the two governance roles added in
+     * the GV pass. The project convention is a sidebar per role, and it is the
+     * right convention where the roles differ — the doctor, nurse and patient
+     * sidebars carry genuinely different chrome. The owner and the DPO differ
+     * from the administrator in exactly one respect: which four links they get.
+     * Duplicating 200 lines of identical styling twice to express that would
+     * mean three places to fix the next spacing change.
+     */
+    groups?: NavGroup[];
 }
 
 export function AdminAppSidebar({
     activeId,
+    groups: providedGroups = navGroups,
 }: AdminAppSidebarProps): ReactElement {
+    const { auth } = usePage<PageProps>().props;
+    const groups = visibleGroups(
+        providedGroups,
+        auth?.user?.roles ?? [],
+        auth?.user?.permissions ?? [],
+    );
+
     return (
         <aside
             style={{
                 width: 260,
-                minHeight: '100vh',
-                height: '100vh',
+                minHeight: '100dvh',
+                height: '100dvh',
                 position: 'sticky',
                 top: 0,
                 flexShrink: 0,
@@ -171,18 +241,18 @@ export function AdminAppSidebar({
                     overflowY: 'auto',
                 }}
             >
-                {navGroups.map((group, gi) => (
+                {groups.map((group, gi) => (
                     <div
                         key={group.groupLabel}
                         style={{
-                            marginBottom: gi < navGroups.length - 1 ? 16 : 0,
+                            marginBottom: gi < groups.length - 1 ? 16 : 0,
                         }}
                     >
                         <p
                             style={{
                                 margin: '0 0 6px',
                                 padding: '0 4px',
-                                fontSize: '10px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 color: '#94a3b8',
                                 textTransform: 'uppercase',

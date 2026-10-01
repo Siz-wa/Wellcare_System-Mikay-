@@ -6,6 +6,7 @@
 import { Link } from '@inertiajs/react';
 import { AlertTriangle, ChevronRight, FileText } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { plural } from '@/lib/utils';
 import type { PatientCard as PatientCardData } from '../records-data';
 import { recordsMeta } from '../records-data';
 
@@ -48,7 +49,7 @@ export function PatientCard({ patient }: PatientCardProps): ReactElement {
                         background: 'var(--wc-blue-50, #eff6ff)',
                         color: 'var(--wc-blue-600)',
                         fontWeight: 700,
-                        fontSize: 16,
+                        fontSize: 'var(--text-base)',
                         flexShrink: 0,
                     }}
                 >
@@ -59,9 +60,9 @@ export function PatientCard({ patient }: PatientCardProps): ReactElement {
                     <p
                         style={{
                             margin: 0,
-                            fontSize: 16,
+                            fontSize: 'var(--text-base)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-900)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {patient.name}
@@ -69,8 +70,8 @@ export function PatientCard({ patient }: PatientCardProps): ReactElement {
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: 13,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {[
@@ -86,7 +87,7 @@ export function PatientCard({ patient }: PatientCardProps): ReactElement {
                 <ChevronRight
                     size={18}
                     strokeWidth={1.8}
-                    style={{ color: 'var(--wc-gray-400)', flexShrink: 0 }}
+                    style={{ color: 'var(--wc-text-muted)', flexShrink: 0 }}
                 />
             </div>
 
@@ -104,7 +105,7 @@ export function PatientCard({ patient }: PatientCardProps): ReactElement {
                         background: '#fef2f2',
                         border: '1px solid #fecaca',
                         color: '#b91c1c',
-                        fontSize: 13,
+                        fontSize: 'var(--text-sm)',
                         fontWeight: 500,
                     }}
                 >
@@ -120,17 +121,15 @@ export function PatientCard({ patient }: PatientCardProps): ReactElement {
                     marginTop: 'var(--space-4)',
                     paddingTop: 'var(--space-4)',
                     borderTop: '1px solid var(--wc-gray-100)',
-                    fontSize: 13,
-                    color: 'var(--wc-gray-600)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-secondary)',
                 }}
             >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <FileText size={14} strokeWidth={1.8} />
-                    {patient.documentCount} {labels.documents}
+                    {plural(patient.documentCount, 'document')}
                 </span>
-                <span>
-                    {patient.appointmentCount} {labels.visits}
-                </span>
+                <span>{plural(patient.appointmentCount, 'visit')}</span>
                 {patient.activeDiagnoses > 0 && (
                     <span>
                         {patient.activeDiagnoses} {labels.activeDiagnoses}

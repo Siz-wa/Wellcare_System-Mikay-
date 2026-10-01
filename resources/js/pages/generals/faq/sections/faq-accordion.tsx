@@ -140,7 +140,7 @@ function FaqItem({
             >
                 <span
                     className="font-display text-base leading-snug font-bold"
-                    style={{ color: 'var(--wc-dark)' }}
+                    style={{ color: 'var(--wc-text-primary)' }}
                 >
                     {question}
                 </span>
@@ -174,7 +174,7 @@ function FaqItem({
                     <hr className="wc-divider mb-5" />
                     <p
                         className="m-0 text-sm leading-relaxed"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         {answer}
                     </p>
@@ -281,7 +281,7 @@ export default function FaqsAccordionSection() {
                         </h2>
                         <p
                             className="m-0 text-sm"
-                            style={{ color: 'var(--wc-gray-400)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             {activeCategory.items.length} question
                             {activeCategory.items.length !== 1 ? 's' : ''}

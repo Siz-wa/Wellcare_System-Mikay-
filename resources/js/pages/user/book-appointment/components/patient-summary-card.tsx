@@ -62,7 +62,7 @@ export function PatientSummaryCard({
                 <span
                     className="wc-label"
                     style={{
-                        color: 'var(--wc-sky-500)',
+                        color: 'var(--wc-link)',
                         display: 'block',
                         marginBottom: 2,
                     }}
@@ -73,7 +73,7 @@ export function PatientSummaryCard({
                     style={{
                         margin: 0,
                         fontWeight: 700,
-                        color: 'var(--wc-gray-900)',
+                        color: 'var(--wc-text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -86,7 +86,7 @@ export function PatientSummaryCard({
                         style={{
                             margin: 0,
                             fontSize: 'var(--text-xs)',
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {meta.join(' · ')}

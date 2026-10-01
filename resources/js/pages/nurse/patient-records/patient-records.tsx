@@ -44,8 +44,8 @@ export default function NursePatientRecordsPage({
                         fontWeight: 800,
                         letterSpacing: '-0.03em',
                         lineHeight: 1.15,
-                        color: 'var(--wc-dark)',
-                        fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                        color: 'var(--wc-text-primary)',
+                        fontFamily: 'var(--font-display)',
                     }}
                 >
                     {meta.pageTitle}
@@ -54,7 +54,7 @@ export default function NursePatientRecordsPage({
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.pageSubtitle}
@@ -80,7 +80,7 @@ export default function NursePatientRecordsPage({
                             left: 12,
                             top: '50%',
                             transform: 'translateY(-50%)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     />
                     <input
@@ -97,7 +97,7 @@ export default function NursePatientRecordsPage({
                             background: 'var(--wc-white)',
                             fontSize: 'var(--text-sm)',
                             fontFamily: 'var(--font-sans)',
-                            color: 'var(--wc-gray-700)',
+                            color: 'var(--wc-text-secondary)',
                         }}
                     />
                 </div>

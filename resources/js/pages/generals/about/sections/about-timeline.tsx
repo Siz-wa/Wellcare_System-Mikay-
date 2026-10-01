@@ -75,7 +75,7 @@ export default function TimelineSection() {
                                             <p
                                                 className="m-0 text-sm leading-relaxed"
                                                 style={{
-                                                    color: 'var(--wc-gray-500)',
+                                                    color: 'var(--wc-text-muted)',
                                                 }}
                                             >
                                                 {item.desc}

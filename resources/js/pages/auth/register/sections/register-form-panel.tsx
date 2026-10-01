@@ -13,6 +13,7 @@ import type { StepErrors } from '@/pages/auth/register/hooks/use-register-form';
 import { onboardingSteps } from '@/pages/auth/register/sections/register-data';
 import StepAccount from '@/pages/auth/register/steps/step-account';
 import StepMedical from '@/pages/auth/register/steps/step-medical';
+import type { ConsentDocument } from '@/pages/auth/register/steps/step-medical';
 import StepPersonal from '@/pages/auth/register/steps/step-personal';
 import { login, home } from '@/routes';
 import { store } from '@/routes/register';
@@ -30,7 +31,9 @@ export default function RegisterFormPanel({
         fields,
         clientErrors,
         set,
+        setSanitized,
         setRadio,
+        setChecked,
         handleNext,
         handleBack,
         handleSubmitValidation,
@@ -52,8 +55,19 @@ export default function RegisterFormPanel({
     // AND the submission count, so it always fires on a fresh submit even if
     // the error bag is identical to the last one.
 
-    const pageErrors =
-        (usePage().props as { errors?: Record<string, string> }).errors ?? {};
+    const pageProps = usePage().props as {
+        errors?: Record<string, string>;
+        consents?: ConsentDocument[];
+    };
+
+    const pageErrors = pageProps.errors ?? {};
+
+    // Served from config/consent.php via FortifyServiceProvider::registerView,
+    // so the wording lives in one place and is versioned. Defaulting to an
+    // empty list rather than throwing: a missing prop should degrade to "no
+    // consent boxes rendered", which the server-side `accepted` rules will
+    // then refuse — failing closed, not open.
+    const consents = pageProps.consents ?? [];
     const submitCount = useRef(0);
     const effectKey = `${submitCount.current}:${JSON.stringify(pageErrors)}`;
     const isFirstMount = useRef(true);
@@ -127,14 +141,14 @@ export default function RegisterFormPanel({
                         style={{
                             fontFamily: 'var(--font-display)',
                             fontWeight: 800,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {onboardingSteps[step - 1].title}
                     </h1>
                     <p
                         className="text-sm"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         {onboardingSteps[step - 1].description}
                     </p>
@@ -157,6 +171,7 @@ export default function RegisterFormPanel({
                                 fields={fields}
                                 errors={clientErrors}
                                 set={set}
+                                setSanitized={setSanitized}
                                 setRadio={setRadio}
                             />
                         )}
@@ -186,7 +201,7 @@ export default function RegisterFormPanel({
                         {/* Login link */}
                         <p
                             className="mt-2 text-center text-sm"
-                            style={{ color: 'var(--wc-gray-500)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             Already have an account?{' '}
                             <TextLink
@@ -203,7 +218,7 @@ export default function RegisterFormPanel({
                             <Link
                                 href={home.url()}
                                 className="text-xs"
-                                style={{ color: 'var(--wc-gray-400)' }}
+                                style={{ color: 'var(--wc-text-muted)' }}
                             >
                                 ← Back to Wellcare Clinics
                             </Link>
@@ -289,8 +304,10 @@ export default function RegisterFormPanel({
                                     <StepMedical
                                         fields={fields}
                                         errors={errors}
-                                        set={set}
+                                        setSanitized={setSanitized}
                                         setRadio={setRadio}
+                                        setChecked={setChecked}
+                                        consents={consents}
                                     />
 
                                     {/* Navigation */}
@@ -323,7 +340,9 @@ export default function RegisterFormPanel({
                                     {/* Login link */}
                                     <p
                                         className="mt-2 text-center text-sm"
-                                        style={{ color: 'var(--wc-gray-500)' }}
+                                        style={{
+                                            color: 'var(--wc-text-muted)',
+                                        }}
                                     >
                                         Already have an account?{' '}
                                         <TextLink
@@ -343,7 +362,7 @@ export default function RegisterFormPanel({
                                             href={home.url()}
                                             className="text-xs"
                                             style={{
-                                                color: 'var(--wc-gray-400)',
+                                                color: 'var(--wc-text-muted)',
                                             }}
                                         >
                                             ← Back to Wellcare Clinics

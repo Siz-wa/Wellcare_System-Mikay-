@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+// The app sends the QUEUED subclass so a slow mail host cannot hold the
+// request open; see App\Notifications\QueuedResetPassword.
+use App\Notifications\QueuedResetPassword as ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
 
@@ -23,6 +25,22 @@ test('reset password link can be requested', function () {
     $this->post(route('password.email'), ['email' => $user->email]);
 
     Notification::assertSentTo($user, ResetPassword::class);
+});
+
+test('the reset request does not reveal whether an email has an account', function () {
+    // A clinic's forgot-password form must not confirm who is a patient.
+    Notification::fake();
+    $user = User::factory()->create();
+
+    $known = $this->from(route('password.request'))
+        ->post(route('password.email'), ['email' => $user->email]);
+    $unknown = $this->from(route('password.request'))
+        ->post(route('password.email'), ['email' => 'nobody-here@example.com']);
+
+    $known->assertSessionHasNoErrors();
+    $unknown->assertSessionHasNoErrors();
+    expect($unknown->getSession()->get('status'))->toBe($known->getSession()->get('status'))
+        ->and($unknown->getSession()->get('status'))->toContain('If an account exists');
 });
 
 test('reset password screen can be rendered', function () {

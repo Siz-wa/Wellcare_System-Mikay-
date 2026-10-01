@@ -61,7 +61,12 @@ beforeEach(function () {
         'gender' => 'male',
     ]);
 
+    // SC-4 / C-5. A virtual booking now requires telemedicine consent
+    // (DOH AO 2020-0030), so the shared payload carries it. These tests are
+    // about whether `consultation_type` survives the request→service→column
+    // chain; the consent gate itself is covered in tests/Feature/Compliance.
     $this->payload = fn (array $overrides = []) => array_merge([
+        'consent_telemedicine' => '1',
         'patientId' => $this->patientRecord->id,
         'service' => 'general',
         'branch' => 'Wellcare Dasmarinas',

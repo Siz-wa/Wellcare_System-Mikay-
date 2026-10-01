@@ -10,6 +10,7 @@ import { router } from '@inertiajs/react';
 import { UserPlus, Users } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { ConfirmDialog } from '@/design-system';
 import type { PatientOption } from '@/pages/user/book-appointment/sections/bookingdata';
 import PatientFormSheet from '@/pages/user/book-appointment/sections/patient-form-sheet';
 import { PatientDashboardLayout } from '@/pages/user/layout/patient-dashboard-layout';
@@ -38,34 +39,45 @@ export default function PatientsPage({ patients }: PageData): ReactElement {
 
     // Archiving is a soft delete the server refuses while an appointment is
     // still open, so the confirm here is a courtesy rather than the guard.
+    // It was a native window.confirm(); now it is the house dialog, so it looks
+    // like the rest of the app and does not block the page thread.
+    const [archiving, setArchiving] = useState<PatientOption | null>(null);
+    const [archiveBusy, setArchiveBusy] = useState(false);
+
     const archive = (patient: PatientOption) => {
-        if (!window.confirm(patientsMeta.archive.confirm)) {
+        setArchiving(patient);
+    };
+
+    const confirmArchive = () => {
+        if (!archiving) {
             return;
         }
 
-        router.delete(destroy(patient.id).url, { preserveScroll: true });
+        setArchiveBusy(true);
+
+        router.delete(destroy(archiving.id).url, {
+            preserveScroll: true,
+            onFinish: () => {
+                setArchiveBusy(false);
+                setArchiving(null);
+            },
+        });
     };
 
     return (
         <PatientDashboardLayout activeId="my-patients">
-            <header
-                style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: 'var(--space-4)',
-                    marginBottom: 'var(--space-6)',
-                }}
-            >
+            {/* Wraps on a phone: a 26px title and a pill button do not share
+                358px, and `flex-shrink: 0` on the button meant the title lost
+                the argument and wrapped to three lines instead. */}
+            <header className="mb-6 flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
                 <div>
                     <h1
                         style={{
-                            fontSize: 24,
+                            fontSize: 'var(--text-2xl)',
                             fontWeight: 700,
-                            color: 'var(--wc-gray-900)',
+                            color: 'var(--wc-text-primary)',
                             margin: 0,
-                            fontFamily:
-                                'var(--font-display, "Bricolage Grotesque")',
+                            fontFamily: 'var(--font-display)',
                         }}
                     >
                         {patientsMeta.title}
@@ -73,8 +85,8 @@ export default function PatientsPage({ patients }: PageData): ReactElement {
                     <p
                         style={{
                             margin: '6px 0 0',
-                            fontSize: 14,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                             maxWidth: 640,
                         }}
                     >
@@ -85,13 +97,7 @@ export default function PatientsPage({ patients }: PageData): ReactElement {
                 <button
                     type="button"
                     onClick={openAdd}
-                    className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill"
-                    style={{
-                        display: 'inline-flex',
-                        gap: 8,
-                        flexShrink: 0,
-                        alignItems: 'center',
-                    }}
+                    className="wc-btn wc-btn-primary wc-btn-md wc-btn-pill flex w-full shrink-0 items-center justify-center gap-2 sm:w-auto"
                 >
                     <UserPlus size={16} /> {patientsMeta.addCta}
                 </button>
@@ -124,6 +130,20 @@ export default function PatientsPage({ patients }: PageData): ReactElement {
                 onOpenChange={setSheetOpen}
                 patient={editing}
             />
+            <ConfirmDialog
+                open={archiving !== null}
+                onOpenChange={(open) => !open && setArchiving(null)}
+                title={
+                    archiving
+                        ? `Archive ${archiving.firstName ?? 'this patient'}?`
+                        : patientsMeta.archive.title
+                }
+                description={patientsMeta.archive.confirm}
+                confirmLabel={patientsMeta.archive.action}
+                cancelLabel={patientsMeta.archive.dismiss}
+                processing={archiveBusy}
+                onConfirm={confirmArchive}
+            />
         </PatientDashboardLayout>
     );
 }
@@ -142,14 +162,14 @@ function EmptyPatients({ onAdd }: { onAdd: () => void }): ReactElement {
             <Users
                 size={32}
                 strokeWidth={1.5}
-                style={{ color: 'var(--wc-gray-400)' }}
+                style={{ color: 'var(--wc-text-muted)' }}
             />
             <h2
                 style={{
                     margin: 'var(--space-4) 0 0',
-                    fontSize: 17,
+                    fontSize: 'var(--text-base)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-900)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {patientsMeta.empty.title}
@@ -157,8 +177,8 @@ function EmptyPatients({ onAdd }: { onAdd: () => void }): ReactElement {
             <p
                 style={{
                     margin: '6px auto 0',
-                    fontSize: 14,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-muted)',
                     maxWidth: 420,
                 }}
             >

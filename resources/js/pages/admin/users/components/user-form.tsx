@@ -11,7 +11,15 @@
 
 import { useForm } from '@inertiajs/react';
 import type { FormEvent, ReactElement } from 'react';
-import { Button, Field, Input, Select } from '@/design-system';
+import {
+    Button,
+    Check,
+    DateField,
+    Field,
+    Input,
+    Select,
+} from '@/design-system';
+import { normalizePhMobile } from '@/lib/input-masks';
 import {
     civilStatusOptions,
     genderOptions,
@@ -30,20 +38,22 @@ interface UserFormProps {
 export function UserForm({ user, roles, onDone }: UserFormProps): ReactElement {
     const isEdit = Boolean(user);
 
-    const { data, setData, post, put, processing, errors, reset } = useForm({
-        first_name: user?.name?.split(' ')[0] ?? '',
-        last_name: user?.name?.split(' ').slice(1).join(' ') ?? '',
-        email: user?.email ?? '',
-        password: '',
-        password_confirmation: '',
-        role: user?.role ?? 'user',
-        contact_number: user?.contactNumber ?? '',
-        address: user?.address ?? '',
-        company: user?.company ?? '',
-        gender: user?.gender ?? '',
-        birthdate: user?.birthdate ?? '',
-        civil_status: user?.civilStatus ?? '',
-    });
+    const { data, setData, post, put, processing, errors, reset, transform } =
+        useForm({
+            first_name: user?.name?.split(' ')[0] ?? '',
+            last_name: user?.name?.split(' ').slice(1).join(' ') ?? '',
+            email: user?.email ?? '',
+            password: '',
+            password_confirmation: '',
+            send_invite: true,
+            role: user?.role ?? 'user',
+            contact_number: user?.contactNumber ?? '',
+            address: user?.address ?? '',
+            company: user?.company ?? '',
+            gender: user?.gender ?? '',
+            birthdate: user?.birthdate ?? '',
+            civil_status: user?.civilStatus ?? '',
+        });
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -57,6 +67,25 @@ export function UserForm({ user, roles, onDone }: UserFormProps): ReactElement {
         };
 
         if (isEdit && user) {
+            // GV-1: send an explicit allow-list on the edit path rather than
+            // the whole form. The credential and role fields are not rendered
+            // here, but an unrendered field still travels, and a password that
+            // reaches the server is a password that can reach a log.
+            //
+            // An allow-list rather than an omit, so that a field added to this
+            // form later has to be opted IN to the edit request — the safe
+            // direction, and the one that survives somebody forgetting.
+            transform((payload) => ({
+                first_name: payload.first_name,
+                last_name: payload.last_name,
+                email: payload.email,
+                contact_number: payload.contact_number,
+                address: payload.address,
+                company: payload.company,
+                gender: payload.gender,
+                birthdate: payload.birthdate,
+                civil_status: payload.civil_status,
+            }));
             put(`/admin/users/${user.id}`, options);
         } else {
             post('/admin/users', options);
@@ -104,8 +133,8 @@ export function UserForm({ user, roles, onDone }: UserFormProps): ReactElement {
                     <Field label="Role" required error={errors.role}>
                         <Select
                             value={data.role}
-                            onChange={(e) => setData('role', e.target.value)}
-                            error={Boolean(errors.role)}
+                            onChange={(value) => setData('role', value)}
+                            invalid={Boolean(errors.role)}
                             options={roles.map((role) => ({
                                 value: role,
                                 label: roleLabels[role] ?? role,
@@ -114,44 +143,76 @@ export function UserForm({ user, roles, onDone }: UserFormProps): ReactElement {
                     </Field>
                 )}
 
-                <Field
-                    label="Password"
-                    required={!isEdit}
-                    error={errors.password}
-                    hint={
-                        isEdit
-                            ? usersCopy.passwordHelpEdit
-                            : usersCopy.passwordHelpCreate
-                    }
-                >
-                    <Input
-                        type="password"
-                        value={data.password}
-                        onChange={(e) => setData('password', e.target.value)}
-                        error={Boolean(errors.password)}
-                        autoComplete="new-password"
-                    />
-                </Field>
+                {/* GV-1: the password fields exist ONLY when creating. An
+                    administrator sets the initial credential for an account
+                    nobody holds yet; they never set one for an account that
+                    already has an owner. Editing offers "Send reset link"
+                    instead, which mails the account holder a signed link.
+                    Do not add these fields back to the edit path. */}
+                {!isEdit && (
+                    <Field hint={usersCopy.sendInviteHint}>
+                        <Check
+                            checked={data.send_invite}
+                            onChange={(e) =>
+                                setData('send_invite', e.target.checked)
+                            }
+                            label={usersCopy.sendInviteLabel}
+                        />
+                    </Field>
+                )}
 
-                <Field label="Confirm password" required={!isEdit}>
-                    <Input
-                        type="password"
-                        value={data.password_confirmation}
-                        onChange={(e) =>
-                            setData('password_confirmation', e.target.value)
-                        }
-                        autoComplete="new-password"
-                    />
-                </Field>
+                {!isEdit && !data.send_invite && (
+                    <>
+                        <Field
+                            label="Password"
+                            required
+                            error={errors.password}
+                            hint={usersCopy.passwordHelpCreate}
+                        >
+                            <Input
+                                type="password"
+                                value={data.password}
+                                onChange={(e) =>
+                                    setData('password', e.target.value)
+                                }
+                                error={Boolean(errors.password)}
+                                autoComplete="new-password"
+                            />
+                        </Field>
+
+                        <Field label="Confirm password" required>
+                            <Input
+                                type="password"
+                                value={data.password_confirmation}
+                                onChange={(e) =>
+                                    setData(
+                                        'password_confirmation',
+                                        e.target.value,
+                                    )
+                                }
+                                autoComplete="new-password"
+                            />
+                        </Field>
+                    </>
+                )}
 
                 <Field label="Contact number" error={errors.contact_number}>
+                    {/* `type="tel"` only hints at a keyboard; the sanitizer is
+                        what keeps letters out, and `inputMode="numeric"` gets
+                        the digit pad rather than the phone pad's `* # +`. */}
                     <Input
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
                         value={data.contact_number}
                         onChange={(e) =>
-                            setData('contact_number', e.target.value)
+                            setData(
+                                'contact_number',
+                                normalizePhMobile(e.target.value),
+                            )
                         }
                         error={Boolean(errors.contact_number)}
-                        placeholder="09XXXXXXXXX"
+                        placeholder="09171234567"
                     />
                 </Field>
 
@@ -166,28 +227,26 @@ export function UserForm({ user, roles, onDone }: UserFormProps): ReactElement {
                 <Field label="Gender" error={errors.gender}>
                     <Select
                         value={data.gender}
-                        onChange={(e) => setData('gender', e.target.value)}
-                        error={Boolean(errors.gender)}
+                        onChange={(value) => setData('gender', value)}
+                        invalid={Boolean(errors.gender)}
                         options={genderOptions}
                     />
                 </Field>
 
                 <Field label="Birthdate" error={errors.birthdate}>
-                    <Input
-                        type="date"
+                    <DateField
+                        kind="date"
                         value={data.birthdate}
                         onChange={(e) => setData('birthdate', e.target.value)}
-                        error={Boolean(errors.birthdate)}
+                        invalid={Boolean(errors.birthdate)}
                     />
                 </Field>
 
                 <Field label="Civil status" error={errors.civil_status}>
                     <Select
                         value={data.civil_status}
-                        onChange={(e) =>
-                            setData('civil_status', e.target.value)
-                        }
-                        error={Boolean(errors.civil_status)}
+                        onChange={(value) => setData('civil_status', value)}
+                        invalid={Boolean(errors.civil_status)}
                         options={civilStatusOptions}
                     />
                 </Field>

@@ -5,6 +5,9 @@
 import { router, usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState, useCallback, useEffect } from 'react';
+import { ConfirmDialog, Select } from '@/design-system';
+import { hmoLabel } from '@/lib/hmo-providers';
+import { cn } from '@/lib/utils';
 import { HRDashboardLayout } from '@/pages/hr/layout/hr-dashboard-layout';
 import type { PageProps } from '@/types';
 
@@ -33,6 +36,8 @@ interface HmoAppointment {
     patientStatus: string;
     isToday: boolean;
     isTomorrow: boolean;
+    /** The visit date has gone; the LOA can only be rejected. */
+    isPast: boolean;
 
     // ── From the LOA record ──────────────────────────────────────────────────
     loaNumber: string;
@@ -52,6 +57,16 @@ interface Stats {
 interface PageData extends PageProps {
     appointments: HmoAppointment[];
     stats: Stats;
+    /**
+     * True for HR, false for an administrator viewing the queue.
+     *
+     * GV-3 in WELLCARE-GOVERNANCE-PLAN.md: the account that provisions users
+     * and credentials doctors can SEE the LOA backlog — the admin dashboard
+     * counts it — but must not DECIDE it. The approve and reject routes are
+     * `role:hr`; this flag is what stops the page offering buttons that would
+     * 403.
+     */
+    canDecide: boolean;
 }
 
 // ── Local toast ───────────────────────────────────────────────────────────────
@@ -137,7 +152,7 @@ function LocalToast({
                     color: 'inherit',
                     opacity: 0.6,
                     padding: 0,
-                    fontSize: '18px',
+                    fontSize: 'var(--text-lg)',
                     lineHeight: 1,
                 }}
             >
@@ -207,14 +222,12 @@ function RejectModal({
 
     return (
         <div
+            className="fixed inset-0 flex items-center justify-center p-4 sm:p-6"
             style={{
-                position: 'fixed',
-                inset: 0,
                 background: 'rgba(15,23,42,0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
+                // Was a bare 1000 — below --z-nav (5000), so the shell's
+                // sidebar and topbar painted over this dialog.
+                zIndex: 'var(--z-modal)',
                 backdropFilter: 'blur(6px)',
             }}
             onClick={onClose}
@@ -271,7 +284,7 @@ function RejectModal({
                                 margin: 0,
                                 fontSize: 'var(--text-lg)',
                                 fontWeight: 800,
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                             }}
                         >
                             Reject LOA Request
@@ -280,7 +293,7 @@ function RejectModal({
                             style={{
                                 margin: '2px 0 0',
                                 fontSize: 'var(--text-sm)',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {appointment.loaNumber} — for{' '}
@@ -304,9 +317,9 @@ function RejectModal({
                             <p
                                 style={{
                                     margin: '0 0 2px',
-                                    fontSize: '10px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                 }}
                             >
@@ -317,19 +330,21 @@ function RejectModal({
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
-                                {appointment.hmo ?? '—'}
+                                {appointment.hmo
+                                    ? hmoLabel(appointment.hmo)
+                                    : '—'}
                             </p>
                         </div>
                         <div>
                             <p
                                 style={{
                                     margin: '0 0 2px',
-                                    fontSize: '10px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                 }}
                             >
@@ -340,7 +355,7 @@ function RejectModal({
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                     fontFamily: 'monospace',
                                 }}
                             >
@@ -351,9 +366,9 @@ function RejectModal({
                             <p
                                 style={{
                                     margin: '0 0 2px',
-                                    fontSize: '10px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-400)',
+                                    color: 'var(--wc-text-muted)',
                                     textTransform: 'uppercase',
                                 }}
                             >
@@ -364,7 +379,7 @@ function RejectModal({
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
                                 {appointment.date} · {appointment.time}
@@ -378,9 +393,9 @@ function RejectModal({
                     <label
                         style={{
                             display: 'block',
-                            fontSize: '10px',
+                            fontSize: 'var(--text-xs)',
                             fontWeight: 700,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             textTransform: 'uppercase',
                             letterSpacing: '0.07em',
                             marginBottom: '6px',
@@ -390,7 +405,7 @@ function RejectModal({
                     </label>
                     <textarea
                         rows={3}
-                        className={`wc-input${error ? 'wc-input-error' : ''}`}
+                        className={cn('wc-input', error && 'wc-input-error')}
                         placeholder="e.g. HMO ID not recognized, coverage expired, service not covered under this plan…"
                         value={reason}
                         onChange={(e) => {
@@ -407,8 +422,8 @@ function RejectModal({
                         <p
                             style={{
                                 margin: '4px 0 0',
-                                fontSize: '10px',
-                                color: 'var(--wc-error)',
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--wc-text-error)',
                                 fontWeight: 600,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -436,7 +451,7 @@ function RejectModal({
                     style={{
                         margin: '0 0 var(--space-5)',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     The patient will be notified of this rejection and the
@@ -499,33 +514,46 @@ function RejectModal({
 
 function AppointmentRow({
     appt,
+    canDecide,
     onReject,
     onApproveSuccess,
     onApproveError,
 }: {
     appt: HmoAppointment;
+    canDecide: boolean;
     onReject: (a: HmoAppointment) => void;
     onApproveSuccess: (msg: string) => void;
     onApproveError: (msg: string) => void;
 }): ReactElement {
     const [approving, setApproving] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [approvalCode, setApprovalCode] = useState('');
 
     function handleApprove(): void {
         setApproving(true);
         router.post(
             `/hr/hmo-approvals/${appt.id}/approve`,
-            {},
+            {
+                remarks: approvalCode.trim()
+                    ? `HMO approval code: ${approvalCode.trim()}`
+                    : null,
+            },
             {
                 preserveScroll: true,
                 onSuccess: () =>
                     onApproveSuccess(
                         `LOA ${appt.loaNumber} for ${appt.patient} has been approved.`,
                     ),
-                onError: () =>
+                onError: (errors) =>
                     onApproveError(
-                        'Failed to approve the LOA. Please try again.',
+                        errors.remarks ??
+                            'Failed to approve the LOA. Please try again.',
                     ),
-                onFinish: () => setApproving(false),
+                onFinish: () => {
+                    setApproving(false);
+                    setConfirmOpen(false);
+                    setApprovalCode('');
+                },
             },
         );
     }
@@ -583,7 +611,7 @@ function AppointmentRow({
                                 margin: 0,
                                 fontSize: 'var(--text-sm)',
                                 fontWeight: 700,
-                                color: 'var(--wc-dark)',
+                                color: 'var(--wc-text-primary)',
                             }}
                         >
                             {appt.patient}
@@ -592,7 +620,7 @@ function AppointmentRow({
                             style={{
                                 margin: '1px 0 0',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {appt.age} yrs ·{' '}
@@ -623,7 +651,7 @@ function AppointmentRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 600,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
                     {appt.service}
@@ -637,16 +665,16 @@ function AppointmentRow({
                         margin: 0,
                         fontSize: 'var(--text-sm)',
                         fontWeight: 600,
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                     }}
                 >
-                    {appt.hmo ?? '—'}
+                    {appt.hmo ? hmoLabel(appt.hmo) : '—'}
                 </p>
                 <p
                     style={{
                         margin: '1px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                         fontFamily: 'monospace',
                     }}
                 >
@@ -672,7 +700,7 @@ function AppointmentRow({
                     style={{
                         margin: '2px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {appt.time}
@@ -685,7 +713,7 @@ function AppointmentRow({
                     style={{
                         margin: 0,
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-600)',
+                        color: 'var(--wc-text-secondary)',
                     }}
                 >
                     {appt.email}
@@ -694,7 +722,7 @@ function AppointmentRow({
                     style={{
                         margin: '1px 0 0',
                         fontSize: 'var(--text-xs)',
-                        color: 'var(--wc-gray-400)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {appt.contactNumber}
@@ -708,17 +736,81 @@ function AppointmentRow({
                     textAlign: 'right',
                 }}
             >
+                {/* GV-3: an administrator sees the queue and not the verbs.
+                    Rendered as a stated boundary rather than as disabled
+                    buttons — a greyed-out Approve reads as "the system is
+                    broken", where this reads as "this decision is not yours". */}
+                {!canDecide && (
+                    <span
+                        style={{
+                            fontSize: 'var(--text-xs)',
+                            fontWeight: 600,
+                            color: 'var(--wc-text-muted)',
+                            whiteSpace: 'nowrap',
+                        }}
+                        title="LOA decisions are made by HR. Administrators have visibility only."
+                    >
+                        HR decision
+                    </span>
+                )}
+
                 <div
                     style={{
-                        display: 'flex',
+                        display: canDecide ? 'flex' : 'none',
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: 'var(--space-2)',
                     }}
                 >
+                    <ConfirmDialog
+                        open={confirmOpen}
+                        onOpenChange={setConfirmOpen}
+                        title={`Approve LOA ${appt.loaNumber}?`}
+                        destructive={false}
+                        confirmLabel="Approve and send to doctor"
+                        processing={approving}
+                        onConfirm={handleApprove}
+                        description={
+                            <span style={{ display: 'grid', gap: 8 }}>
+                                <span>
+                                    {appt.patient} · {appt.hmo ?? 'HMO'}{' '}
+                                    {appt.hmoId ?? ''}. The appointment moves to
+                                    the doctor for confirmation and the patient
+                                    is notified.
+                                </span>
+                                <label style={{ display: 'grid', gap: 4 }}>
+                                    <span style={{ fontWeight: 600 }}>
+                                        HMO approval code (optional)
+                                    </span>
+                                    <input
+                                        className="wc-input"
+                                        value={approvalCode}
+                                        maxLength={60}
+                                        onChange={(e) =>
+                                            setApprovalCode(e.target.value)
+                                        }
+                                        placeholder="e.g. MX-APR-123456"
+                                    />
+                                </label>
+                            </span>
+                        }
+                    />
+                    {appt.isPast && (
+                        <span
+                            style={{
+                                fontSize: 'var(--text-xs)',
+                                fontWeight: 600,
+                                color: 'var(--wc-text-muted)',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            Date passed
+                        </span>
+                    )}
                     <button
-                        onClick={handleApprove}
+                        onClick={() => setConfirmOpen(true)}
                         disabled={approving}
+                        hidden={appt.isPast}
                         style={{
                             height: 34,
                             padding: '0 16px',
@@ -755,7 +847,7 @@ function AppointmentRow({
                             padding: '0 14px',
                             borderRadius: 'var(--radius-full)',
                             background: 'transparent',
-                            color: 'var(--wc-error)',
+                            color: 'var(--wc-text-error)',
                             border: '1px solid var(--wc-error)',
                             cursor: 'pointer',
                             fontSize: 'var(--text-xs)',
@@ -830,7 +922,7 @@ function StatCard({
                     margin: 0,
                     fontSize: 'var(--text-sm)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {label}
@@ -891,7 +983,7 @@ export default function HmoApprovalsPage(): ReactElement {
                             fontSize: 'var(--text-3xl)',
                             fontWeight: 800,
                             letterSpacing: '-0.03em',
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                             fontFamily: 'var(--font-display)',
                         }}
                     >
@@ -900,7 +992,7 @@ export default function HmoApprovalsPage(): ReactElement {
                     <p
                         style={{
                             margin: 0,
-                            color: 'var(--wc-gray-500)',
+                            color: 'var(--wc-text-muted)',
                             fontSize: 'var(--text-base)',
                         }}
                     >
@@ -911,14 +1003,7 @@ export default function HmoApprovalsPage(): ReactElement {
             </div>
 
             {/* Stats */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: 'var(--space-4)',
-                    marginBottom: 'var(--space-6)',
-                }}
-            >
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatCard
                     value={props.stats.pending}
                     label="Awaiting Review"
@@ -992,7 +1077,7 @@ export default function HmoApprovalsPage(): ReactElement {
                             left: 'var(--space-4)',
                             top: '50%',
                             transform: 'translateY(-50%)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             display: 'flex',
                             pointerEvents: 'none',
                         }}
@@ -1023,19 +1108,19 @@ export default function HmoApprovalsPage(): ReactElement {
                     />
                 </div>
                 {hmoProviders.length > 0 && (
-                    <select
-                        className="wc-input wc-select"
+                    <Select
+                        aria-label="Filter by HMO provider"
                         value={hmoFilter}
-                        onChange={(e) => setHmoFilter(e.target.value)}
-                        style={{ fontSize: 'var(--text-sm)', minWidth: 180 }}
-                    >
-                        <option value="">All HMO Providers</option>
-                        {hmoProviders.map((p) => (
-                            <option key={p} value={p}>
-                                {p}
-                            </option>
-                        ))}
-                    </select>
+                        onChange={setHmoFilter}
+                        style={{ minWidth: '12rem', maxWidth: '18rem' }}
+                        options={[
+                            { value: '', label: 'All HMO Providers' },
+                            ...hmoProviders.map((p) => ({
+                                value: p,
+                                label: p,
+                            })),
+                        ]}
+                    />
                 )}
             </div>
 
@@ -1077,7 +1162,7 @@ export default function HmoApprovalsPage(): ReactElement {
                                 margin: '0 0 4px',
                                 fontSize: 'var(--text-base)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-600)',
+                                color: 'var(--wc-text-secondary)',
                             }}
                         >
                             {search || hmoFilter
@@ -1088,7 +1173,7 @@ export default function HmoApprovalsPage(): ReactElement {
                             style={{
                                 margin: 0,
                                 fontSize: 'var(--text-sm)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {search || hmoFilter
@@ -1118,9 +1203,9 @@ export default function HmoApprovalsPage(): ReactElement {
                                                 col === 'Actions'
                                                     ? 'right'
                                                     : 'left',
-                                            fontSize: '10px',
+                                            fontSize: 'var(--text-xs)',
                                             fontWeight: 700,
-                                            color: 'var(--wc-gray-400)',
+                                            color: 'var(--wc-text-muted)',
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.07em',
                                             borderBottom:
@@ -1138,6 +1223,7 @@ export default function HmoApprovalsPage(): ReactElement {
                                 <AppointmentRow
                                     key={a.id}
                                     appt={a}
+                                    canDecide={props.canDecide}
                                     onReject={setRejectTarget}
                                     onApproveSuccess={(msg) => showToast(msg)}
                                     onApproveError={(msg) =>
@@ -1162,7 +1248,7 @@ export default function HmoApprovalsPage(): ReactElement {
                             style={{
                                 margin: 0,
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                                 fontWeight: 500,
                             }}
                         >

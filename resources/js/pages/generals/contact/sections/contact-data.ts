@@ -96,4 +96,6 @@ export const contactFormData = {
         'Other',
     ],
     submitLabel: 'Send Message',
+    successMessage:
+        'Thank you. Your message reached our team and we will reply within 24 hours.',
 };

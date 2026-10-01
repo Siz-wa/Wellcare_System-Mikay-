@@ -30,7 +30,7 @@ export function ReviewRow({ label, value }: ReviewRowProps): ReactElement {
                 style={{
                     fontSize: 'var(--text-xs)',
                     fontWeight: 600,
-                    color: 'var(--wc-gray-400)',
+                    color: 'var(--wc-text-muted)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                 }}
@@ -41,7 +41,7 @@ export function ReviewRow({ label, value }: ReviewRowProps): ReactElement {
                 style={{
                     fontSize: 'var(--text-sm)',
                     fontWeight: 600,
-                    color: 'var(--wc-dark)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {value}

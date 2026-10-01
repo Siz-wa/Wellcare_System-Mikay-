@@ -46,7 +46,7 @@ export const faqCategories: FaqCategory[] = [
             },
             {
                 q: 'How do I reschedule or cancel an appointment?',
-                a: 'Call our admin line at (046) 450-5116/424-9312 or 0917-185-6604/0998-982-2384 at least 24 hours before your scheduled appointment. Cancellations made within 24 hours may forfeit any pre-paid booking fees.',
+                a: 'Sign in and open your dashboard: each upcoming appointment has Reschedule and Cancel buttons. Rescheduling keeps your current slot until the new time is secured. You can also call the clinic using the numbers on our Contact page. Cancelling a paid video consultation within 24 hours of the visit may forfeit the fee.',
             },
             {
                 q: 'Are same-day appointments available?',
@@ -65,7 +65,14 @@ export const faqCategories: FaqCategory[] = [
         items: [
             {
                 q: 'How long does it take to get my laboratory results?',
-                a: 'Most routine results — complete blood count, urinalysis, lipid panel — are available within 24 hours. Specialised tests such as cultures or histopathology may take 3–7 days. You will receive an SMS notification when your results are ready.',
+                // Was: "You will receive an SMS notification when your results
+                // are ready." There is no SMS channel — WellcareNotification::via()
+                // is database-only (audit finding A-03), so that notification
+                // cannot arrive. A patient waiting on a text for a lab result is
+                // the worst version of this class of bug, so the copy now points
+                // at the two channels that actually work. Restore the SMS
+                // sentence when task 1.2 ships the channel.
+                a: 'Most routine results — complete blood count, urinalysis, lipid panel — are available within 24 hours. Specialised tests such as cultures or histopathology may take 3–7 days. Your results appear in the patient portal as soon as your doctor has reviewed them, and you are welcome to call the clinic to check.',
             },
             {
                 q: 'How do I get my lab results?',
@@ -150,7 +157,11 @@ export const faqCategories: FaqCategory[] = [
             },
             {
                 q: 'What if my doctor is not available on my preferred date?',
-                a: 'We will offer you the next available slot with your preferred doctor, or suggest an equally qualified alternative. You can also join a waitlist for cancellations.',
+                // The waitlist this used to promise does not exist — there is no
+                // such table, service or route (audit finding A-04). Removed
+                // rather than left as a claim the clinic cannot honour. Restore
+                // the sentence when the waitlist is actually built.
+                a: 'The booking page shows every open slot for your preferred doctor, so you can pick the next date that suits you. If you need to be seen sooner, our admin team can suggest an equally qualified alternative.',
             },
         ],
     },
@@ -186,6 +197,6 @@ export const faqsCtaData = {
     desc: "Can't find the answer you're looking for? Reach out to our team directly.",
     ctas: {
         primary: { label: 'Contact Us', href: '/contact' },
-        secondary: { label: 'Call (046) 416 7068', href: 'tel:+63464167068' },
+        secondary: { label: 'Call (046) 450-5116', href: 'tel:+63464505116' },
     },
 };

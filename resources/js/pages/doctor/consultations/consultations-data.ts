@@ -4,6 +4,8 @@
 // Actual consultation records come from the Inertia `consultations` prop
 // served by DoctorConsultationController — NOT hardcoded here.
 
+import type { VitalMeasurementKey, VitalsSource } from '@/lib/vitals';
+
 // ── Status ────────────────────────────────────────────────────────────────────
 
 export type ConsultationStatus = 'finalized' | 'in-progress' | 'draft';
@@ -19,6 +21,8 @@ export interface ConsultationRecord {
     date: string; // "24 Mar 2026"
     time: string; // "10:00 AM"
     diagnosis: string; // service label e.g. "General Consultation"
+    /** The doctor's written assessment, once there is one. */
+    assessment?: string | null;
     status: ConsultationStatus;
     rawStatus: string; // actual DB value: checked_in | in_progress | completed
     consultationType: string; // in_person | virtual
@@ -30,6 +34,8 @@ export interface ConsultationRecord {
     patientStatus: string;
     additionalInfo: string | null;
     email: string;
+    /** The Patient record's id — what visit history is keyed on. */
+    patientRecordId: number | null;
     contactNumber: string;
     age: number;
     gender: string;
@@ -41,6 +47,16 @@ export interface ConsultationRecord {
         assessment: string;
         plan: string;
     } | null;
+    /**
+     * Height and weight the patient gave at registration. Reference only — it
+     * is self-reported and possibly years old, so it is displayed beside the
+     * vitals form and never loaded into it.
+     */
+    baseline?: {
+        height: string | null;
+        weight: string | null;
+        source: string;
+    } | null;
     vitals?: {
         bloodPressure: string;
         heartRate: string;
@@ -48,8 +64,13 @@ export interface ConsultationRecord {
         oxygenSaturation: string;
         weight: string;
         height: string;
+        source: VitalsSource;
+        /** Null only for rows written before provenance was recorded. */
+        sourceLabel: string | null;
     } | null;
-    prescriptions?: { medication: string; dosage: string; duration: string }[];
+    prescriptions?: Medication[];
+    /** The chart's allergy list, shown beside the prescription form. */
+    allergies?: RecordedAllergy[];
     // ── Lab tests ordered during this visit (from lab_test_results) ───────────
     labs?: LabOrder[];
 }
@@ -107,10 +128,6 @@ export const labOrdersCopy = {
     submitLabel: 'Request Test',
     submittingLabel: 'Requesting…',
     successHint: 'The lab team has been notified.',
-    // Shown when the editor was opened via "Start New Session": a lab test hangs
-    // off an appointment, so there is nothing to attach it to yet.
-    noAppointment:
-        'Lab tests are ordered against a booked appointment. Open this session from the consultation list to request one.',
 };
 
 // ── SOAP notes ────────────────────────────────────────────────────────────────
@@ -172,6 +189,11 @@ export interface VitalsFields {
     oxygenSaturation: string;
     weight: string;
     height: string;
+    /**
+     * Where the six above came from. Part of the same form because it is part
+     * of the same clinical claim — see `@/lib/vitals`.
+     */
+    source: VitalsSource;
 }
 
 export const defaultVitals: VitalsFields = {
@@ -181,13 +203,42 @@ export const defaultVitals: VitalsFields = {
     oxygenSaturation: '',
     weight: '',
     height: '',
+    // Overwritten from the server's `vitals.source` as soon as a session loads;
+    // this is only the shape for a form that has not been filled from one yet.
+    source: 'clinic_measured',
 };
 
+/**
+ * `VitalMeasurementKey`, not `keyof VitalsFields`: the six-field grid renders
+ * text inputs with units, and `source` is a select over a closed vocabulary.
+ * Typing the key this way makes it impossible to add it to `vitalFields` and
+ * get a free-text provenance box.
+ */
+/**
+ * What kind of value a measurement holds.
+ *
+ * Declared here rather than as a sanitizer function so this file stays the
+ * declarative table it is meant to be; patient-vitals.tsx maps each shape to
+ * the sanitizer that enforces it. Every one of these six was a plain text box
+ * with a `string|max:10` rule behind it, which made `abcdefghij` a storable
+ * heart rate in the clinical record.
+ */
+export type VitalValueShape = 'integer' | 'decimal' | 'blood-pressure';
+
 export interface VitalField {
-    key: keyof VitalsFields;
+    key: VitalMeasurementKey;
     label: string;
     unit: string;
     placeholder: string;
+    shape: VitalValueShape;
+    /**
+     * The plausible range, shown under the field.
+     *
+     * A hint, not a gate: a reading outside it is far more likely to be a
+     * typo than a genuine finding, but a genuine one still has to be
+     * recordable — the server bounds are deliberately wider than these.
+     */
+    range: string;
 }
 
 export const vitalFields: VitalField[] = [
@@ -196,22 +247,49 @@ export const vitalFields: VitalField[] = [
         label: 'Blood Pressure',
         unit: 'MMHG',
         placeholder: '120/80',
+        shape: 'blood-pressure',
+        range: 'systolic / diastolic',
     },
-    { key: 'heartRate', label: 'Heart Rate', unit: 'BPM', placeholder: '72' },
+    {
+        key: 'heartRate',
+        label: 'Heart Rate',
+        unit: 'BPM',
+        placeholder: '72',
+        shape: 'integer',
+        range: '40–180',
+    },
     {
         key: 'temperature',
         label: 'Temperature',
         unit: '°C',
         placeholder: '36.5',
+        shape: 'decimal',
+        range: '34–42',
     },
     {
         key: 'oxygenSaturation',
         label: 'Oxygen Saturation',
         unit: '%',
         placeholder: '98',
+        shape: 'integer',
+        range: '70–100',
     },
-    { key: 'weight', label: 'Weight', unit: 'KG', placeholder: '70' },
-    { key: 'height', label: 'Height', unit: 'CM', placeholder: '175' },
+    {
+        key: 'weight',
+        label: 'Weight',
+        unit: 'KG',
+        placeholder: '70',
+        shape: 'decimal',
+        range: '1–300',
+    },
+    {
+        key: 'height',
+        label: 'Height',
+        unit: 'CM',
+        placeholder: '175',
+        shape: 'decimal',
+        range: '30–250',
+    },
 ];
 
 // ── Prescription / medications ────────────────────────────────────────────────
@@ -222,21 +300,47 @@ export interface Medication {
     instructions: string;
 }
 
+/** One allergy already on the patient's chart. */
+export interface RecordedAllergy {
+    allergen: string;
+    severity: 'mild' | 'moderate' | 'severe';
+    reaction: string | null;
+}
+
+/**
+ * A conflict the server found between a prescription and the chart.
+ *
+ * `match` grades how sure it is: a direct name match, the same ingredient
+ * family, or a partial cross-reactivity worth mentioning but not equivalent to
+ * a contraindication.
+ */
+export interface AllergyConflict {
+    name: string;
+    conflicts: {
+        allergen: string;
+        severity: 'mild' | 'moderate' | 'severe';
+        reaction: string | null;
+        match: 'direct' | 'family' | 'cross_reactive';
+        family: string | null;
+    }[];
+}
+
 export const defaultMedications: Medication[] = [];
 
 // ── Session editor tabs ───────────────────────────────────────────────────────
 
-export type SessionTab = 'soap' | 'vitals' | 'labs';
+export type SessionTab = 'soap' | 'vitals' | 'labs' | 'meds';
 
 export interface TabItem {
     key: SessionTab;
     label: string;
-    iconKey: 'soap' | 'vitals' | 'labs';
+    iconKey: 'soap' | 'vitals' | 'labs' | 'meds';
 }
 
 export const sessionTabs: TabItem[] = [
     { key: 'soap', label: 'Soap Notes', iconKey: 'soap' },
     { key: 'vitals', label: 'Patient Vitals', iconKey: 'vitals' },
+    { key: 'meds', label: 'Prescription', iconKey: 'meds' },
     { key: 'labs', label: 'Lab Tests', iconKey: 'labs' },
 ];
 
@@ -252,22 +356,47 @@ export interface ConsultationFilters {
 export const consultationsMeta = {
     pageTitle: 'Consultations',
     pageSubtitle: 'Conduct and manage clinical consultation sessions',
-    startSessionLabel: 'Start New Session',
+    /*
+     * Replaces a "Start New Session" button that could not start anything.
+     *
+     * It opened the session editor with no appointment behind it, and the
+     * editor's Save Draft and Finalize are both disabled without one — so the
+     * doctor got a full clinical form, typed into it, and had no way to save
+     * a word of it. There is no way for that button to work, either: a
+     * consultation is documented against a booked appointment (patient,
+     * coverage, allergies, lab orders all hang off it), and the doctor is not
+     * the one who books.
+     *
+     * The visit arrives here on its own — the patient checks in from their
+     * dashboard on the day, which flips the appointment to `checked_in` and
+     * notifies the doctor. This line says so, where the button used to be.
+     */
+    sessionOriginNote:
+        'Consultations appear here when a patient checks in for their appointment. Open the visit below to document it.',
     searchPlaceholder: 'Search by patient or diagnosis…',
     filtersLabel: 'Filters',
     recentTitle: 'Recent Consultations',
     viewAll: 'VIEW ALL',
     colPatient: 'PATIENT',
     colDateTime: 'DATE / TIME',
-    colDiagnosis: 'DIAGNOSIS',
+    colDiagnosis: 'SERVICE · ASSESSMENT',
     colStatus: 'STATUS',
     colActions: 'ACTIONS',
     viewSummaryLabel: 'VIEW SUMMARY',
+    /**
+     * The vitals provenance control. See `@/lib/vitals` for why the record has
+     * to carry this rather than six bare numbers.
+     */
+    vitalsSourceLabel: 'How were these obtained?',
+    vitalsSourceNote:
+        'Readings the patient gives you over a call are patient-reported, not clinic measurements. The record shows this alongside the numbers.',
+    vitalsNotObtainedNote:
+        'Marked as not obtained, so the fields are closed. This is recorded as a deliberate absence rather than an unfilled form.',
     editorTitle: 'Consultation Session',
     editorPatientLabel: 'PATIENT:',
-    editorPatientEmpty: 'SELECT PATIENT',
     pastHistoryLabel: 'PAST HISTORY',
-    autoSaveLabel: 'AUTO-SAVING SESSION…',
+    autoSaveLabel: 'Not saved yet. Use Save Draft to keep your notes.',
+    saveRefusedTitle: 'Nothing was saved. Fix these and save again:',
     discardLabel: 'Discard',
     finalizeLabel: 'Finalize Consultation',
     medicationListTitle: 'Medication List',

@@ -31,7 +31,9 @@ export function Field({
             <label className="wc-label-text">
                 {label}
                 {required && (
-                    <span style={{ color: 'var(--wc-error)', marginLeft: 3 }}>
+                    <span
+                        style={{ color: 'var(--wc-text-error)', marginLeft: 3 }}
+                    >
                         *
                     </span>
                 )}
@@ -43,7 +45,7 @@ export function Field({
             {error && (
                 <span
                     className="wc-field-hint"
-                    style={{ color: 'var(--wc-error)' }}
+                    style={{ color: 'var(--wc-text-error)' }}
                 >
                     {error}
                 </span>

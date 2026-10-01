@@ -33,6 +33,21 @@ class DashboardController extends Controller
             return 'doctor.appointments';
         }
 
+        // Tested before `admin` because the owner also reaches the admin
+        // module: falling through to the admin branch would land them on a
+        // dashboard whose patient and archive tiles 403 for them. GV-6.
+        if ($user?->hasRole('owner')) {
+            return 'owner.dashboard';
+        }
+
+        // GV-5. The DPO holds no account-management permission at all, so every
+        // admin route refuses them; without their own branch they would fall
+        // through to user.dashboard, which is gated on `role:user`, and be
+        // bounced straight back out with a 403.
+        if ($user?->hasRole('dpo')) {
+            return 'dpo.dashboard';
+        }
+
         // Admins get their own workspace, but stay in the `role:hr|admin`
         // group in routes/web.php — the landing page changed, their HR access
         // did not. Removing that would recreate the original bug this branch

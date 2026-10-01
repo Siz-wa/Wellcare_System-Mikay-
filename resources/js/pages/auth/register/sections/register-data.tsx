@@ -31,10 +31,32 @@ export const genderOptions = [
     { value: 'F', label: 'Female' },
 ] as const;
 
+export const bloodTypeOptions = [
+    { value: '', label: "Don't know" },
+    ...['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((type) => ({
+        value: type,
+        label: type,
+    })),
+];
+
+export const medicalHistoryCopy = {
+    bloodTypeLabel: 'Blood type',
+    allergiesLabel: 'Known allergies',
+    allergiesPlaceholder: 'e.g. Penicillin, shrimp. Leave blank if none.',
+    allergiesHint:
+        'Separate with commas. Your doctor will confirm these at your first visit.',
+    policyPrefix: 'By creating an account you agree to our',
+    termsLabel: 'Terms of Service',
+    policyJoin: 'and',
+    privacyLabel: 'Privacy Notice',
+};
+
 export const civilStatusOptions = [
     { value: 'single', label: 'Single' },
     { value: 'married', label: 'Married' },
     { value: 'widowed', label: 'Widowed' },
+    { value: 'separated', label: 'Separated' },
+    { value: 'annulled', label: 'Annulled' },
 ] as const;
 
 export const paymentOptions = [

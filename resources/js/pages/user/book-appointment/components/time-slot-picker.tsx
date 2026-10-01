@@ -17,14 +17,13 @@ export function TimeSlotPicker({
     onChange,
 }: TimeSlotPickerProps): ReactElement {
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 'var(--space-2)',
-                marginTop: 'var(--space-1)',
-            }}
-        >
+        // Two columns on a phone, four from `sm` up.
+        //
+        // This was a flat `repeat(4, 1fr)`. On a 390px handset that is a 79px
+        // column, and the label it has to hold is "10:30 AM" — so every slot
+        // either clipped or wrapped mid-time, on the one control in the whole
+        // booking flow the patient cannot avoid touching.
+        <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
             {slots.map((slot) => {
                 const active = value === slot;
 
@@ -33,6 +32,10 @@ export function TimeSlotPicker({
                         key={slot}
                         type="button"
                         onClick={() => onChange(slot)}
+                        // `min-h-11` is 44px: the size Apple and Material both
+                        // settle on, and the point below which mis-taps climb
+                        // sharply. Padding alone left these at 36px.
+                        className="min-h-11"
                         style={{
                             padding: 'var(--space-2) var(--space-3)',
                             borderRadius: 'var(--radius-lg)',

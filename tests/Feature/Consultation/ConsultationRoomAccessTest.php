@@ -451,3 +451,27 @@ it('reports a friendly error rather than opening a room for an in-person booking
         ->post("/doctor/consultations/{$inPerson->id}/start-virtual")
         ->assertSessionHasErrors('consultation');
 });
+
+it('gives the video room what it needs to prescribe and order tests', function () {
+    $this->record->allergies()->create(['allergen' => 'Penicillin', 'severity' => 'severe', 'reaction' => 'Anaphylaxis']);
+
+    $this->actingAs($this->doctor)
+        ->get("/doctor/consultations/{$this->appointment->id}/room")
+        ->assertInertia(fn ($page) => $page
+            ->has('prescriptions')
+            ->has('labs')
+            ->where('allergies.0.allergen', 'Penicillin')
+            ->where('appointment.patientRecordId', $this->record->id));
+});
+
+it('saves a prescription written during a video consultation', function () {
+    $this->actingAs($this->doctor)
+        ->post("/doctor/consultations/{$this->appointment->id}/save", [
+            'soap[plan]' => 'Rest',
+            'medications' => [['name' => 'Paracetamol 500mg', 'instructions' => '1 tab q6h PRN']],
+            'finalize' => '0',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($this->session->fresh()->prescriptions()->pluck('name')->all())->toBe(['Paracetamol 500mg']);
+});

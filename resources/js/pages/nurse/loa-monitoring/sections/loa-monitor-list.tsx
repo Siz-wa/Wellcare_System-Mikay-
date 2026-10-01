@@ -35,8 +35,8 @@ export function LoaMonitorList({
                     fontSize: 'var(--text-base)',
                     fontWeight: 800,
                     letterSpacing: '-0.01em',
-                    color: 'var(--wc-dark)',
-                    fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                    color: 'var(--wc-text-primary)',
+                    fontFamily: 'var(--font-display)',
                 }}
             >
                 {title}
@@ -47,7 +47,7 @@ export function LoaMonitorList({
                     style={{
                         margin: 'var(--space-4) 0 0',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {emptyMessage}

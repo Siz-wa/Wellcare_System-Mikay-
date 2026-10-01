@@ -71,7 +71,7 @@ export function ReviewGroup({
                             fontWeight: 700,
                             fontSize: 'var(--text-sm)',
                             margin: 0,
-                            color: 'var(--wc-dark)',
+                            color: 'var(--wc-text-primary)',
                         }}
                     >
                         {title}

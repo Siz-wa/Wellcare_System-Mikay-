@@ -5,6 +5,7 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { Badge, Button } from '@/design-system';
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import { AdminTableCell } from '@/pages/admin/components/admin-table';
 import { roleLabels, usersCopy } from '@/pages/admin/users/users-data';
 import type { AdminUserRow } from '@/pages/admin/users/users-data';
@@ -20,13 +21,50 @@ export function UserRow({
     onEdit,
     onChangeRole,
 }: UserRowProps): ReactElement {
-    const toggleActive = () => {
+    /**
+     * GV-1. The administrator triggers recovery; the link goes to the account
+     * holder's own mailbox and only they can complete it. There is deliberately
+     * no path anywhere in this UI that sets another person's password.
+     */
+    const { confirm, dialog } = useConfirmDialog();
+
+    const sendResetLink = async () => {
+        if (
+            !(await confirm({
+                title: 'Send a password reset link?',
+                description: usersCopy.resetPasswordConfirm,
+                confirmLabel: 'Send reset link',
+                destructive: false,
+            }))
+        ) {
+            return;
+        }
+
+        router.post(
+            `/admin/users/${user.id}/reset-password`,
+            {},
+            { preserveScroll: true },
+        );
+    };
+
+    const toggleActive = async () => {
         const action = user.isActive ? 'deactivate' : 'activate';
         const confirmText = user.isActive
             ? usersCopy.deactivateConfirm
             : usersCopy.activateConfirm;
 
-        if (!window.confirm(confirmText)) {
+        if (
+            !(await confirm({
+                title: user.isActive
+                    ? 'Deactivate this account?'
+                    : 'Reactivate this account?',
+                description: confirmText,
+                confirmLabel: user.isActive
+                    ? 'Deactivate account'
+                    : 'Reactivate account',
+                destructive: user.isActive,
+            }))
+        ) {
             return;
         }
 
@@ -38,116 +76,146 @@ export function UserRow({
     };
 
     return (
-        <tr>
-            <AdminTableCell>
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                    }}
-                >
-                    <span
-                        aria-hidden="true"
-                        style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: '50%',
-                            background: '#eff6ff',
-                            color: '#0056b3',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                        }}
-                    >
-                        {user.initials}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600 }}>{user.name}</div>
-                        <div
-                            style={{
-                                fontSize: 12,
-                                color: 'var(--wc-gray-500)',
-                            }}
-                        >
-                            {user.email}
-                        </div>
-                    </div>
-                </div>
-            </AdminTableCell>
-
-            <AdminTableCell nowrap>
-                <Badge variant={user.role === 'admin' ? 'dark' : 'neutral'}>
-                    {roleLabels[user.role] ?? user.role}
-                </Badge>
-            </AdminTableCell>
-
-            <AdminTableCell nowrap>
-                {user.isActive ? (
-                    <Badge variant="success" dot>
-                        Active
-                    </Badge>
-                ) : (
-                    <Badge variant="error" dot>
-                        Deactivated
-                    </Badge>
-                )}
-                {!user.verified && (
+        <>
+            {dialog}
+            <tr>
+                <AdminTableCell>
                     <div
                         style={{
-                            marginTop: 4,
-                            fontSize: 11,
-                            color: 'var(--wc-gray-500)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
                         }}
                     >
-                        Email unverified
+                        <span
+                            aria-hidden="true"
+                            style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: '50%',
+                                background: '#eff6ff',
+                                color: '#0056b3',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 'var(--text-xs)',
+                                fontWeight: 700,
+                                flexShrink: 0,
+                            }}
+                        >
+                            {user.initials}
+                        </span>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 600 }}>{user.name}</div>
+                            <div
+                                style={{
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
+                                }}
+                            >
+                                {user.email}
+                            </div>
+                        </div>
                     </div>
-                )}
-            </AdminTableCell>
+                </AdminTableCell>
 
-            <AdminTableCell nowrap>{user.contactNumber ?? '—'}</AdminTableCell>
+                <AdminTableCell nowrap>
+                    <Badge variant={user.role === 'admin' ? 'dark' : 'neutral'}>
+                        {roleLabels[user.role] ?? user.role}
+                    </Badge>
+                </AdminTableCell>
 
-            <AdminTableCell nowrap>{user.createdAt ?? '—'}</AdminTableCell>
+                <AdminTableCell nowrap>
+                    {user.isActive ? (
+                        <Badge variant="success" dot>
+                            Active
+                        </Badge>
+                    ) : (
+                        <Badge variant="error" dot>
+                            Deactivated
+                        </Badge>
+                    )}
+                    {!user.verified && (
+                        <div
+                            style={{
+                                marginTop: 4,
+                                fontSize: 'var(--text-xs)',
+                                color: 'var(--wc-text-muted)',
+                            }}
+                        >
+                            Email unverified
+                        </div>
+                    )}
+                </AdminTableCell>
 
-            <AdminTableCell nowrap>
-                <div style={{ display: 'flex', gap: 6 }}>
-                    <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() => onEdit(user)}
-                    >
-                        Edit
-                    </Button>
-                    <Button
-                        size="xs"
-                        variant="ghost"
-                        onClick={() => onChangeRole(user)}
-                        // Matches the server-side refusal in
-                        // StaffAccountService::changeRole().
-                        disabled={user.isSelf}
-                    >
-                        Role
-                    </Button>
-                    <Button
-                        size="xs"
-                        variant={user.isActive ? 'danger' : 'secondary'}
-                        onClick={toggleActive}
-                        // The server refuses this too; disabling here just
-                        // means the admin sees why before clicking.
-                        disabled={user.isSelf && user.isActive}
-                        title={
-                            user.isSelf && user.isActive
-                                ? usersCopy.selfDeactivateHint
-                                : undefined
-                        }
-                    >
-                        {user.isActive ? 'Deactivate' : 'Reactivate'}
-                    </Button>
-                </div>
-            </AdminTableCell>
-        </tr>
+                <AdminTableCell nowrap>
+                    {user.contactNumber ?? '—'}
+                </AdminTableCell>
+
+                <AdminTableCell nowrap>{user.createdAt ?? '—'}</AdminTableCell>
+
+                <AdminTableCell nowrap>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                        <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => onEdit(user)}
+                            // Mirrors StaffAccountService::guardAdministrable().
+                            // Editing your own account happens in Settings, and a
+                            // peer administrator is out of reach entirely.
+                            disabled={!user.canAdminister}
+                            title={
+                                user.canAdminister
+                                    ? undefined
+                                    : usersCopy.peerAccountHint
+                            }
+                        >
+                            Edit
+                        </Button>
+                        <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={sendResetLink}
+                            disabled={!user.canAdminister}
+                            title={
+                                user.canAdminister
+                                    ? usersCopy.resetPasswordHint
+                                    : usersCopy.peerAccountHint
+                            }
+                        >
+                            {usersCopy.resetPasswordButton}
+                        </Button>
+                        <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => onChangeRole(user)}
+                            // Matches the server-side refusal in
+                            // StaffAccountService::changeRole().
+                            disabled={user.isSelf}
+                            title={
+                                user.isSelf ? usersCopy.selfRoleHint : undefined
+                            }
+                        >
+                            Role
+                        </Button>
+                        <Button
+                            size="xs"
+                            variant={user.isActive ? 'danger' : 'secondary'}
+                            onClick={toggleActive}
+                            // The server refuses this too; disabling here just
+                            // means the admin sees why before clicking.
+                            disabled={user.isSelf && user.isActive}
+                            title={
+                                user.isSelf && user.isActive
+                                    ? usersCopy.selfDeactivateHint
+                                    : undefined
+                            }
+                        >
+                            {user.isActive ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                    </div>
+                </AdminTableCell>
+            </tr>
+        </>
     );
 }

@@ -35,23 +35,16 @@ export function ProfileSection({ profile }: ProfileSectionProps): ReactElement {
             isEmpty={filled.length === 0}
             emptyText="No personal details on file."
         >
-            <dl
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: 'var(--space-4) var(--space-6)',
-                    margin: 0,
-                }}
-            >
+            <dl className="m-0 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filled.map(([label, value]) => (
                     <div key={label}>
                         <dt
                             style={{
-                                fontSize: 12,
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 600,
                                 textTransform: 'uppercase',
                                 letterSpacing: '.04em',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {label}
@@ -59,8 +52,8 @@ export function ProfileSection({ profile }: ProfileSectionProps): ReactElement {
                         <dd
                             style={{
                                 margin: '4px 0 0',
-                                fontSize: 14,
-                                color: 'var(--wc-gray-900)',
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--wc-text-primary)',
                                 textTransform:
                                     label === recordsMeta.labels.gender ||
                                     label === recordsMeta.labels.civilStatus

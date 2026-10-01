@@ -103,7 +103,7 @@ export default function PatientGate({
                                 style={{
                                     margin: '0 0 var(--space-1)',
                                     fontWeight: 700,
-                                    color: 'var(--wc-gray-900)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
                                 {patientGateCopy.emptyTitle}
@@ -112,7 +112,7 @@ export default function PatientGate({
                                 style={{
                                     margin: 0,
                                     fontSize: 'var(--text-sm)',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {patientGateCopy.emptyBody}
@@ -164,7 +164,7 @@ export default function PatientGate({
                                 justifyContent: 'center',
                                 gap: 'var(--space-4)',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             <Link href={patientsIndex().url}>
@@ -248,7 +248,7 @@ function PatientChoice({
                     style={{
                         display: 'block',
                         fontWeight: 600,
-                        color: 'var(--wc-gray-900)',
+                        color: 'var(--wc-text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -261,7 +261,7 @@ function PatientChoice({
                         style={{
                             display: 'block',
                             fontSize: 'var(--text-xs)',
-                            color: 'var(--wc-error)',
+                            color: 'var(--wc-text-error)',
                             fontWeight: 600,
                         }}
                     >
@@ -273,7 +273,7 @@ function PatientChoice({
                             style={{
                                 display: 'block',
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {meta.join(' · ')}

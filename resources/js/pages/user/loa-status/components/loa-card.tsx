@@ -1,6 +1,7 @@
 // resources/js/pages/user/loa-status/components/loa-card.tsx
 
 import type { ReactElement } from 'react';
+import { hmoLabel } from '@/lib/hmo-providers';
 import type { LoaRequest } from '../loa-status-data';
 import { loaStatusMeta, statusStyles } from '../loa-status-data';
 
@@ -20,7 +21,9 @@ export function LoaCard({
     const facts = [
         {
             label: labels.provider,
-            value: request.hmoProvider ?? labels.noProvider,
+            value: request.hmoProvider
+                ? hmoLabel(request.hmoProvider)
+                : labels.noProvider,
         },
         { label: labels.memberId, value: request.hmoId ?? '—' },
         { label: labels.requested, value: request.requestedAt ?? '—' },
@@ -60,9 +63,9 @@ export function LoaCard({
                     <h2
                         style={{
                             margin: 0,
-                            fontSize: 16,
+                            fontSize: 'var(--text-base)',
                             fontWeight: 600,
-                            color: 'var(--wc-gray-900)',
+                            color: 'var(--wc-text-primary)',
                             fontVariantNumeric: 'tabular-nums',
                         }}
                     >
@@ -71,8 +74,8 @@ export function LoaCard({
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: 13,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {[
@@ -86,7 +89,7 @@ export function LoaCard({
 
                 <span
                     style={{
-                        fontSize: 11,
+                        fontSize: 'var(--text-xs)',
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         letterSpacing: '.05em',
@@ -116,11 +119,11 @@ export function LoaCard({
                         <div key={fact.label}>
                             <dt
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
                                     letterSpacing: '.05em',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                 }}
                             >
                                 {fact.label}
@@ -128,8 +131,8 @@ export function LoaCard({
                             <dd
                                 style={{
                                     margin: '4px 0 0',
-                                    fontSize: 14,
-                                    color: 'var(--wc-gray-800)',
+                                    fontSize: 'var(--text-sm)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
                                 {fact.value}
@@ -142,11 +145,11 @@ export function LoaCard({
                     <p
                         style={{
                             margin: 'var(--space-4) 0 0',
-                            fontSize: 13,
-                            color: 'var(--wc-gray-600)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-secondary)',
                         }}
                     >
-                        <strong style={{ color: 'var(--wc-gray-800)' }}>
+                        <strong style={{ color: 'var(--wc-text-primary)' }}>
                             {labels.appointment}:
                         </strong>{' '}
                         {[
@@ -166,7 +169,7 @@ export function LoaCard({
                         margin: 'var(--space-4) 0 0',
                         padding: 'var(--space-3) var(--space-4)',
                         borderRadius: 10,
-                        fontSize: 13,
+                        fontSize: 'var(--text-sm)',
                         lineHeight: 1.5,
                         color: style.color,
                         background: style.bg,
@@ -189,11 +192,11 @@ export function LoaCard({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: 11,
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 textTransform: 'uppercase',
                                 letterSpacing: '.05em',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {labels.remarks}
@@ -201,8 +204,8 @@ export function LoaCard({
                         <p
                             style={{
                                 margin: '6px 0 0',
-                                fontSize: 14,
-                                color: 'var(--wc-gray-800)',
+                                fontSize: 'var(--text-sm)',
+                                color: 'var(--wc-text-primary)',
                                 whiteSpace: 'pre-wrap',
                             }}
                         >

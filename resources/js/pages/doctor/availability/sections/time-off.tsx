@@ -6,6 +6,7 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
+import { DateField } from '@/design-system';
 import { availabilityMeta } from '../availability-data';
 import type { TimeOffEntry } from '../availability-data';
 
@@ -58,8 +59,8 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                     margin: '0 0 var(--space-1)',
                     fontSize: 'var(--text-base)',
                     fontWeight: 800,
-                    color: 'var(--wc-dark)',
-                    fontFamily: "var(--font-display,'Bricolage Grotesque')",
+                    color: 'var(--wc-text-primary)',
+                    fontFamily: 'var(--font-display)',
                 }}
             >
                 {meta.timeOffTitle}
@@ -68,7 +69,7 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                 style={{
                     margin: '0 0 var(--space-5)',
                     fontSize: 'var(--text-sm)',
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
                 {meta.timeOffHint}
@@ -80,7 +81,7 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                     style={{
                         margin: '0 0 var(--space-5)',
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--wc-gray-500)',
+                        color: 'var(--wc-text-muted)',
                     }}
                 >
                     {meta.timeOffEmpty}
@@ -106,7 +107,7 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                                     flex: 1,
                                     fontSize: 'var(--text-sm)',
                                     fontWeight: 600,
-                                    color: 'var(--wc-dark)',
+                                    color: 'var(--wc-text-primary)',
                                 }}
                             >
                                 {entry.label}
@@ -116,7 +117,7 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                                 style={{
                                     padding: '3px 10px',
                                     borderRadius: 999,
-                                    fontSize: '10px',
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 800,
                                     letterSpacing: '0.05em',
                                     background: '#fef2f2',
@@ -132,7 +133,7 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                                 style={{
                                     border: 'none',
                                     background: 'transparent',
-                                    color: 'var(--wc-gray-500)',
+                                    color: 'var(--wc-text-muted)',
                                     fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
                                     cursor: 'pointer',
@@ -155,16 +156,14 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                     alignItems: 'flex-start',
                 }}
             >
-                <input
-                    type="date"
-                    className="wc-input"
+                <DateField
+                    kind="date"
                     aria-label={meta.timeOffDateLabel}
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     style={{
-                        height: 40,
-                        width: 170,
-                        fontSize: 'var(--text-sm)',
+                        width: 'auto',
+                        minWidth: '11rem',
                     }}
                 />
 
@@ -177,7 +176,6 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                     onChange={(e) => setReason(e.target.value)}
                     style={{
                         flex: '1 1 220px',
-                        height: 40,
                         fontSize: 'var(--text-sm)',
                     }}
                 />
@@ -187,7 +185,7 @@ export function TimeOff({ entries }: TimeOffProps): ReactElement {
                     className="wc-btn wc-btn-outline wc-btn-md"
                     onClick={handleAdd}
                     disabled={processing || !date}
-                    style={{ flexShrink: 0, height: 40 }}
+                    style={{ flexShrink: 0 }}
                 >
                     {processing
                         ? meta.timeOffAddingLabel

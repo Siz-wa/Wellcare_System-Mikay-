@@ -7,6 +7,7 @@
 import { Link } from '@inertiajs/react';
 import { CalendarPlus, FileText, Pencil, Archive } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { plural } from '@/lib/utils';
 import type { PatientOption } from '@/pages/user/book-appointment/sections/bookingdata';
 import { patientsMeta } from '../patients-data';
 
@@ -63,7 +64,7 @@ export function PatientRosterCard({
                         background: 'var(--wc-blue-50)',
                         color: 'var(--wc-blue-700)',
                         fontWeight: 700,
-                        fontSize: 14,
+                        fontSize: 'var(--text-sm)',
                     }}
                 >
                     {patient.initials}
@@ -80,9 +81,9 @@ export function PatientRosterCard({
                         <h2
                             style={{
                                 margin: 0,
-                                fontSize: 16,
+                                fontSize: 'var(--text-base)',
                                 fontWeight: 700,
-                                color: 'var(--wc-gray-900)',
+                                color: 'var(--wc-text-primary)',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
@@ -93,7 +94,7 @@ export function PatientRosterCard({
                         {isSelf && (
                             <span
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 'var(--text-xs)',
                                     fontWeight: 700,
                                     padding: '2px 8px',
                                     borderRadius: 999,
@@ -109,8 +110,8 @@ export function PatientRosterCard({
                     <p
                         style={{
                             margin: '2px 0 0',
-                            fontSize: 13,
-                            color: 'var(--wc-gray-500)',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--wc-text-muted)',
                         }}
                     >
                         {[relationship, ...meta].filter(Boolean).join(' · ')}
@@ -122,12 +123,12 @@ export function PatientRosterCard({
                 style={{
                     display: 'flex',
                     gap: 'var(--space-4)',
-                    fontSize: 13,
-                    color: 'var(--wc-gray-500)',
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--wc-text-muted)',
                 }}
             >
-                <span>{patient.appointmentCount} visits</span>
-                <span>{patient.documentCount} documents</span>
+                <span>{plural(patient.appointmentCount, 'visit')}</span>
+                <span>{plural(patient.documentCount, 'document')}</span>
             </div>
 
             <div
@@ -174,7 +175,7 @@ export function PatientRosterCard({
                         style={{
                             display: 'inline-flex',
                             gap: 6,
-                            color: 'var(--wc-error)',
+                            color: 'var(--wc-text-error)',
                         }}
                     >
                         <Archive size={14} /> {patientsMeta.archive.label}

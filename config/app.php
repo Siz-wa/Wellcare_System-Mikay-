@@ -65,7 +65,21 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    /*
+     * The clinic's wall clock, not UTC.
+     *
+     * Appointment times are stored as the local time a patient reads off the
+     * booking screen ("9:30 AM"), and `appointment_at` carries that same
+     * wall-clock value. Every rule that compares the two — the two-hour minimum
+     * lead time, the reminder window, the escalation threshold — measures them
+     * against `now()`, so `now()` has to BE the clinic clock.
+     *
+     * Left at UTC, now() ran eight hours behind Dasmariñas and the two-hour
+     * lead time became minus six: a patient could book a slot that had already
+     * started. Nothing in the booking rules was wrong; the clock they were
+     * measured against was.
+     */
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------

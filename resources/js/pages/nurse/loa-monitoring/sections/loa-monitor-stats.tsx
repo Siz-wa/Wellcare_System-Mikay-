@@ -79,10 +79,10 @@ export function LoaMonitorStatsRow({
                         <p
                             style={{
                                 margin: 0,
-                                fontSize: '10px',
+                                fontSize: 'var(--text-xs)',
                                 fontWeight: 700,
                                 letterSpacing: '0.12em',
-                                color: 'var(--wc-gray-500)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             {card.label}
@@ -93,9 +93,8 @@ export function LoaMonitorStatsRow({
                                 fontSize: 'var(--text-2xl)',
                                 fontWeight: 800,
                                 lineHeight: 1.1,
-                                color: 'var(--wc-dark)',
-                                fontFamily:
-                                    "var(--font-display,'Bricolage Grotesque')",
+                                color: 'var(--wc-text-primary)',
+                                fontFamily: 'var(--font-display)',
                             }}
                         >
                             {card.value}

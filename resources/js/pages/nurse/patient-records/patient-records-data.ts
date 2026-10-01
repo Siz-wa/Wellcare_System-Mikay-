@@ -8,13 +8,16 @@
 
 // ── Server-provided shapes ────────────────────────────────────────────────────
 
+import type { VitalsSource } from '@/lib/vitals';
+
 export interface PatientSummary {
     id: number;
     patientId: string;
     name: string;
     initials: string;
     email: string | null;
-    lastUpdate: string;
+    /** Date of the last completed visit, or null when there has not been one. */
+    lastUpdate: string | null;
     docCount: number;
     appointmentCount: number;
     hasAllergy: boolean;
@@ -38,6 +41,7 @@ export interface PatientProfile {
     address: string | null;
     contactNumber: string | null;
     civilStatus: string | null;
+    bloodType?: string | null;
     clientNumber: string | null;
     email: string | null;
 }
@@ -77,6 +81,9 @@ export interface Vitals {
     oxygenSaturation: string;
     weight: string;
     height: string;
+    source: VitalsSource | null;
+    /** Null only for rows written before provenance was recorded. */
+    sourceLabel: string | null;
 }
 
 export interface Visit {
@@ -141,6 +148,8 @@ export const civilStatusOptions = [
     { value: 'single', label: 'Single' },
     { value: 'married', label: 'Married' },
     { value: 'widowed', label: 'Widowed' },
+    { value: 'separated', label: 'Separated' },
+    { value: 'annulled', label: 'Annulled' },
 ];
 
 // ── Page meta ─────────────────────────────────────────────────────────────────
@@ -180,6 +189,7 @@ export const nursePatientRecordsMeta = {
         birthdate: 'Birthdate',
         gender: 'Gender',
         civilStatus: 'Civil status',
+        bloodType: 'Blood type',
         address: 'Address',
         clientNumber: 'Clinic ID',
     },
@@ -188,6 +198,7 @@ export const nursePatientRecordsMeta = {
 
     vitalsTitle: 'Latest Vitals',
     vitalsEmpty: 'No vitals recorded yet.',
+    vitalsSourceUnknown: 'Source not recorded.',
     vitalsLabels: {
         bloodPressure: 'Blood pressure',
         heartRate: 'Heart rate',

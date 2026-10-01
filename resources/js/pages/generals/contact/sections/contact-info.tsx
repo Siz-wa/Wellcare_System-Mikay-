@@ -86,7 +86,7 @@ export default function ContactInfoSection() {
                         </h2>
                         <p
                             className="mb-6 text-base leading-relaxed"
-                            style={{ color: 'var(--wc-gray-500)' }}
+                            style={{ color: 'var(--wc-text-muted)' }}
                         >
                             We have dedicated lines for admin inquiries, clinic
                             support, and our WalterMart branch.
@@ -114,9 +114,9 @@ export default function ContactInfoSection() {
                                     <div className="min-w-0">
                                         {/* Department label */}
                                         <p
-                                            className="mb-0.5 text-[10px] font-bold tracking-[var(--tracking-widest)] uppercase"
+                                            className="mb-0.5 text-xs font-bold tracking-[var(--tracking-widest)] uppercase"
                                             style={{
-                                                color: 'var(--wc-gray-400)',
+                                                color: 'var(--wc-text-muted)',
                                             }}
                                         >
                                             {ch.department}

@@ -8,9 +8,9 @@ export const SectionHeader = ({ title }: { title: string }) => (
     <h3
         style={{
             margin: '0 0 16px 0',
-            fontSize: '10px',
+            fontSize: 'var(--text-xs)',
             fontWeight: 800,
-            color: 'var(--wc-gray-400)',
+            color: 'var(--wc-text-muted)',
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
         }}
@@ -39,7 +39,7 @@ export const InfoTile = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--wc-gray-400)',
+                color: 'var(--wc-text-muted)',
             }}
         >
             {icon}
@@ -48,8 +48,8 @@ export const InfoTile = ({
             <p
                 style={{
                     margin: 0,
-                    fontSize: '10px',
-                    color: 'var(--wc-gray-400)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--wc-text-muted)',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                 }}
@@ -59,9 +59,9 @@ export const InfoTile = ({
             <p
                 style={{
                     margin: 0,
-                    fontSize: '13px',
+                    fontSize: 'var(--text-sm)',
                     fontWeight: 600,
-                    color: 'var(--wc-dark)',
+                    color: 'var(--wc-text-primary)',
                 }}
             >
                 {value}
@@ -95,14 +95,19 @@ export const ParameterRow = ({ param }: { param: Parameter }) => {
                 }}
             >
                 {param.result}{' '}
-                <span style={{ fontSize: '10px', color: 'var(--wc-gray-400)' }}>
+                <span
+                    style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--wc-text-muted)',
+                    }}
+                >
                     {param.unit}
                 </span>
             </td>
             <td
                 style={{
                     padding: '14px 0',
-                    color: 'var(--wc-gray-500)',
+                    color: 'var(--wc-text-muted)',
                     borderTop: '1px solid var(--wc-gray-100)',
                     borderBottom: '1px solid var(--wc-gray-100)',
                 }}
@@ -119,7 +124,20 @@ export const ParameterRow = ({ param }: { param: Parameter }) => {
                     color: isAbnormal ? 'var(--wc-error)' : 'var(--wc-success)',
                 }}
             >
-                {isAbnormal ? <IconPlus /> : <IconCheck />}
+                <span
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 'var(--text-xs)',
+                        fontWeight: 700,
+                    }}
+                >
+                    {isAbnormal ? <IconPlus /> : <IconCheck />}
+                    {/* In words as well as colour: colour alone is not read
+                        by a screen reader or by a colour-blind reviewer. */}
+                    {isAbnormal ? 'Out of range' : 'Normal'}
+                </span>
             </td>
         </tr>
     );

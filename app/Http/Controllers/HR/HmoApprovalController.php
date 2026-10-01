@@ -43,6 +43,12 @@ class HmoApprovalController extends Controller
         return Inertia::render('hr/hmo-approvals/hmo-approvals', [
             'appointments' => $pending->values(),
             'stats' => $stats,
+            // GV-3. An administrator reaches this queue for oversight — the
+            // admin dashboard counts `pendingLoa` and this is where that number
+            // comes from — but the decision routes are `role:hr`. Without this
+            // flag the page would render approve and reject buttons that 403,
+            // which reads as a bug rather than as a boundary.
+            'canDecide' => (bool) Auth::user()?->hasRole('hr'),
         ]);
     }
 
@@ -125,6 +131,7 @@ class HmoApprovalController extends Controller
             'patientStatus' => $appointment?->patient_status,
             'isToday' => (bool) $appointment?->appointment_date?->isToday(),
             'isTomorrow' => (bool) $appointment?->appointment_date?->isTomorrow(),
+            'isPast' => (bool) $appointment?->appointment_date?->isBefore(today()),
 
             // ── New with the LOA record ──────────────────────────────────────
             'loaNumber' => $loa->loa_number,

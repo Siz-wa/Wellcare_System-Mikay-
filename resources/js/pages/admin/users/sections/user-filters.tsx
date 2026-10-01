@@ -62,7 +62,7 @@ export function UserFiltersBar({
             <div style={{ minWidth: 170 }}>
                 <Select
                     value={filters.role}
-                    onChange={(e) => go({ role: e.target.value })}
+                    onChange={(value) => go({ role: value })}
                     options={[
                         { value: '', label: usersCopy.allRoles },
                         ...roles.map((role) => ({
@@ -76,7 +76,7 @@ export function UserFiltersBar({
             <div style={{ minWidth: 170 }}>
                 <Select
                     value={filters.status}
-                    onChange={(e) => go({ status: e.target.value })}
+                    onChange={(value) => go({ status: value })}
                     options={statusFilterOptions}
                 />
             </div>

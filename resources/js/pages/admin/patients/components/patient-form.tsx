@@ -8,7 +8,17 @@
 
 import { useForm } from '@inertiajs/react';
 import type { FormEvent, ReactElement } from 'react';
-import { Alert, Button, Field, Input, Select } from '@/design-system';
+import {
+    Alert,
+    Button,
+    DateField,
+    Field,
+    Input,
+    Select,
+} from '@/design-system';
+import { ageFromBirthdate } from '@/lib/age';
+import { hmoOptions, splitHmoProvider } from '@/lib/hmo-providers';
+import { normalizePhMobile } from '@/lib/input-masks';
 import {
     civilStatusOptions,
     coverageOptions,
@@ -49,6 +59,11 @@ export function PatientForm({
             onSuccess: onDone,
         });
     };
+
+    // One stored string, two controls — see @/lib/hmo-providers.
+    const hmoProvider = splitHmoProvider(data.hmo_provider, (v) =>
+        setData('hmo_provider', v),
+    );
 
     return (
         <form onSubmit={submit}>
@@ -93,52 +108,68 @@ export function PatientForm({
                     required
                     error={errors.contact_number}
                 >
+                    {/* `type="tel"` only hints at a keyboard; the sanitizer is
+                        what keeps letters out, and `inputMode="numeric"` gets
+                        the digit pad rather than the phone pad's `* # +`. */}
                     <Input
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel"
                         value={data.contact_number}
                         onChange={(e) =>
-                            setData('contact_number', e.target.value)
+                            setData(
+                                'contact_number',
+                                normalizePhMobile(e.target.value),
+                            )
                         }
                         error={Boolean(errors.contact_number)}
-                        placeholder="09XXXXXXXXX"
+                        placeholder="09171234567"
                     />
                 </Field>
 
-                <Field label="Age" error={errors.age}>
+                {/*
+                    Read-only and worked out from the birthdate beside it,
+                    the way the booking sheet already does it. A typed age
+                    is only correct on the day it is typed, and two
+                    editable fields that mean the same thing eventually
+                    disagree inside one record.
+                */}
+                <Field
+                    label="Age"
+                    hint="From the birthdate."
+                    error={errors.age}
+                >
                     <Input
-                        type="number"
-                        min={0}
-                        max={120}
-                        value={data.age}
-                        onChange={(e) => setData('age', e.target.value)}
-                        error={Boolean(errors.age)}
+                        readOnly
+                        tabIndex={-1}
+                        value={ageFromBirthdate(data.birthdate) ?? ''}
+                        aria-label="Age, worked out from the birthdate"
                     />
                 </Field>
 
                 <Field label="Gender" error={errors.gender}>
                     <Select
                         value={data.gender}
-                        onChange={(e) => setData('gender', e.target.value)}
-                        error={Boolean(errors.gender)}
+                        onChange={(value) => setData('gender', value)}
+                        invalid={Boolean(errors.gender)}
                         options={genderOptions}
                     />
                 </Field>
 
                 <Field label="Birthdate" error={errors.birthdate}>
-                    <Input
-                        type="date"
+                    <DateField
+                        kind="date"
                         value={data.birthdate}
                         onChange={(e) => setData('birthdate', e.target.value)}
-                        error={Boolean(errors.birthdate)}
+                        invalid={Boolean(errors.birthdate)}
                     />
                 </Field>
 
                 <Field label="Civil status" error={errors.civil_status}>
                     <Select
                         value={data.civil_status}
-                        onChange={(e) =>
-                            setData('civil_status', e.target.value)
-                        }
-                        error={Boolean(errors.civil_status)}
+                        onChange={(value) => setData('civil_status', value)}
+                        invalid={Boolean(errors.civil_status)}
                         options={civilStatusOptions}
                     />
                 </Field>
@@ -154,10 +185,8 @@ export function PatientForm({
                 <Field label="Default coverage" error={errors.default_coverage}>
                     <Select
                         value={data.default_coverage}
-                        onChange={(e) =>
-                            setData('default_coverage', e.target.value)
-                        }
-                        error={Boolean(errors.default_coverage)}
+                        onChange={(value) => setData('default_coverage', value)}
+                        invalid={Boolean(errors.default_coverage)}
                         options={coverageOptions}
                     />
                 </Field>
@@ -168,11 +197,30 @@ export function PatientForm({
                         required
                         error={errors.hmo_provider}
                     >
+                        <Select
+                            value={hmoProvider.selectValue}
+                            onChange={hmoProvider.onSelectChange}
+                            invalid={Boolean(errors.hmo_provider)}
+                            options={hmoOptions}
+                        />
+                    </Field>
+                )}
+
+                {/* "Other" names no provider anyone can verify coverage
+                    against, so the option asks which one. */}
+                {data.default_coverage === 'hmo' && hmoProvider.showOther && (
+                    <Field
+                        label="Which HMO provider?"
+                        required
+                        error={errors.hmo_provider}
+                    >
                         <Input
-                            value={data.hmo_provider}
+                            value={hmoProvider.otherValue}
                             onChange={(e) =>
-                                setData('hmo_provider', e.target.value)
+                                hmoProvider.onOtherChange(e.target.value)
                             }
+                            maxLength={100}
+                            placeholder="Provider name"
                             error={Boolean(errors.hmo_provider)}
                         />
                     </Field>

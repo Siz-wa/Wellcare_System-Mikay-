@@ -63,9 +63,22 @@ it('files a first-time patient as new', function () {
 });
 
 it('files a patient who has been seen before as returning', function () {
+    // The date is explicit, and it is in the PAST, for two reasons.
+    //
+    // Correctness first: "has been seen before" is a completed visit, and
+    // AppointmentFactory defaults to `now()->addDays(3)` — a completed
+    // appointment three days in the future is not a prior visit, it is a
+    // contradiction that happened to satisfy the assertion.
+    //
+    // And it was flaky on exactly one weekday. The factory default is
+    // `now()->addDays(3)` at 09:00, the booking below is "next monday" at
+    // 09:00, and those are the same slot **every Friday** — so this test failed
+    // on Fridays and passed the rest of the week, hitting BookingService's
+    // per-patient/per-day conflict check rather than the behaviour it is about.
     Appointment::factory()->create([
         'patient_id' => $this->child->id,
         'status' => 'completed',
+        'appointment_date' => $this->date->copy()->subMonth()->toDateString(),
     ]);
 
     ($this->book)($this->child)->assertSessionHasNoErrors();

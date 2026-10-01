@@ -5,6 +5,8 @@
 
 import type { ReactElement } from 'react';
 import { useState, useRef, useEffect } from 'react';
+import { DoctorAvatar } from '@/components/doctor-avatar';
+import { cn } from '@/lib/utils';
 import type { DoctorOption } from '@/pages/user/book-appointment/sections/bookingdata';
 
 export interface DoctorPickerProps {
@@ -85,7 +87,7 @@ export function DoctorPicker({
             {/* Search input */}
             <div style={{ position: 'relative' }}>
                 <input
-                    className={`wc-input${error ? 'wc-input-error' : ''}`}
+                    className={cn('wc-input', error && 'wc-input-error')}
                     type="text"
                     placeholder="Search by name or specialization…"
                     value={query}
@@ -115,7 +117,7 @@ export function DoctorPicker({
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             fontSize: 'var(--text-lg)',
                             lineHeight: 1,
                             padding: 0,
@@ -149,7 +151,7 @@ export function DoctorPicker({
                             style={{
                                 padding: 'var(--space-4) var(--space-5)',
                                 fontSize: 'var(--text-sm)',
-                                color: 'var(--wc-gray-400)',
+                                color: 'var(--wc-text-muted)',
                             }}
                         >
                             No doctors found matching "{query}"
@@ -201,24 +203,19 @@ export function DoctorPicker({
                                         }
                                     }}
                                 >
-                                    {/* Avatar */}
-                                    <div
-                                        style={{
-                                            width: 32,
-                                            height: 32,
-                                            borderRadius: 'var(--radius-full)',
-                                            background: doc.color ?? '#0056b3',
-                                            color: '#ffffff',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: 'var(--text-xs)',
-                                            fontWeight: 700,
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {doc.initials ?? (doc.name ?? '?')[0]}
-                                    </div>
+                                    {/* Avatar — the doctor's photograph where
+                                        they have published one. Choosing a
+                                        doctor by face is the point of showing
+                                        it here. */}
+                                    <DoctorAvatar
+                                        photoUrl={doc.photo_url ?? null}
+                                        initials={
+                                            doc.initials ?? (doc.name ?? '?')[0]
+                                        }
+                                        color={doc.color ?? '#0056b3'}
+                                        name={doc.name}
+                                        size={32}
+                                    />
 
                                     {/* Name + specialization */}
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -226,7 +223,7 @@ export function DoctorPicker({
                                             style={{
                                                 fontSize: 'var(--text-sm)',
                                                 fontWeight: 600,
-                                                color: 'var(--wc-dark)',
+                                                color: 'var(--wc-text-primary)',
                                                 margin: 0,
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
@@ -239,7 +236,7 @@ export function DoctorPicker({
                                             <p
                                                 style={{
                                                     fontSize: 'var(--text-xs)',
-                                                    color: 'var(--wc-gray-400)',
+                                                    color: 'var(--wc-text-muted)',
                                                     margin: 0,
                                                 }}
                                             >
@@ -284,7 +281,7 @@ export function DoctorPicker({
                             cursor: 'pointer',
                             textAlign: 'left',
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--wc-gray-400)',
+                            color: 'var(--wc-text-muted)',
                             fontStyle: 'italic',
                         }}
                     >

@@ -8,7 +8,7 @@ import PrivacyHeroSection from '@/pages/generals/privacy/sections/privacy-hero';
 export default function PrivacyPage() {
     return (
         <WellcareLayout>
-            <Head title="Privacy Policy — Wellcare Clinics" />
+            <Head title="Privacy Policy" />
             <PrivacyHeroSection />
             <PrivacyContentSection />
         </WellcareLayout>

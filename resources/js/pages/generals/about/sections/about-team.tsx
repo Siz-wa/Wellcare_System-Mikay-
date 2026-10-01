@@ -30,7 +30,7 @@ export default function TeamSection() {
                     </h2>
                     <p
                         className="text-lg leading-relaxed"
-                        style={{ color: 'var(--wc-gray-500)' }}
+                        style={{ color: 'var(--wc-text-muted)' }}
                     >
                         {desc}
                     </p>
@@ -76,7 +76,7 @@ export default function TeamSection() {
 
                                 <p
                                     className="m-0 text-sm leading-relaxed"
-                                    style={{ color: 'var(--wc-gray-500)' }}
+                                    style={{ color: 'var(--wc-text-muted)' }}
                                 >
                                     {m.bio}
                                 </p>

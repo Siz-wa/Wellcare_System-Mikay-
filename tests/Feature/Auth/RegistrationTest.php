@@ -20,6 +20,13 @@ beforeEach(function () {
         'contact_number' => '09171234567',
         'gender' => 'F',
         'birthdate' => now()->subYears(30)->subMonth()->toDateString(),
+        // SC-4 / C-1. Registration requires explicit, unbundled consent to data
+        // processing and to treatment. Added to the shared payload rather than
+        // to each test: every one of these is asserting something else, and a
+        // registration that cannot complete without consent is the contract now.
+        // Consent behaviour itself is covered in tests/Feature/Compliance.
+        'consent_data_processing' => '1',
+        'consent_treatment' => '1',
     ], $overrides);
 });
 
@@ -67,8 +74,15 @@ test('registering creates the account holder’s own patient record', function (
         ->and($self->clinic_id)->toStartWith('WC-');
 });
 
-test('the booking gate is ready to use immediately after registering', function () {
+test('a new account confirms its email before it can book', function () {
     $this->post(route('register.store'), ($this->registration)());
+
+    $this->get('/book')->assertRedirect(route('verification.notice'));
+});
+
+test('the booking gate is ready to use as soon as the email is confirmed', function () {
+    $this->post(route('register.store'), ($this->registration)());
+    auth()->user()->markEmailAsVerified();
 
     $this->get('/book')->assertInertia(fn ($page) => $page
         ->has('patients', 1)
@@ -117,3 +131,28 @@ test('creating a staff account does not create a patient record', function (stri
 
     expect(Patient::count())->toBe(0);
 })->with(['doctor', 'nurse', 'hr', 'admin']);
+
+test('registration records blood type and self-reported allergies on the patient record', function () {
+    $this->post(route('register.store'), ($this->registration)([
+        'blood_type' => 'O+',
+        'known_allergies' => 'Penicillin, shrimp, penicillin, none',
+        'civil_status' => 'separated',
+    ]))->assertSessionHasNoErrors();
+
+    $self = Patient::where('relationship_to_guarantor', 'self')->sole();
+
+    expect($self->blood_type)->toBe('O+')
+        ->and($self->civil_status)->toBe('separated')
+        ->and($self->allergies()->pluck('allergen')->all())->toBe(['Penicillin', 'shrimp'])
+        ->and($self->allergies()->first()->notes)->toContain('Self-reported');
+});
+
+test('registration rejects a blood type that does not exist', function () {
+    $this->post(route('register.store'), ($this->registration)(['blood_type' => 'C+']))
+        ->assertSessionHasErrors('blood_type');
+});
+
+test('registration accepts annulled as a civil status', function () {
+    $this->post(route('register.store'), ($this->registration)(['civil_status' => 'annulled']))
+        ->assertSessionHasNoErrors();
+});

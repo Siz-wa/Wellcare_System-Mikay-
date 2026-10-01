@@ -16,8 +16,12 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { DateField, Select } from '@/design-system';
 import { validatePatientDetails } from '@/hooks/use-step-validators';
 import type { PatientDetailsErrors } from '@/hooks/use-step-validators';
+import { splitHmoProvider } from '@/lib/hmo-providers';
+import { sanitizeHmoId } from '@/lib/input-masks';
+import { normalizePhMobile } from '@/lib/input-masks';
 import {
     ageFromBirthdate,
     civilStatusOptions,
@@ -34,8 +38,7 @@ import type {
     PatientOption,
 } from '@/pages/user/book-appointment/sections/bookingdata';
 import { store, update } from '@/routes/user/patients';
-import { BrandSelect, Field } from '../components';
-import { sanitizeHmoId } from '../utils/sanitizers';
+import { Field } from '../components';
 
 interface PatientFormSheetProps {
     open: boolean;
@@ -201,6 +204,11 @@ function PatientForm({
         (errors as Record<string, string | undefined>)[snake] ??
         (errors as Record<string, string | undefined>)[camel as string];
 
+    // One stored string, two controls — see @/lib/hmo-providers.
+    const hmoProvider = splitHmoProvider(data.hmoProvider, (v) =>
+        setData('hmoProvider', v),
+    );
+
     return (
         <>
             <form
@@ -228,7 +236,7 @@ function PatientForm({
                                 value="Myself"
                                 style={{
                                     background: 'var(--wc-gray-100)',
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                     cursor: 'default',
                                 }}
                             />
@@ -244,7 +252,7 @@ function PatientForm({
                                 ) ?? shown.relationship
                             }
                         >
-                            <BrandSelect
+                            <Select
                                 value={data.relationship}
                                 onChange={(v) => setData('relationship', v)}
                                 options={relationshipOptions}
@@ -349,13 +357,22 @@ function PatientForm({
                             shown.contactNumber
                         }
                     >
+                        {/* No `maxLength`: it would truncate a pasted
+                            `+63 917 123 4567` to thirteen characters before
+                            the sanitizer could fold the country code. The
+                            sanitizer caps at eleven digits instead. */}
                         <input
                             className="wc-input"
                             type="tel"
-                            maxLength={13}
+                            inputMode="numeric"
+                            autoComplete="tel"
+                            placeholder="09171234567"
                             value={data.contactNumber}
                             onChange={(e) =>
-                                setData('contactNumber', e.target.value)
+                                setData(
+                                    'contactNumber',
+                                    normalizePhMobile(e.target.value),
+                                )
                             }
                         />
                     </Field>
@@ -364,44 +381,23 @@ function PatientForm({
                         follows from it. A typed age is only correct on the day
                         it is typed, and two editable fields that mean the same
                         thing eventually disagree. */}
-                    <div
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 7rem',
-                            gap: 'var(--space-3)',
-                            alignItems: 'start',
-                        }}
-                    >
+                    {/* Age keeps a narrower column on phones rather than
+                        dropping below: it holds at most three characters, and
+                        7rem of a 358px row left the three-part date field too
+                        cramped to enter. They stay paired, which is the point
+                        of the row. */}
+                    <div className="grid grid-cols-[1fr_5rem] items-start gap-3 sm:grid-cols-[1fr_7rem]">
                         <Field
                             label="Birthdate"
                             required
                             error={errors.birthdate ?? shown.birthdate}
                         >
-                            <input
-                                className="wc-input"
-                                type="date"
+                            <DateField
+                                kind="date"
                                 max={new Date().toLocaleDateString('en-CA')}
                                 value={data.birthdate}
                                 onChange={(e) => {
                                     const birthdate = e.target.value;
-                                    const age = ageFromBirthdate(birthdate);
-
-                                    // Editing the birthdate can turn an adult
-                                    // into a minor, which hides the coverage
-                                    // chooser. Drop the value with it, or the
-                                    // form would fail validation on a field
-                                    // that is no longer on screen to fix.
-                                    if (age !== null && age <= MINOR_MAX_AGE) {
-                                        setData({
-                                            ...data,
-                                            birthdate,
-                                            defaultCoverage: '',
-                                            hmoProvider: '',
-                                            hmoId: '',
-                                        });
-
-                                        return;
-                                    }
 
                                     setData('birthdate', birthdate);
                                 }}
@@ -418,7 +414,7 @@ function PatientForm({
                                 value={derivedAge === null ? '—' : derivedAge}
                                 style={{
                                     background: 'var(--wc-gray-100)',
-                                    color: 'var(--wc-gray-600)',
+                                    color: 'var(--wc-text-secondary)',
                                     cursor: 'default',
                                     textAlign: 'center',
                                 }}
@@ -431,7 +427,7 @@ function PatientForm({
                         required
                         error={errors.gender ?? shown.gender}
                     >
-                        <BrandSelect
+                        <Select
                             value={data.gender}
                             onChange={(v) => setData('gender', v)}
                             options={genderOptions}
@@ -458,7 +454,7 @@ function PatientForm({
                         error={serverError('civil_status', 'civilStatus')}
                         hint="Optional."
                     >
-                        <BrandSelect
+                        <Select
                             value={data.civilStatus}
                             onChange={(v) => setData('civilStatus', v)}
                             options={civilStatusOptions}
@@ -470,7 +466,7 @@ function PatientForm({
                         membership — they are billed to their guarantor — so the
                         chooser is not shown for them at all rather than offered
                         and then rejected. */}
-                    {isMinor ? (
+                    {isMinor && (
                         <p
                             style={{
                                 margin: 0,
@@ -484,7 +480,8 @@ function PatientForm({
                         >
                             {patientSheetCopy.minorCoverageNotice}
                         </p>
-                    ) : (
+                    )}
+                    {
                         <Field
                             label="Usual Coverage"
                             error={
@@ -495,7 +492,7 @@ function PatientForm({
                             }
                             hint={patientSheetCopy.coverageHint}
                         >
-                            <BrandSelect
+                            <Select
                                 value={data.defaultCoverage}
                                 onChange={(v) => setData('defaultCoverage', v)}
                                 options={[
@@ -505,9 +502,9 @@ function PatientForm({
                                 aria-label="Usual coverage"
                             />
                         </Field>
-                    )}
+                    }
 
-                    {!isMinor && data.defaultCoverage === 'hmo' && (
+                    {data.defaultCoverage === 'hmo' && (
                         <>
                             <Field
                                 label="HMO Provider"
@@ -519,13 +516,42 @@ function PatientForm({
                                     ) ?? shown.hmoProvider
                                 }
                             >
-                                <BrandSelect
-                                    value={data.hmoProvider}
-                                    onChange={(v) => setData('hmoProvider', v)}
+                                <Select
+                                    value={hmoProvider.selectValue}
+                                    onChange={hmoProvider.onSelectChange}
                                     options={hmoOptions}
                                     aria-label="HMO provider"
                                 />
                             </Field>
+
+                            {/* "Other" on its own tells the clinic nothing,
+                                so ask — same reason as the relationship
+                                field above. */}
+                            {hmoProvider.showOther && (
+                                <Field
+                                    label="Which HMO provider?"
+                                    required
+                                    error={
+                                        serverError(
+                                            'hmo_provider',
+                                            'hmoProvider',
+                                        ) ?? shown.hmoProvider
+                                    }
+                                    hint="The name on their card."
+                                >
+                                    <input
+                                        className="wc-input"
+                                        type="text"
+                                        maxLength={100}
+                                        value={hmoProvider.otherValue}
+                                        onChange={(e) =>
+                                            hmoProvider.onOtherChange(
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </Field>
+                            )}
 
                             <Field
                                 label="HMO ID Number"

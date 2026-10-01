@@ -40,11 +40,10 @@ export function WellcareLogo(): ReactElement {
                 <p
                     style={{
                         margin: 0,
-                        fontFamily:
-                            "var(--font-display, 'Bricolage Grotesque')",
+                        fontFamily: 'var(--font-display)',
                         fontWeight: 800,
                         fontSize: 'var(--text-base)',
-                        color: 'var(--wc-dark)',
+                        color: 'var(--wc-text-primary)',
                         lineHeight: 1.1,
                         letterSpacing: '-0.02em',
                     }}
@@ -54,8 +53,7 @@ export function WellcareLogo(): ReactElement {
                 <p
                     style={{
                         margin: 0,
-                        fontFamily:
-                            "var(--font-display, 'Bricolage Grotesque')",
+                        fontFamily: 'var(--font-display)',
                         fontWeight: 800,
                         fontSize: 'var(--text-xs)',
                         color: 'var(--wc-blue-600)',

@@ -96,9 +96,20 @@ class LabReviewController extends Controller
                 'status' => $p->status,
             ])->values(),
 
-            // Pre-fills the modal's notes box so the doctor edits rather than
-            // starts from blank; the nurse's remarks are the starting point.
-            'interpretation' => $result->interpretation ?? $result->notes ?? '',
+            // The doctor's OWN reading, and nothing else. This used to fall back
+            // to `$result->notes` — the nurse's "notes for the doctor" — which
+            // pre-filled the interpretation box with somebody else's words. A
+            // doctor who read the result and pressed Validate without editing
+            // then signed the nurse's remarks as their own clinical
+            // interpretation, and that text is what the patient is shown under
+            // "Doctor's Interpretation" with the doctor's name against it.
+            // An empty box is the correct starting point: an interpretation
+            // nobody wrote should look like one.
+            'interpretation' => $result->interpretation ?? '',
+
+            // The nurse's remarks travel separately and are rendered read-only
+            // beside the field, so the doctor still reads them while writing.
+            'nurseNotes' => $result->notes,
             'isReviewed' => $result->status === 'reviewed',
         ];
     }

@@ -4,6 +4,9 @@ use App\Models\Appointment;
 use App\Models\AppointmentNotification;
 use App\Models\LabTestResult;
 use App\Models\Patient;
+use App\Models\PatientDocument;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The doctor → nurse → doctor lab workflow (DFD processes 5, 6 and the review
@@ -229,4 +232,42 @@ it('shows the doctor only tests that already have results', function () {
             // The 'requested' one has no values yet, so it must not appear.
             ->has('results', 2)
         );
+});
+
+it('files the analyzer printout on the patient record when results are recorded', function () {
+    Storage::fake('local');
+
+    $this->actingAs($this->doctor)
+        ->post("/doctor/consultations/{$this->appointment->id}/lab-request", ['test_name' => 'Complete Blood Count']);
+    $result = LabTestResult::firstOrFail();
+
+    $this->actingAs($this->nurse)
+        ->post("/nurse/lab-queue/{$result->id}/record", [
+            'severity' => 'normal',
+            'parameters' => [
+                ['name' => 'Hemoglobin', 'result' => '13.5', 'unit' => 'g/dL', 'ref_range' => '12.0–16.0', 'status' => 'normal'],
+            ],
+            'attachment' => UploadedFile::fake()->create('cbc.pdf', 120, 'application/pdf'),
+        ])
+        ->assertSessionHasNoErrors();
+
+    $document = PatientDocument::sole();
+    expect($document->patient_id)->toBe($this->patient->id)
+        ->and($document->type)->toBe('lab')
+        ->and($document->title)->toContain('Complete Blood Count')
+        ->and($document->is_encrypted)->toBeTrue();
+});
+
+it('refuses a printout that is not a PDF or image', function () {
+    $this->actingAs($this->doctor)
+        ->post("/doctor/consultations/{$this->appointment->id}/lab-request", ['test_name' => 'Lipid Profile']);
+    $result = LabTestResult::firstOrFail();
+
+    $this->actingAs($this->nurse)
+        ->post("/nurse/lab-queue/{$result->id}/record", [
+            'severity' => 'normal',
+            'parameters' => [['name' => 'LDL', 'result' => '90', 'status' => 'normal']],
+            'attachment' => UploadedFile::fake()->create('evil.html', 1, 'text/html'),
+        ])
+        ->assertSessionHasErrors('attachment');
 });
