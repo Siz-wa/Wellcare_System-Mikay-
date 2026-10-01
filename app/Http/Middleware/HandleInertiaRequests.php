@@ -123,6 +123,9 @@ class HandleInertiaRequests extends Middleware
                 'scheme' => config('reverb.apps.apps.0.options.scheme'),
             ] : null,
             'unacknowledgedCritical' => $unacknowledgedCritical,
+            // No internet on this machine (config/app.php, offline_demo).
+            // Pages swap internet-only content for a local stand-in.
+            'offline' => (bool) config('app.offline_demo'),
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

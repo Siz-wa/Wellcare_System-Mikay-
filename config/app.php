@@ -83,6 +83,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Offline Demo
+    |--------------------------------------------------------------------------
+    |
+    | True on a machine demonstrating the system with no internet. Set by
+    | `offline.cmd` / `offline.ps1`, never by hand. The UI replaces what can
+    | only come from the internet (the Google Maps embed) with a local stand-in
+    | rather than a browser error page inside a frame.
+    |
+    */
+
+    'offline_demo' => (bool) env('OFFLINE_DEMO', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

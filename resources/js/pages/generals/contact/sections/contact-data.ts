@@ -13,6 +13,12 @@ export const locationData = {
     address: '2nd floor, Waltermart Aguinaldo Highway, Dasmariñas City, Cavite',
     mapEmbedUrl:
         'https://www.google.com/maps/place/Wellcare+Clinics+%26+Lab.,+Inc+-+Waltermart+Dasmari%C3%B1as/data=!4m7!3m6!1s0x3397d50074a5781b:0x79b0315628df33eb!8m2!3d14.32551!4d120.9415407!16s%2Fg%2F11bx2l0_8s!19sChIJG3ildADVlzMR6zPfKFYxsHk?authuser=0&hl=en&rclk=1',
+    // Shown in place of the Google Maps embed when the app runs offline.
+    offline: {
+        heading: 'Wellcare Clinics & Laboratory',
+        landmark: 'Inside Waltermart Dasmariñas, 2nd floor',
+        note: 'The live map needs an internet connection.',
+    },
 };
 
 // ─── Contact channels ─────────────────────────────────────────────────────────

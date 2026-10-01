@@ -72,18 +72,39 @@ test('the root view renders a skip link to the main landmark', function () {
  * pulled by a CSS `@import` that cannot start downloading until app.css has
  * itself parsed. Preloading the real ones is what puts the accessible face on
  * screen before first paint.
+ *
+ * They are self-hosted: the system is demonstrated on a laptop with no
+ * internet, where a Google Fonts link never resolves and every page falls back
+ * to a system font.
  */
 test('the root view preloads the accessible type families and nothing else', function () {
     $response = $this->actingAs(userWithRole('user'))
         ->get(route('user.dashboard'))
         ->assertOk();
 
-    $response->assertSee('Atkinson+Hyperlegible+Next', false);
-    $response->assertSee('Atkinson+Hyperlegible+Mono', false);
-    $response->assertSee('rel="preconnect" href="https://fonts.gstatic.com"', false);
+    $response->assertSee('fonts/atkinson/atkinson.css', false);
+    $response->assertSee('fonts/atkinson/atkinson-hyperlegible-next-normal-latin.woff2', false);
 
+    $response->assertDontSee('fonts.googleapis.com', false);
+    $response->assertDontSee('fonts.gstatic.com', false);
     $response->assertDontSee('fonts.bunny.net', false);
     $response->assertDontSee('instrument-sans', false);
+});
+
+test('every self-hosted font file the stylesheet names exists', function () {
+    $stylesheet = file_get_contents(public_path('fonts/atkinson/atkinson.css'));
+
+    preg_match_all('~url\(\./([^)]+)\)~', $stylesheet, $matches);
+
+    expect($stylesheet)
+        ->toContain("font-family: 'Atkinson Hyperlegible Next'")
+        ->toContain("font-family: 'Atkinson Hyperlegible Mono'");
+
+    expect($matches[1])->toHaveCount(8);
+
+    foreach ($matches[1] as $file) {
+        expect(public_path("fonts/atkinson/{$file}"))->toBeFile();
+    }
 });
 
 /**

@@ -3,15 +3,14 @@
   
    ========================================================================== */
 
-/* Fonts are preconnected + preloaded from resources/views/app.blade.php so the
-   face is on screen before first paint. The @import here is the stylesheet-side
-   fallback only — keep the two in sync when changing families.
+/* Fonts are self-hosted in public/fonts/atkinson and loaded by
+   resources/views/app.blade.php — no Google Fonts request, so the UI is the
+   same with or without internet. Change families there, not here.
 
    Atkinson Hyperlegible Next (Braille Institute) is used for ALL text. It was
    designed for readers with low vision: the letterforms disambiguate the pairs
    that collapse in ordinary grotesques — I/l/1, O/0, b/d, p/q, rn/m — which is
    the difference between "0.5 mg" and "O.5 mg" on a prescription line. */
-@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&display=swap');
 
 :root {
     /* ── BRAND COLORS ─────────────────────────────────────── */

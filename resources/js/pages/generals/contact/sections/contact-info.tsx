@@ -1,4 +1,5 @@
 // resources/js/pages/user/contact/sections/ContactInfoSection.tsx
+import { usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useInView } from '@/hooks/useInView';
 import { contactChannels, locationData } from './contact-data';
@@ -69,6 +70,7 @@ const ICONS: Record<ContactChannel['icon'], ReactElement> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ContactInfoSection() {
     const { ref, inView } = useInView();
+    const { offline } = usePage().props;
 
     return (
         <section className="wc-section">
@@ -185,18 +187,50 @@ export default function ContactInfoSection() {
                             transitionTimingFunction: 'var(--ease-out)',
                         }}
                     >
-                        {/* Map embed */}
+                        {/* Map embed — a local stand-in when offline, since
+                            the frame would otherwise hold a browser error page */}
                         <div className="mb-4 aspect-[4/3] overflow-hidden rounded-[var(--radius-3xl)] shadow-[var(--shadow-xl)]">
-                            <iframe
-                                title="Wellcare Clinics Location"
-                                src={`https://maps.google.com/maps?q=${encodeURIComponent(locationData.address)}&output=embed`}
-                                width="100%"
-                                height="100%"
-                                style={{ border: 0, display: 'block' }}
-                                allowFullScreen
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                            />
+                            {offline ? (
+                                <div
+                                    className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center"
+                                    style={{
+                                        background:
+                                            'linear-gradient(135deg, var(--wc-blue-50), var(--wc-blue-100))',
+                                        color: 'var(--wc-blue-800)',
+                                    }}
+                                >
+                                    <span
+                                        style={{ color: 'var(--wc-blue-600)' }}
+                                    >
+                                        {ICONS.location}
+                                    </span>
+                                    <p className="m-0 text-lg font-semibold">
+                                        {locationData.offline.heading}
+                                    </p>
+                                    <p className="m-0 text-sm">
+                                        {locationData.offline.landmark}
+                                    </p>
+                                    <p
+                                        className="m-0 text-xs"
+                                        style={{
+                                            color: 'var(--wc-text-secondary)',
+                                        }}
+                                    >
+                                        {locationData.offline.note}
+                                    </p>
+                                </div>
+                            ) : (
+                                <iframe
+                                    title="Wellcare Clinics Location"
+                                    src={`https://maps.google.com/maps?q=${encodeURIComponent(locationData.address)}&output=embed`}
+                                    width="100%"
+                                    height="100%"
+                                    style={{ border: 0, display: 'block' }}
+                                    allowFullScreen
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                />
+                            )}
                         </div>
 
                         {/* Address pill below map */}

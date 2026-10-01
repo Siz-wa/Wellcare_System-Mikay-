@@ -26,25 +26,20 @@
              prescription or an accession number is the difference between right
              and wrong rather than merely pretty.
 
-             Preconnect + preload rather than a bare stylesheet link: the CSS
-             `@import` in resources/css/tokens.css cannot start the font download
-             until app.css has itself parsed, which is two round trips of
-             fallback text. `font-display: swap` (in the Google stylesheet) keeps
-             text visible throughout.
-
-             This replaced a fonts.bunny.net link for Instrument Sans that no
-             stylesheet in the project ever referenced. --}}
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+             Self-hosted from public/fonts/atkinson, not fonts.googleapis.com:
+             the app is demonstrated on a laptop with no internet, where the
+             Google stylesheet never arrives and every page falls back to a
+             system font. The upright text face is preloaded because it paints
+             nearly every glyph on first render; `font-display: swap` keeps text
+             visible while it loads. --}}
         <link
             rel="preload"
-            as="style"
-            href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&display=swap"
+            as="font"
+            type="font/woff2"
+            href="{{ asset('fonts/atkinson/atkinson-hyperlegible-next-normal-latin.woff2') }}"
+            crossorigin
         >
-        <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&family=Atkinson+Hyperlegible+Mono:ital,wght@0,200..800;1,200..800&display=swap"
-        >
+        <link rel="stylesheet" href="{{ asset('fonts/atkinson/atkinson.css') }}">
 
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])

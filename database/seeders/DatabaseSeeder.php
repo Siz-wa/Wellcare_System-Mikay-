@@ -30,6 +30,10 @@ class DatabaseSeeder extends Seeder
             PatientSeeder::class,
             AppointmentSeeder::class,  // depends on patients + doctors
             LabResultSeeder::class,    // depends on appointments + nurses
+            // Video bookings at each payment step. After AppointmentSeeder so
+            // its slot check sees the in-person rows, and after HrSeeder, whose
+            // officer verifies the paid ones.
+            VirtualConsultationSeeder::class,
         ]);
     }
 }

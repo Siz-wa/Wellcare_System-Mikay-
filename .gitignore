@@ -13,6 +13,8 @@
 .DS_Store
 .env
 .env.backup
+.env.backup*
+/composer.phar
 .env.production
 .phpactor.json
 .phpunit.result.cache
