@@ -405,6 +405,11 @@ function Start-Stack([string[]] $extraNames = @(), [string[]] $extraCommands = @
         if ($LASTEXITCODE -ne 0) { Die "npm run build failed (see above)." }
     }
 
+    # The hourly sweep only runs while the scheduler does, so a laptop that was
+    # off still holds yesterday's unconfirmed bookings and their HMO approvals.
+    # Close them before anyone opens a queue. Only past dates are touched.
+    & php artisan wellcare:appointments:expire-stale
+
     $names = @('server', 'queue', 'reverb', 'scheduler') + $extraNames
     $colors = @('blue', 'magenta', 'green', 'yellow', 'cyan')[0..($names.Count - 1)]
 

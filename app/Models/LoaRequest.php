@@ -17,9 +17,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *   submitted → (HR approves) → approved
  *             → (HR rejects)  → rejected
  *
- * `expired` is a fourth terminal state for an approved LOA whose `valid_until`
- * has passed. Nothing sweeps for it yet — read `is_expired` instead of trusting
- * the column. See WELLCARE-BUILD-PLAN.md Phase 2 "Deferred".
+ * `expired` is a fourth terminal state, reached two ways:
+ *  - an approved LOA whose `valid_until` has passed. Nothing sweeps for that
+ *    yet — read `is_expired` instead of trusting the column. See
+ *    WELLCARE-BUILD-PLAN.md Phase 2 "Deferred".
+ *  - a submitted LOA whose appointment was cancelled before HR decided
+ *    (the Appointment model closes it), including a visit date that passed.
  *
  * Every transition lives in LoaService, never in a controller — the same split
  * LabResultService and BookingService use.

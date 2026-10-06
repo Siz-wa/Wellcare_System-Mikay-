@@ -125,6 +125,33 @@ final class Appointment extends Model
 
             $appointment->appointment_at = $appointment->deriveAppointmentAt();
         });
+
+        /*
+         * A visit that is no longer happening takes its undecided LOA with it.
+         *
+         * Left `submitted`, the request sat in the HR dashboard and the
+         * approvals queue for good: a decision nobody could make, about a date
+         * already gone. Here rather than in one cancel path because there are
+         * four (AppointmentCancellationService, BookingService, the stale
+         * sweep, the payment sweep), and the stuck records came from the gap
+         * between them. `expired`, not `rejected`: HR decided nothing, and
+         * "Rejected today" must count only what HR rejected. LoaService::reject
+         * sets `rejected` before it cancels, so it is never caught here.
+         */
+        self::updated(function (self $appointment): void {
+            if (! $appointment->wasChanged('status') || ! in_array($appointment->status, ['cancelled', 'no_show'], true)) {
+                return;
+            }
+
+            LoaRequest::where('appointment_id', $appointment->id)
+                ->where('status', 'submitted')
+                ->get()
+                ->each(fn (LoaRequest $loa) => $loa->update([
+                    'status' => 'expired',
+                    'remarks' => 'Closed without a decision: the appointment was '
+                        .($appointment->status === 'no_show' ? 'marked a no-show.' : 'cancelled.'),
+                ]));
+        });
     }
 
     /**

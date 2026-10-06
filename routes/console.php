@@ -50,12 +50,17 @@ Schedule::command('wellcare:payments:sweep')
     ->withoutOverlapping();
 
 /**
- * Just after midnight, once yesterday is over: close bookings whose date passed
- * without the visit happening, so queues and counts stop carrying them. See
- * ExpireStaleAppointments for what each status becomes.
+ * Close bookings whose date passed without the visit happening, so queues and
+ * counts stop carrying them. See ExpireStaleAppointments for what each status
+ * becomes.
+ *
+ * Hourly, not once at 00:30. It only touches dates before today, so running it
+ * again finds nothing new and is cheap — but a once-a-night slot never fires on
+ * a laptop that is off at night, which is every demo machine. Their HR
+ * dashboards carried HMO approvals for visits ten days gone.
  */
 Schedule::command('wellcare:appointments:expire-stale')
-    ->dailyAt('00:30')
+    ->hourly()
     ->withoutOverlapping();
 
 /**

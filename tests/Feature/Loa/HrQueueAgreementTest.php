@@ -3,6 +3,7 @@
 use App\Models\Appointment;
 use App\Models\LoaRequest;
 use App\Models\Patient;
+use App\Services\LoaService;
 
 /**
  * The HR dashboard and the HMO approvals queue must report the same work.
@@ -112,4 +113,27 @@ it('counts today decisions from the LOA register, not from appointment timestamp
     expect($stats['approvedToday'])->toBe(1)
         ->and($stats['rejectedToday'])->toBe(1)
         ->and($stats['pendingHmo'])->toBe(1);
+});
+
+it('closes an undecided LOA whichever way its appointment is cancelled', function (string $status) {
+    // Four code paths cancel or no-show an appointment. Each used to leave the
+    // LOA `submitted`, a record in the HR queue for good.
+    $appointment = pendingHmoAppointment();
+
+    $appointment->update(['status' => $status]);
+
+    $loa = $appointment->loaRequest()->sole();
+
+    expect($loa->status)->toBe('expired')
+        ->and(LoaRequest::awaitingApproval()->count())->toBe(0);
+})->with(['cancelled', 'no_show']);
+
+it('leaves an LOA HR rejected as rejected', function () {
+    $hr = userWithRole('hr');
+    $appointment = pendingHmoAppointment();
+
+    app(LoaService::class)->reject($appointment->loaRequest, $hr, 'Coverage not active.');
+
+    expect($appointment->loaRequest()->sole()->status)->toBe('rejected')
+        ->and($appointment->fresh()->status)->toBe('cancelled');
 });
