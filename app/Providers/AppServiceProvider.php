@@ -60,6 +60,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureProductionSafety();
+        $this->useSharedPublicUrl();
         $this->configureAssetPreloading();
         $this->configureSignallingRelay();
         $this->allowWindowsCasedServeVariables();
@@ -190,6 +191,64 @@ class AppServiceProvider extends ServiceProvider
             .'against a database that already holds encrypted records, because a '
             .'new key cannot decrypt them.'
         );
+    }
+
+    /**
+     * Point email links at the live `wellcare.ps1 share` address, if there is
+     * one.
+     *
+     * Every link in an email — verify, reset, staff invitation, the buttons in
+     * the appointment emails — is built from `app.url`, by a queue worker with
+     * no request to take a host from. On a laptop that is
+     * `http://127.0.0.1:8000`, which on the phone that opens the email is the
+     * phone itself: "refused to connect". And `.env` alone cannot fix it: a
+     * worker keeps the `APP_URL` it started with (`queue:listen` hands its
+     * environment to every child), and a job queued before the tunnel opened
+     * renders after it.
+     *
+     * So `share` writes the tunnel address to one file and deletes it on exit,
+     * and this reads it on every boot. Each queued job and each scheduler run
+     * is a fresh process, so an email is built with the address that is live
+     * at the moment it is SENT, not the one that was live when something
+     * started.
+     *
+     * Web requests keep their own host for routing: forcing the tunnel there
+     * would bounce someone browsing at 127.0.0.1 onto a domain where they have
+     * no session. Only `app.url` changes for them, which is what the email
+     * templates read.
+     *
+     * Never in production, where the deployment owns `APP_URL`. Not at boot
+     * under the test suite either: a `share` running on the same laptop must
+     * not change what the tests' URLs look like. Tests pass their own file.
+     */
+    public function useSharedPublicUrl(?string $file = null): void
+    {
+        if ($this->app->isProduction()) {
+            return;
+        }
+
+        if ($file === null) {
+            if ($this->app->runningUnitTests()) {
+                return;
+            }
+            $file = storage_path('framework/share-url');
+        }
+
+        if (! is_file($file)) {
+            return;
+        }
+
+        $url = rtrim(trim((string) file_get_contents($file)), '/');
+        if (! str_starts_with($url, 'https://') || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return;
+        }
+
+        config(['app.url' => $url]);
+
+        if ($this->app->runningInConsole()) {
+            URL::forceRootUrl($url);
+            URL::forceScheme('https');
+        }
     }
 
     /**

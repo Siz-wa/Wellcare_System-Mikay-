@@ -626,6 +626,12 @@ function Invoke-Online([switch] $Brief) {
 $tunnelHome = Join-Path $repo '.tools'
 $tunnelLogs = Join-Path $repo 'storage\logs'
 
+# The live public address, read by AppServiceProvider::useSharedPublicUrl() on
+# every boot, so each email is built with the address live when it is SENT. Its
+# own file rather than only .env: a queue worker keeps the APP_URL it started
+# with, and a job queued before the tunnel opened would still say 127.0.0.1.
+$shareUrlFile = Join-Path $repo 'storage\framework\share-url'
+
 # What .env holds when nothing is shared; also what `start` heals back to.
 $localTunnelValues = [ordered]@{
     'APP_URL'       = $appUrl
@@ -635,11 +641,13 @@ $localTunnelValues = [ordered]@{
 }
 
 function Test-TunnelEnv {
+    if (Test-Path $shareUrlFile) { return $true }
     $lines = Read-EnvLines
     return ((Get-EnvValue $lines 'REVERB_HOST') -like '*.trycloudflare.com') -or ((Get-EnvValue $lines 'APP_URL') -like '*.trycloudflare.com*')
 }
 
 function Reset-TunnelEnv {
+    if (Test-Path $shareUrlFile) { Remove-Item $shareUrlFile -Force -ErrorAction SilentlyContinue }
     $lines = Read-EnvLines
     foreach ($key in $localTunnelValues.Keys) { $lines = Set-EnvValue $lines $key $localTunnelValues[$key] }
     Write-EnvLines $lines
@@ -758,8 +766,9 @@ function Invoke-Share {
         Ok "reverb  https://$reverbHost"
 
         # REVERB_* reaches the browser as an Inertia prop on each request, so
-        # no rebuild is needed. APP_URL makes links in queued emails point at
-        # the address the phone can open.
+        # no rebuild is needed. The share-url file makes every email link point
+        # at the address the phone can open; APP_URL agrees with it.
+        [System.IO.File]::WriteAllText($shareUrlFile, $siteUrl, (New-Object System.Text.UTF8Encoding($false)))
         $lines = Read-EnvLines
         $lines = Set-EnvValue $lines 'APP_URL' $siteUrl
         $lines = Set-EnvValue $lines 'REVERB_HOST' $reverbHost
