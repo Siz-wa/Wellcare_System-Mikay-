@@ -684,18 +684,36 @@ function Use-Cloudflared {
     $target = Join-Path $tunnelHome 'cloudflared.exe'
     $partial = "$target.download"
 
-    Info "cloudflared is not installed - downloading it once into .tools\ (about 60 MB)..."
+    Info "cloudflared is not installed - downloading it once into .tools\ (55 MB, progress below)..."
     New-Item -ItemType Directory -Force $tunnelHome | Out-Null
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-        $old = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing
-        $ProgressPreference = $old
-        Move-Item $partial $target -Force
-    } catch {
-        if (Test-Path $partial) { Remove-Item $partial -Force }
-        Die "could not download cloudflared. Check the internet connection, or install it with: winget install Cloudflare.cloudflared"
+    if (Test-Path $partial) { Remove-Item $partial -Force }
+
+    # curl.exe (in Windows since 10 1803) rather than Invoke-WebRequest: it
+    # shows progress, and it GIVES UP on a stalled connection. A silent
+    # 55 MB download on slow Wi-Fi looks frozen, and a stalled one was frozen,
+    # forever. Aborts below 20 KB/s for 60s; retries a dropped connection.
+    $curl = Join-Path $env:SystemRoot 'System32\curl.exe'
+    $downloaded = $false
+    if (Test-Path $curl) {
+        & $curl -L --fail --retry 3 --connect-timeout 20 --speed-limit 20480 --speed-time 60 --progress-bar -o $partial $url
+        $downloaded = ($LASTEXITCODE -eq 0)
+    } else {
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $old = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing -TimeoutSec 600
+            $ProgressPreference = $old
+            $downloaded = $true
+        } catch {
+            $downloaded = $false
+        }
     }
+
+    if (-not $downloaded -or -not (Test-Path $partial)) {
+        if (Test-Path $partial) { Remove-Item $partial -Force }
+        Die "could not download cloudflared (no internet, or too slow). Run this again, or install it once with: winget install Cloudflare.cloudflared"
+    }
+    Move-Item $partial $target -Force
     Ok "cloudflared downloaded"
     return $target
 }
@@ -726,6 +744,9 @@ function Start-QuickTunnel([string] $exe, [int] $port, [string] $name) {
 function Wait-TunnelUrl($tunnel) {
     for ($i = 0; $i -lt 120; $i++) {
         Start-Sleep -Milliseconds 500
+        # Normally ~6 seconds. Say something while it takes longer, so a slow
+        # network never looks like a frozen script.
+        if ($i -gt 0 -and $i % 20 -eq 0) { Info "still waiting for Cloudflare to hand out the $($tunnel.Name) address ($($i / 2)s of 60s)..." }
         if (-not (Test-Path $tunnel.Log)) { continue }
 
         $text = Get-Content $tunnel.Log -Raw -ErrorAction SilentlyContinue
