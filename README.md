@@ -42,10 +42,13 @@ cd Wellcare_System-Mikay-
 | `.\wellcare.cmd offline` | Makes the system work with **no internet**: local fonts and map card, mail to log, no STUN, Reverb on this machine |
 | `.\wellcare.cmd online` | Undoes `offline` (restores the previous `.env`) |
 | `.\wellcare.cmd status` | Shows the settings and what is running |
+| `.\wellcare.cmd share` | Runs the system **and** puts it on a public https link (Cloudflare quick tunnel), then prints the link and a **QR code** for the phone. For video consultations between the laptop and a phone. Needs internet; downloads `cloudflared` the first time if it is not installed. Ctrl+C closes the tunnels |
 
 Every demo password is `password123`. `reset` prints the accounts to use: patients `juan.dela.cruz@gmail.com` (video consult ready today), `maria.santos@gmail.com` and `pedro.reyes@gmail.com`; doctor `dr.reyes@wellcare.com`; `hr.garcia@wellcare.com`; `nurse.delacruz@wellcare.com`; `admin@wellcare.com`.
 
 Offline video consultations work between two browser windows on the same laptop (for example the doctor in Chrome and the patient in Edge).
+
+For a laptop + phone video call, run `.\wellcare.cmd share`, wait for the QR code, scan it with the phone and log in as the patient; log in as the doctor in the browser that opens on the laptop. See `TWO-DEVICE-TESTING.md` for the test checklist and troubleshooting.
 
 ## Capstone Team:
    1. Aliyah Mikayla Danao

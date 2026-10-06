@@ -8,6 +8,8 @@
 #   .\wellcare.cmd offline    switch .env to work with NO internet
 #   .\wellcare.cmd online     switch back
 #   .\wellcare.cmd status     what is configured and what is running
+#   .\wellcare.cmd share      run it AND put it on the internet over https, so a
+#                             phone can join a video consultation (prints a QR)
 #
 # From cmd.exe use `wellcare <command>` - wellcare.cmd forwards here with a
 # per-process ExecutionPolicy bypass (a fresh Windows refuses unsigned .ps1).
@@ -41,7 +43,11 @@ param(
     [switch] $Online,
     [switch] $Offline,
     # reset: do not ask for confirmation
-    [switch] $Yes
+    [switch] $Yes,
+
+    # tunnel-watch (internal, started by `share`): the two public addresses
+    [string] $SiteUrl,
+    [string] $ReverbHost
 )
 
 # NOT 'Stop'. In PowerShell 5.1 a native command that writes to stderr (php
@@ -367,24 +373,59 @@ function Invoke-Setup {
     Write-Host ''
 }
 
-function Invoke-Start {
-    $php = Use-Php
-
+function Assert-SetUp {
     if (-not (Test-Path (Join-Path $repo 'vendor')) -or -not (Test-Path (Join-Path $repo 'node_modules')) -or -not (Test-Path $envPath)) {
         Die "not set up yet. Run: .\wellcare.cmd setup"
     }
+}
 
-    Ensure-MySql
-
-    # Two stacks at once means two queue workers and a second server that
-    # cannot bind 8000 - it looks like a broken app, it is just a double start.
+# Two stacks at once means two queue workers and a second server that cannot
+# bind 8000 - it looks like a broken app, it is just a double start.
+function Assert-NotRunning {
     $running = Get-CimInstance Win32_Process -Filter "Name='php.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -and ($_.CommandLine -like '*artisan serve*' -or $_.CommandLine -like '*queue:listen*' -or $_.CommandLine -like '*reverb:start*') }
     if ($running) {
         Warn "WellCare already looks like it is running (php PID $(@($running.ProcessId) -join ', '))."
-        Warn "Close that terminal (or Ctrl+C in it) first, then run .\wellcare.cmd start again."
+        Warn "Close that terminal (or Ctrl+C in it) first, then run this again."
         exit 1
     }
+}
+
+# Server, queue, Reverb and scheduler on the BUILT assets, plus any extra
+# processes the caller adds. Returns when Ctrl+C stops them.
+function Start-Stack([string[]] $extraNames = @(), [string[]] $extraCommands = @()) {
+    # A leftover public\hot (from an earlier `npm run dev`) makes every page
+    # request its scripts from a Vite server that is not running: a blank page.
+    $hot = Join-Path $repo 'public\hot'
+    if (Test-Path $hot) { Remove-Item $hot -Force }
+
+    if (-not (Test-Path (Join-Path $repo 'public\build\manifest.json'))) {
+        Info "no built interface yet - building once (npm run build)..."
+        & npm run build
+        if ($LASTEXITCODE -ne 0) { Die "npm run build failed (see above)." }
+    }
+
+    $names = @('server', 'queue', 'reverb', 'scheduler') + $extraNames
+    $colors = @('blue', 'magenta', 'green', 'yellow', 'cyan')[0..($names.Count - 1)]
+
+    # The built assets instead of Vite: one less process, and nothing that can
+    # hot-reload in the middle of a demo. The local concurrently binary, never
+    # `npx concurrently`, which may try to reach the npm registry.
+    $concurrently = Join-Path $repo 'node_modules\.bin\concurrently.cmd'
+    & $concurrently -k -n ($names -join ',') -c ($colors -join ',') `
+        'php artisan serve --host=127.0.0.1 --port=8000' `
+        'php artisan queue:listen --tries=1' `
+        'php artisan reverb:start' `
+        'php artisan schedule:work' `
+        @extraCommands
+}
+
+function Invoke-Start {
+    $php = Use-Php
+    Assert-SetUp
+    Ensure-MySql
+    Assert-NotRunning
+    Stop-StaleTunnels
 
     # Ask every time: the laptop that had Wi-Fi at home has none at the venue,
     # and a server started with the wrong .env stays wrong until restarted.
@@ -400,10 +441,13 @@ function Invoke-Start {
         Ok "running OFFLINE - no internet needed"
     } else {
         Ok "running ONLINE"
-        $reverbHost = Get-EnvValue (Read-EnvLines) 'REVERB_HOST'
-        if ($reverbHost -and $reverbHost -ne '127.0.0.1' -and $reverbHost -ne 'localhost') {
-            Warn "REVERB_HOST is $reverbHost - real-time updates and video need that tunnel to be up."
-        }
+    }
+
+    # A quick-tunnel address dies with the `share` that made it. Left in .env it
+    # silently breaks the bell and every video call, and looks like a bug.
+    if (Test-TunnelEnv) {
+        Reset-TunnelEnv
+        Ok "removed the old share address from .env (use .\wellcare.cmd share for a phone)"
     }
 
     & $php artisan config:clear | Out-Null
@@ -425,26 +469,7 @@ function Invoke-Start {
         return
     }
 
-    # A leftover public\hot (from an earlier `npm run dev`) makes every page
-    # request its scripts from a Vite server that is not running: a blank page.
-    $hot = Join-Path $repo 'public\hot'
-    if (Test-Path $hot) { Remove-Item $hot -Force }
-
-    if (-not (Test-Path (Join-Path $repo 'public\build\manifest.json'))) {
-        Info "no built interface yet - building once (npm run build)..."
-        & npm run build
-        if ($LASTEXITCODE -ne 0) { Die "npm run build failed (see above)." }
-    }
-
-    # The built assets instead of Vite: one less process, and nothing that can
-    # hot-reload in the middle of a demo. The local concurrently binary, never
-    # `npx concurrently`, which may try to reach the npm registry.
-    $concurrently = Join-Path $repo 'node_modules\.bin\concurrently.cmd'
-    & $concurrently -k -n 'server,queue,reverb,scheduler' -c 'blue,magenta,green,yellow' `
-        'php artisan serve --host=127.0.0.1 --port=8000' `
-        'php artisan queue:listen --tries=1' `
-        'php artisan reverb:start' `
-        'php artisan schedule:work'
+    Start-Stack
 }
 
 function Invoke-Reset {
@@ -581,6 +606,318 @@ function Invoke-Online([switch] $Brief) {
     Write-Host ''
 }
 
+# ---- Share (two-device testing) ----------------------------------------------
+#
+# A phone's camera and microphone only open on https (a "secure context"), so
+# testing a video consultation between the laptop and a phone needs the app on
+# a public https address. `share` does all of TWO-DEVICE-TESTING.md by itself:
+#
+#   1. finds cloudflared, or downloads it into .tools\ (no install, no account)
+#   2. opens two Cloudflare quick tunnels - one for the site (8000) and one for
+#      Reverb (8080), because the browser connects to both directly
+#   3. writes the Reverb tunnel into .env, starts the stack on built assets
+#   4. a `tunnel` pane waits until both addresses really answer from outside -
+#      the site AND a WebSocket handshake - then prints the link and a QR code
+#   5. on Ctrl+C: stops the tunnels and puts .env back to this machine
+#
+# The addresses are new on every run. That is the nature of quick tunnels and
+# why everything above is automatic rather than documented.
+
+$tunnelHome = Join-Path $repo '.tools'
+$tunnelLogs = Join-Path $repo 'storage\logs'
+
+# What .env holds when nothing is shared; also what `start` heals back to.
+$localTunnelValues = [ordered]@{
+    'APP_URL'       = $appUrl
+    'REVERB_HOST'   = '127.0.0.1'
+    'REVERB_PORT'   = '8080'
+    'REVERB_SCHEME' = 'http'
+}
+
+function Test-TunnelEnv {
+    $lines = Read-EnvLines
+    return ((Get-EnvValue $lines 'REVERB_HOST') -like '*.trycloudflare.com') -or ((Get-EnvValue $lines 'APP_URL') -like '*.trycloudflare.com*')
+}
+
+function Reset-TunnelEnv {
+    $lines = Read-EnvLines
+    foreach ($key in $localTunnelValues.Keys) { $lines = Set-EnvValue $lines $key $localTunnelValues[$key] }
+    Write-EnvLines $lines
+}
+
+# Only the cloudflared processes `share` started (they log to our files) - never
+# a tunnel the user runs for something else.
+function Stop-StaleTunnels {
+    Get-CimInstance Win32_Process -Filter "Name='cloudflared.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like '*wellcare-tunnel-*' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+function Find-Cloudflared {
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $onPath = Get-Command cloudflared -ErrorAction SilentlyContinue
+    if ($onPath) { $candidates.Add($onPath.Source) }
+    if (${env:ProgramFiles(x86)}) { $candidates.Add((Join-Path ${env:ProgramFiles(x86)} 'cloudflared\cloudflared.exe')) }
+    $candidates.Add((Join-Path $env:ProgramFiles 'cloudflared\cloudflared.exe'))
+    $candidates.Add((Join-Path $tunnelHome 'cloudflared.exe'))
+
+    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+    return $null
+}
+
+# A single self-contained exe from Cloudflare's GitHub releases, kept in the
+# gitignored .tools\ folder: no installer, no admin rights, no Cloudflare login.
+function Use-Cloudflared {
+    $exe = Find-Cloudflared
+    if ($exe) { return $exe }
+
+    $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'x86' -and -not $env:PROCESSOR_ARCHITEW6432) { '386' } else { 'amd64' }
+    $url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-$arch.exe"
+    $target = Join-Path $tunnelHome 'cloudflared.exe'
+    $partial = "$target.download"
+
+    Info "cloudflared is not installed - downloading it once into .tools\ (about 60 MB)..."
+    New-Item -ItemType Directory -Force $tunnelHome | Out-Null
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $old = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing
+        $ProgressPreference = $old
+        Move-Item $partial $target -Force
+    } catch {
+        if (Test-Path $partial) { Remove-Item $partial -Force }
+        Die "could not download cloudflared. Check the internet connection, or install it with: winget install Cloudflare.cloudflared"
+    }
+    Ok "cloudflared downloaded"
+    return $target
+}
+
+function Start-QuickTunnel([string] $exe, [int] $port, [string] $name) {
+    $log = Join-Path $tunnelLogs "wellcare-tunnel-$name.log"
+    if (Test-Path $log) { Remove-Item $log -Force -ErrorAction SilentlyContinue }
+
+    # A quick tunnel is silently skipped when cloudflared finds a config.yml in
+    # the user's profile (left over from any named tunnel). Pointing its home
+    # at .tools\ for this one process means there is never one to find.
+    $cfHome = Join-Path $tunnelHome 'cloudflared-home'
+    New-Item -ItemType Directory -Force $cfHome | Out-Null
+    $savedHome = $env:HOME; $savedProfile = $env:USERPROFILE
+    $env:HOME = $cfHome; $env:USERPROFILE = $cfHome
+    try {
+        $proc = Start-Process -FilePath $exe -WindowStyle Hidden -PassThru -ArgumentList @(
+            'tunnel', '--no-autoupdate', '--logfile', "`"$log`"", '--url', "http://127.0.0.1:$port")
+    } finally {
+        $env:HOME = $savedHome; $env:USERPROFILE = $savedProfile
+    }
+
+    return @{ Process = $proc; Log = $log; Name = $name }
+}
+
+# cloudflared prints the address inside a box once Cloudflare hands one out.
+# `api.trycloudflare.com` is the endpoint it asks, and shows up in its errors.
+function Wait-TunnelUrl($tunnel) {
+    for ($i = 0; $i -lt 120; $i++) {
+        Start-Sleep -Milliseconds 500
+        if (-not (Test-Path $tunnel.Log)) { continue }
+
+        $text = Get-Content $tunnel.Log -Raw -ErrorAction SilentlyContinue
+        if ($text -match 'https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com') { return $Matches[0] }
+
+        if ($text -match '429|Too Many Requests') {
+            Die "Cloudflare is refusing new quick tunnels for a moment (too many in a short time). Wait a minute, then run .\wellcare.cmd share again."
+        }
+        if ($tunnel.Process.HasExited) { break }
+    }
+
+    Warn "the $($tunnel.Name) tunnel did not start. Last lines of $($tunnel.Log):"
+    if (Test-Path $tunnel.Log) { Get-Content $tunnel.Log -Tail 5 | ForEach-Object { Info $_ } }
+    Die "no tunnel address. Is this laptop on the internet? (A network that blocks outbound port 7844 also blocks Cloudflare tunnels - try a phone hotspot.)"
+}
+
+function Invoke-Share {
+    $php = Use-Php
+    Assert-SetUp
+    Ensure-MySql
+    Assert-NotRunning
+    Stop-StaleTunnels
+
+    if ((Get-RunMode) -eq 'offline') {
+        Invoke-Online -Brief
+        Ok "switched to ONLINE - sharing needs internet"
+    }
+
+    Step "Opening the tunnels"
+    $cloudflared = Use-Cloudflared
+    $site = Start-QuickTunnel $cloudflared 8000 'site'
+    $reverb = Start-QuickTunnel $cloudflared 8080 'reverb'
+
+    try {
+        $siteUrl = Wait-TunnelUrl $site
+        $reverbHost = ([uri](Wait-TunnelUrl $reverb)).Host
+        Ok "site    $siteUrl"
+        Ok "reverb  https://$reverbHost"
+
+        # REVERB_* reaches the browser as an Inertia prop on each request, so
+        # no rebuild is needed. APP_URL makes links in queued emails point at
+        # the address the phone can open.
+        $lines = Read-EnvLines
+        $lines = Set-EnvValue $lines 'APP_URL' $siteUrl
+        $lines = Set-EnvValue $lines 'REVERB_HOST' $reverbHost
+        $lines = Set-EnvValue $lines 'REVERB_PORT' '443'
+        $lines = Set-EnvValue $lines 'REVERB_SCHEME' 'https'
+        Write-EnvLines $lines
+        & $php artisan config:clear | Out-Null
+
+        Write-Host ''
+        Write-Host '=== WellCare is starting - the link and QR code appear below once the phone can reach it (about 30 seconds) ===' -ForegroundColor Cyan
+        Write-Host '  Stop: Ctrl+C in this window' -ForegroundColor DarkGray
+        Write-Host ''
+
+        $watch = "powershell -NoProfile -ExecutionPolicy Bypass -File wellcare.ps1 tunnel-watch -SiteUrl $siteUrl -ReverbHost $reverbHost"
+        if ($NoBrowser) { $watch += ' -NoBrowser' }
+        Start-Stack @('tunnel') @($watch)
+    } finally {
+        Stop-Process -Id $site.Process.Id, $reverb.Process.Id -Force -ErrorAction SilentlyContinue
+        Reset-TunnelEnv
+        & $php artisan config:clear | Out-Null
+        Write-Host ''
+        Ok "tunnels closed; .env points at this machine again"
+    }
+}
+
+# --- the `tunnel` pane --------------------------------------------------------
+#
+# Runs inside concurrently, so it must never exit: `-k` would take the whole
+# stack down with it. Output is plain ASCII through a pipe - no colours.
+
+# A brand-new tunnel name takes ~20s to appear in public DNS. Asking the
+# laptop's own resolver before then caches "does not exist" for minutes, and
+# the browser keeps failing long after the tunnel is fine. So ask Cloudflare's
+# and Google's DNS-over-HTTPS instead, which leave the local cache untouched.
+function Wait-PublicDns([string] $hostName) {
+    $resolvers = @('https://cloudflare-dns.com/dns-query', 'https://dns.google/resolve')
+    $failures = 0
+    for ($i = 0; $i -lt 120; $i++) {
+        $resolver = $resolvers[$failures % 2]
+        try {
+            $answer = Invoke-RestMethod "$resolver`?name=$hostName&type=A" -Headers @{ accept = 'application/dns-json' } -TimeoutSec 5 -UseBasicParsing
+            if ($answer.Status -eq 0) { return }
+        } catch {
+            $failures++
+            # Both resolvers blocked (some school networks): just give DNS the
+            # usual time instead.
+            if ($failures -ge 6) { Start-Sleep -Seconds 30; return }
+        }
+        Start-Sleep -Seconds 2
+    }
+}
+
+function Test-Site {
+    try {
+        return (Invoke-WebRequest "$SiteUrl/up" -UseBasicParsing -TimeoutSec 15).StatusCode -eq 200
+    } catch {
+        return $false
+    }
+}
+
+# The same check as TWO-DEVICE-TESTING.md section 2: a real WebSocket through
+# the Reverb tunnel, which must answer pusher:connection_established. Anything
+# less and the call sits on "Waiting for the other person" with no error.
+function Test-Reverb([string] $key) {
+    $socket = New-Object System.Net.WebSockets.ClientWebSocket
+    $timeout = New-Object System.Threading.CancellationTokenSource 15000
+    try {
+        $uri = [uri]"wss://$ReverbHost/app/$key`?protocol=7&client=js&version=8.4.0&flash=false"
+        $socket.ConnectAsync($uri, $timeout.Token).Wait()
+        $buffer = New-Object byte[] 4096
+        $segment = New-Object 'System.ArraySegment[byte]' -ArgumentList (, $buffer)
+        $received = $socket.ReceiveAsync($segment, $timeout.Token).GetAwaiter().GetResult()
+        return [Text.Encoding]::UTF8.GetString($buffer, 0, $received.Count) -like '*connection_established*'
+    } catch {
+        return $false
+    } finally {
+        $socket.Dispose()
+        $timeout.Dispose()
+    }
+}
+
+# The banner and QR leave in ONE raw write: concurrently interleaves the server
+# log line by line, and a request logged mid-QR would make it unscannable. Raw
+# bytes, because PowerShell would re-encode the QR's block characters.
+function Write-ShareBanner([string] $php) {
+    $qrFile = Join-Path $tunnelLogs "wellcare-qr-$PID.txt"
+    Start-Process -FilePath $php -ArgumentList 'artisan', 'wellcare:qr', $SiteUrl -NoNewWindow -Wait -RedirectStandardOutput $qrFile -WorkingDirectory $repo
+    # Typed, because an `if` expression would unroll the bytes into object[].
+    [byte[]] $qr = @()
+    if (Test-Path $qrFile) { $qr = [IO.File]::ReadAllBytes($qrFile) }
+    Remove-Item $qrFile -Force -ErrorAction SilentlyContinue
+
+    $nl = [Environment]::NewLine
+    $top = $nl + '============================================================' + $nl +
+        '  READY - open this on BOTH devices:' + $nl + $nl +
+        "      $SiteUrl" + $nl + $nl +
+        '  Phone: point the camera at this code' + $nl + $nl
+    $bottom = $nl +
+        '  Laptop (doctor):  dr.reyes@wellcare.com' + $nl +
+        '  Phone (patient):  juan.dela.cruz@gmail.com   - video consult ready today' + $nl +
+        '  Password:         password123' + $nl + $nl +
+        '  Allow camera + microphone on both. iPhone: use Safari.' + $nl +
+        '  Keep the two devices apart or use headphones, or they howl.' + $nl +
+        '  The link is new every time share starts.' + $nl +
+        '============================================================' + $nl + $nl
+
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $bytes = New-Object System.Collections.Generic.List[byte]
+    $bytes.AddRange($utf8.GetBytes($top))
+    $bytes.AddRange($qr)
+    $bytes.AddRange($utf8.GetBytes($bottom))
+
+    $stdout = [Console]::OpenStandardOutput()
+    $stdout.Write($bytes.ToArray(), 0, $bytes.Count)
+    $stdout.Flush()
+}
+
+function Invoke-TunnelWatch {
+    $php = Use-Php
+    $key = Get-EnvValue (Read-EnvLines) 'REVERB_APP_KEY'
+
+    Write-Host 'waiting for the tunnel addresses to go live...'
+    Wait-PublicDns ([uri]$SiteUrl).Host
+    Wait-PublicDns $ReverbHost
+    # Only now ask the local resolver; drop anything it cached too early.
+    try { Clear-DnsClientCache -ErrorAction Stop } catch { }
+
+    $ready = $false
+    for ($i = 0; $i -lt 30 -and -not $ready; $i++) {
+        $siteOk = Test-Site
+        $reverbOk = $siteOk -and (Test-Reverb $key)
+        $ready = $siteOk -and $reverbOk
+        if (-not $ready) { Start-Sleep -Seconds 3 }
+    }
+
+    if ($ready) {
+        Write-ShareBanner $php
+        if (-not $NoBrowser) { Start-Process $SiteUrl }
+    } else {
+        if (-not $siteOk) { Write-Host "!! the site does not answer at $SiteUrl/up - see storage\logs\wellcare-tunnel-site.log" }
+        else { Write-Host "!! the site works but Reverb does not answer at wss://$ReverbHost - video will sit on 'Waiting'. See storage\logs\wellcare-tunnel-reverb.log" }
+        Write-Host '!! Stop with Ctrl+C and run .\wellcare.cmd share again. Still checking every 30 seconds...'
+    }
+
+    # Keep watching: a quick tunnel can drop, and a call that will not connect
+    # looks exactly like a code bug unless something says otherwise.
+    $wasOk = $ready
+    $announced = $ready
+    while ($true) {
+        Start-Sleep -Seconds 30
+        $ok = (Test-Site) -and (Test-Reverb $key)
+        if ($ok -and -not $announced) { Write-ShareBanner $php; $announced = $true }
+        elseif ($ok -and -not $wasOk) { Write-Host "tunnel is back: $SiteUrl" }
+        elseif (-not $ok -and $wasOk) { Write-Host '!! the tunnel stopped answering. If it does not come back in a minute, Ctrl+C and run .\wellcare.cmd share again (the link will change).' }
+        $wasOk = $ok
+    }
+}
+
 function Invoke-Status {
     Write-Host ''
     Write-Host '  .env' -ForegroundColor Cyan
@@ -611,6 +948,8 @@ function Show-Help {
     Write-Host '    .\wellcare.cmd offline    make it work with no internet'
     Write-Host '    .\wellcare.cmd online     undo offline'
     Write-Host '    .\wellcare.cmd status     show settings and what is running'
+    Write-Host '    .\wellcare.cmd share      run it with a public https link + QR code, so a phone'
+    Write-Host '                              can join a video consultation (needs internet)'
     Write-Host ''
     Write-Host '  Every demo password: password123' -ForegroundColor DarkGray
     Write-Host ''
@@ -623,5 +962,7 @@ switch ($Command.ToLower()) {
     'offline' { Invoke-Offline }
     'online'  { Invoke-Online }
     'status'  { Invoke-Status }
+    'share'   { Invoke-Share }
+    'tunnel-watch' { Invoke-TunnelWatch }
     default   { Show-Help }
 }

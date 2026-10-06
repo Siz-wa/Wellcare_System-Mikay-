@@ -10,6 +10,32 @@ black rectangle. HTTPS is not optional here; the tunnel is how you get it.
 
 ---
 
+## 0. The one-command way
+
+```
+.\wellcare.cmd share
+```
+
+That does all of §1 and §2 by itself on any Windows laptop that has run
+`setup`: finds `cloudflared` (or downloads it into `.tools\`, no install and no
+Cloudflare account), opens both tunnels, writes the Reverb tunnel into `.env`,
+runs the stack on built assets, waits until the site **and** a real WebSocket
+handshake answer from the internet, then prints the link and a QR code. Scan
+it with the phone; the laptop browser opens on the same link.
+
+Ctrl+C stops the tunnels and puts `.env` back on `127.0.0.1`. If the window was
+closed instead, the next `start` or `share` does that cleanup.
+
+The `[tunnel]` pane keeps checking every 30 seconds and says so if a tunnel
+drops. Tunnel logs: `storage\logs\wellcare-tunnel-site.log` and
+`wellcare-tunnel-reverb.log`.
+
+Frontend changes still need `npm run build` (in a second terminal; `share`
+can keep running) and a hard reload on both devices. The manual steps below are what `share`
+automates, kept for debugging.
+
+---
+
 ## 1. Start everything, in this order
 
 ### a. The Laravel stack
