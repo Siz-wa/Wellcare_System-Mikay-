@@ -52,6 +52,7 @@ beforeEach(function () {
         ->forPatient($this->record)
         ->forDoctor($this->doctor)
         ->virtual()
+        ->settled()
         ->create(['status' => 'checked_in']);
 
     $this->session = $this->service->openVirtualRoom($this->appointment, $this->doctor);
@@ -203,6 +204,7 @@ it('admits the booking account and refuses the guarantor when they differ', func
     $appointment = Appointment::factory()
         ->forDoctor($this->doctor)
         ->virtual()
+        ->settled()
         ->create([
             'patient_id' => $this->record->id,   // guaranteed by $this->booker
             'user_id' => $secondAccount->id,     // but booked by someone else

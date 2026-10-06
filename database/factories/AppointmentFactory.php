@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Appointment;
 use App\Models\Patient;
+use App\Models\PaymentVerification;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -79,5 +80,22 @@ class AppointmentFactory extends Factory
     public function virtual(): static
     {
         return $this->state(fn () => ['consultation_type' => 'virtual']);
+    }
+
+    /**
+     * Cleared to go ahead: a self-paid video visit gets a waived payment
+     * record, the state the payment gate opens on.
+     *
+     * For tests about the consultation, not the payment. A self-paid video
+     * visit with no record is unpaid, so without this the room refuses to
+     * open. Payment tests build their own records and do not use it.
+     */
+    public function settled(): static
+    {
+        return $this->afterCreating(function (Appointment $appointment): void {
+            if ($appointment->requiresPaymentBeforeConsultation()) {
+                PaymentVerification::factory()->forAppointment($appointment)->waived()->create();
+            }
+        });
     }
 }

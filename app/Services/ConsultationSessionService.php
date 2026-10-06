@@ -54,7 +54,10 @@ use Illuminate\Support\Str;
  */
 class ConsultationSessionService
 {
-    public function __construct(private readonly DrugAllergyChecker $allergyChecker) {}
+    public function __construct(
+        private readonly DrugAllergyChecker $allergyChecker,
+        private readonly PaymentVerificationService $payments,
+    ) {}
 
     /**
      * Replace this session's prescriptions, refusing any that contradict a
@@ -262,6 +265,15 @@ class ConsultationSessionService
         // Silent on every other kind of booking: isSettledForConsultation()
         // returns true when there is no payment record, which is every
         // in-person, HMO, PhilHealth and corporate visit.
+        //
+        // A self-paid video visit with NO record (booked before the payment
+        // module existed) is refused too, and gets its bill raised here, so the
+        // patient is told what they owe and HR has a record to verify or waive.
+        // Without it the room would stay shut with nothing anyone could do.
+        if ($appointment->paymentVerification === null && $this->payments->raise($appointment)) {
+            $appointment->unsetRelation('paymentVerification');
+        }
+
         if (! $appointment->isSettledForConsultation()) {
             throw new InvalidConsultationTransitionException(
                 'This video consultation has not been paid for yet. The room opens once the clinic confirms the payment.'

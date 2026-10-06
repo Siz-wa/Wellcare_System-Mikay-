@@ -38,6 +38,15 @@ class BookAppointmentRequest extends FormRequest
      */
     public const PEDIATRICS_MAX_AGE = 18;
 
+    /**
+     * The coverage a video consultation may be booked under: the two the clinic
+     * verifies before the call (a verified payment, an approved LOA). Mirrored
+     * by `inPersonOnly` in the booking form's coverageOptions.
+     *
+     * @var array<int, string>
+     */
+    public const VIRTUAL_COVERAGES = ['cash', 'hmo'];
+
     public function authorize(): bool
     {
         return true;
@@ -229,6 +238,19 @@ class BookAppointmentRequest extends FormRequest
                     $validator->errors()->add(
                         'consultation_type',
                         'This service requires an in-person visit and cannot be booked as a video consultation.'
+                    );
+                }
+
+                // A video call has no counter where anyone checks coverage.
+                // Self-Pay is held by a verified payment and HMO by an approved
+                // LOA; PhilHealth and corporate accounts have neither and are
+                // verified at the front desk, so over video they would be a
+                // consultation nobody ever checked was paid for.
+                if ($this->input('consultation_type') === 'virtual'
+                    && ! in_array($this->input('coverage'), self::VIRTUAL_COVERAGES, true)) {
+                    $validator->errors()->add(
+                        'coverage',
+                        'PhilHealth and corporate coverage are verified at the clinic counter, so they are for in-person visits only. For a video consultation choose Self-Pay or HMO.'
                     );
                 }
 

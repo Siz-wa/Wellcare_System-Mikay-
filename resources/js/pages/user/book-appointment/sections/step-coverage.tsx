@@ -33,6 +33,7 @@ import {
     specialtiesForService,
     HMO_NOTICE,
     MINOR_COVERAGE_NOTICE,
+    virtualCoverageNotice,
     virtualSelfPayNotice,
 } from './bookingdata';
 
@@ -326,6 +327,25 @@ export default function StepCoverage({
         }
     };
 
+    // A video consultation only offers coverage the clinic can verify before
+    // the call. See virtualCoverageNotice.
+    const isVirtual = data.consultationType === 'virtual';
+    const offeredCoverage = coverageOptions.filter(
+        (o) => !(isVirtual && o.inPersonOnly),
+    );
+
+    // Picked PhilHealth, went back and switched to video: the choice is no
+    // longer on offer, so it must not ride through to the server unseen.
+    const coverageWithdrawn =
+        data.coverage !== '' &&
+        !offeredCoverage.some((o) => o.value === data.coverage);
+
+    useEffect(() => {
+        if (coverageWithdrawn) {
+            setData('coverage', '');
+        }
+    }, [coverageWithdrawn, setData]);
+
     const handleDoctorSelect = (id: number | null) => {
         setData('doctorId', id);
         setData('appointmentTime', '');
@@ -438,8 +458,15 @@ export default function StepCoverage({
                             111px card, and these carry a label plus a line of
                             description — at that width every one of them wrapped
                             to four lines and the row read as noise. */}
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            {coverageOptions.map((o: CoverageOption) => {
+                        <div
+                            className={cn(
+                                'grid grid-cols-1 gap-3',
+                                offeredCoverage.length === 3
+                                    ? 'sm:grid-cols-3'
+                                    : 'sm:grid-cols-2',
+                            )}
+                        >
+                            {offeredCoverage.map((o: CoverageOption) => {
                                 const isActive = data.coverage === o.value;
 
                                 return (
@@ -525,6 +552,18 @@ export default function StepCoverage({
                                 );
                             })}
                         </div>
+                        {isVirtual && (
+                            <p
+                                style={{
+                                    margin: '8px 0 0',
+                                    fontSize: 'var(--text-xs)',
+                                    color: 'var(--wc-text-muted)',
+                                    lineHeight: 1.6,
+                                }}
+                            >
+                                {virtualCoverageNotice}
+                            </p>
+                        )}
                         {errors.coverage && (
                             <p
                                 style={{

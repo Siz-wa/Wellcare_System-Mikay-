@@ -39,6 +39,7 @@ beforeEach(function () {
         ->forPatient($this->record)
         ->forDoctor($this->doctor)
         ->virtual()
+        ->settled()
         ->create(['status' => 'checked_in']);
 
     $this->clinicVisit = fn () => Appointment::factory()

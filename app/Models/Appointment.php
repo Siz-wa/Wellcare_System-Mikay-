@@ -338,11 +338,39 @@ final class Appointment extends Model
      * record — none of them owe anything here, and reading a missing record as
      * "unpaid" would lock the entire existing appointment book out of its own
      * consultations.
+     *
+     * Except for the visits that DO owe (requiresPaymentBeforeConsultation).
+     * For those, a missing record means the bill was never raised, not that it
+     * was paid. Reading it as settled is how video visits booked before the
+     * payment module existed went ahead without anyone paying, one of them all
+     * the way to a finished call.
      */
     public function isSettledForConsultation(): bool
     {
         $payment = $this->paymentVerification;
 
-        return $payment === null || $payment->isSettled();
+        if ($payment === null) {
+            return ! $this->requiresPaymentBeforeConsultation();
+        }
+
+        return $payment->isSettled();
+    }
+
+    /**
+     * Must a settled payment record exist before this visit's video room opens?
+     *
+     * Every video consultation is either covered by an HMO, which HR approves
+     * through its LOA before the doctor ever sees it, or paid and verified.
+     * Nothing else is checked over a video call: there is no cashier and no
+     * front desk to look at a PhilHealth card or a company ID. Booking refuses
+     * PhilHealth and corporate over video; this is the backstop for any that
+     * exist anyway, which get a bill HR can verify or, once the coverage is
+     * confirmed, waive.
+     *
+     * The single definition both the gate and PaymentVerificationService read.
+     */
+    public function requiresPaymentBeforeConsultation(): bool
+    {
+        return $this->isVirtual() && $this->coverage !== 'hmo';
     }
 }

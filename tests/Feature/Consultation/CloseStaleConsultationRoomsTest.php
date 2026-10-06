@@ -33,6 +33,7 @@ beforeEach(function () {
             ->forPatient($this->record)
             ->forDoctor($this->doctor)
             ->virtual()
+            ->settled()
             ->create(['status' => 'checked_in', 'appointment_time' => $time]);
 
         $session = $this->service->openVirtualRoom($appointment, $this->doctor);

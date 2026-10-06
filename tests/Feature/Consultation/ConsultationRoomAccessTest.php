@@ -37,6 +37,7 @@ beforeEach(function () {
         ->forPatient($this->record)
         ->forDoctor($this->doctor)
         ->virtual()
+        ->settled()
         ->create(['status' => 'checked_in']);
 
     $this->session = $this->service->openVirtualRoom($this->appointment, $this->doctor);
@@ -407,6 +408,7 @@ it('lists only live rooms on the patient consultations index', function () {
         ->forPatient($this->record)
         ->forDoctor($this->doctor)
         ->virtual()
+        ->settled()
         ->create(['status' => 'checked_in', 'appointment_time' => '11:00 AM']);
 
     $this->service->endCall($this->service->openVirtualRoom($closed, $this->doctor));
@@ -428,6 +430,7 @@ it('lets the assigned doctor open a room and redirects into it', function () {
         ->forPatient($this->record)
         ->forDoctor($this->doctor)
         ->virtual()
+        ->settled()
         ->create(['status' => 'checked_in', 'appointment_time' => '01:00 PM']);
 
     $this->actingAs($this->doctor)
