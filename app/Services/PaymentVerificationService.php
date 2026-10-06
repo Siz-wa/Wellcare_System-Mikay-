@@ -289,14 +289,15 @@ class PaymentVerificationService
     /**
      * Does this booking owe the clinic anything up front?
      *
-     * Exactly one combination does: a video consultation the patient is paying
-     * for themselves. Everything else is already handled — an in-person visit by
-     * the cashier standing between the patient and the doctor, and a covered
-     * visit by the LOA workflow.
+     * A video consultation not covered by an approved HMO LOA. In practice that
+     * is a self-payer: booking refuses PhilHealth and corporate over video (see
+     * BookAppointmentRequest::VIRTUAL_COVERAGES). Everything else is already
+     * handled — an in-person visit by the cashier and front desk standing
+     * between the patient and the doctor, an HMO visit by the LOA workflow.
      */
     public function isPayable(Appointment $appointment): bool
     {
-        return $appointment->isVirtual() && $appointment->coverage === 'cash';
+        return $appointment->requiresPaymentBeforeConsultation();
     }
 
     /**

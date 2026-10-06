@@ -151,3 +151,26 @@ it('keeps the HMO card when the visit really is HMO covered', function () {
         // And an HMO booking goes to HR before it reaches the doctor.
         ->and($appointment->status)->toBe('pending_hmo_approval');
 });
+
+it('refuses PhilHealth and corporate coverage for a video consultation', function (string $coverage) {
+    // Nobody checks a PhilHealth card or a company ID over a video call, so a
+    // booking under either was a consultation nobody verified was paid for.
+    $this->actingAs($this->guarantor)
+        ->post('/appointments', ($this->payload)(['coverage' => $coverage]))
+        ->assertSessionHasErrors(['coverage' => 'PhilHealth and corporate coverage are verified at the clinic counter, so they are for in-person visits only. For a video consultation choose Self-Pay or HMO.']);
+
+    expect(Appointment::count())->toBe(0);
+})->with(['philhealth', 'corporate']);
+
+it('still accepts PhilHealth for an in-person visit, where the front desk checks it', function () {
+    $this->actingAs($this->guarantor)
+        ->post('/appointments', ($this->payload)([
+            'consultationType' => 'in_person',
+            'consentTelemedicine' => '0',
+            'coverage' => 'philhealth',
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect(Appointment::sole()->coverage)->toBe('philhealth')
+        ->and(PaymentVerification::count())->toBe(0);
+});

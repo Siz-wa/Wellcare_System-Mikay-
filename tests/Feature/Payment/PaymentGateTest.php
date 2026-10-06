@@ -84,20 +84,74 @@ it('opens the video room once the clinic has settled the record', function (stri
 
 // ── The gate is invisible to everything else ──────────────────────────────────
 
-it('never blocks a visit that has no payment record', function () {
-    // Every in-person visit, every HMO/PhilHealth/corporate booking, and every
-    // appointment that predates this module. Reading a missing record as
-    // "unpaid" would lock the existing appointment book out of its own
-    // consultations — which is why the helper treats null as settled.
-    expect(PaymentVerification::count())->toBe(0);
+it('never blocks an HMO video visit, which HR already cleared through its LOA', function () {
+    // An HMO booking owes nothing here and never gets a record. Reading a
+    // missing record as "unpaid" for it would lock it out of its own call.
+    $this->appointment->update(['coverage' => 'hmo']);
 
-    $session = $this->service->openVirtualRoom($this->appointment, $this->doctor);
+    $session = $this->service->openVirtualRoom($this->appointment->fresh(), $this->doctor);
 
-    expect($session->consultation_status)->toBe('waiting');
+    expect($session->consultation_status)->toBe('waiting')
+        ->and(PaymentVerification::count())->toBe(0);
 });
 
-it('reports an appointment with no payment record as settled', function () {
-    expect($this->appointment->isSettledForConsultation())->toBeTrue();
+it('holds a PhilHealth or corporate video visit until HR settles it', function (string $coverage) {
+    // Nobody checks a PhilHealth card or a company ID over a video call, so
+    // these were free consultations. Booking now refuses them; any that exist
+    // anyway get a bill HR can verify, or waive once the coverage is confirmed.
+    $this->appointment->update(['coverage' => $coverage]);
+
+    expect(fn () => $this->service->openVirtualRoom($this->appointment->fresh(), $this->doctor))
+        ->toThrow(InvalidConsultationTransitionException::class, 'has not been paid for yet');
+
+    expect(PaymentVerification::where('appointment_id', $this->appointment->id)->sole()->status)
+        ->toBe('pending');
+})->with(['philhealth', 'corporate']);
+
+it('reports a covered or in-person visit with no payment record as settled', function () {
+    $this->appointment->update(['coverage' => 'hmo']);
+    expect($this->appointment->fresh()->isSettledForConsultation())->toBeTrue();
+
+    $this->appointment->update(['coverage' => 'cash', 'consultation_type' => 'in_person']);
+    expect($this->appointment->fresh()->isSettledForConsultation())->toBeTrue();
+});
+
+// ── Self-pay video visits booked before the payment module ───────────────────
+
+it('treats a self-paid video visit with no payment record as unpaid', function () {
+    // The hole this closes: such visits were read as settled, and one went
+    // through to a finished call without anyone paying.
+    expect(PaymentVerification::count())->toBe(0)
+        ->and($this->appointment->isSettledForConsultation())->toBeFalse();
+});
+
+it('refuses the room for a self-paid video visit with no record, and raises its bill', function () {
+    expect(fn () => $this->service->openVirtualRoom($this->appointment->fresh(), $this->doctor))
+        ->toThrow(InvalidConsultationTransitionException::class, 'has not been paid for yet');
+
+    // Raised, so the patient is told what they owe and HR has something to
+    // verify or waive. Otherwise the room would stay shut for good.
+    $payment = PaymentVerification::where('appointment_id', $this->appointment->id)->sole();
+
+    expect($payment->status)->toBe('pending')
+        ->and((float) $payment->amount_due)->toBeGreaterThan(0)
+        ->and(ConsultationSession::count())->toBe(0);
+});
+
+it('opens the room once the raised bill is waived', function () {
+    try {
+        $this->service->openVirtualRoom($this->appointment->fresh(), $this->doctor);
+    } catch (InvalidConsultationTransitionException) {
+        // expected: the bill is raised here
+    }
+
+    PaymentVerification::where('appointment_id', $this->appointment->id)
+        ->sole()
+        ->update(['status' => 'waived']);
+
+    $session = $this->service->openVirtualRoom($this->appointment->fresh(), $this->doctor);
+
+    expect($session->consultation_status)->toBe('waiting');
 });
 
 // ── The patient's side of the same door ───────────────────────────────────────
@@ -134,6 +188,10 @@ it('prefers the unpaid reason over the generic not-open one', function () {
 });
 
 it('carries no payment payload on a closed room that was simply never opened', function () {
+    // A visit that owes nothing. A self-paid one with no record now reads as
+    // unpaid, which is a different closed room.
+    $this->appointment->update(['coverage' => 'hmo']);
+
     $this->actingAs($this->booker)
         ->get("/user/consultations/{$this->appointment->id}")
         ->assertInertia(fn ($page) => $page

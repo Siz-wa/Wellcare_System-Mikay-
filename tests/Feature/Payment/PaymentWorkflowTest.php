@@ -116,17 +116,27 @@ it('raises nothing for an in-person visit, whatever the coverage', function (str
     expect(PaymentVerification::count())->toBe(0);
 })->with(['cash', 'hmo', 'philhealth', 'corporate']);
 
-it('raises nothing for a covered video consultation', function (string $coverage) {
+it('raises nothing for an HMO video consultation', function () {
     ($this->book)([
-        'coverage' => $coverage,
-        'hmo' => $coverage === 'hmo' ? 'Maxicare' : null,
-        'hmo_id' => $coverage === 'hmo' ? 'MX-1' : null,
+        'coverage' => 'hmo',
+        'hmo' => 'Maxicare',
+        'hmo_id' => 'MX-1',
     ]);
 
-    // The coverage pays. For HMO that is the LOA workflow's business, not this
-    // module's, and raising a fee alongside it would bill the patient twice.
+    // The coverage pays, and HR approves it through the LOA workflow. Raising
+    // a fee alongside it would bill the patient twice.
     expect(PaymentVerification::count())->toBe(0);
-})->with(['hmo', 'philhealth', 'corporate']);
+});
+
+it('raises a bill for a PhilHealth or corporate video consultation that gets past the form', function (string $coverage) {
+    // The booking form refuses these over video: nobody checks a PhilHealth
+    // card or a company ID on a call. One written past the form still gets a
+    // bill, so it cannot go ahead unverified; HR waives it once the coverage
+    // is confirmed.
+    ($this->book)(['coverage' => $coverage]);
+
+    expect(PaymentVerification::sole()->status)->toBe('pending');
+})->with(['philhealth', 'corporate']);
 
 it('falls back to the configured default when the service has no virtual price', function () {
     Service::where('slug', 'general')->update(['virtual_fee' => null]);

@@ -70,6 +70,11 @@ export interface SelectOption {
 
 export interface CoverageOption extends SelectOption {
     icon: 'cash' | 'hmo' | 'philhealth' | 'corporate';
+    /**
+     * Verified at the clinic counter, so not offered for a video consultation.
+     * Mirrors BookAppointmentRequest::VIRTUAL_COVERAGES on the server.
+     */
+    inPersonOnly?: boolean;
 }
 
 // ── Doctor shape ─────────────────────────────────────────────────────────────
@@ -417,8 +422,24 @@ export const coverageOptions: CoverageOption[] = [
     // step-coverage.tsx for what the label now points at.
     { value: 'cash', label: 'Self-Pay', icon: 'cash' },
     { value: 'hmo', label: 'HMO', icon: 'hmo' },
-    { value: 'philhealth', label: 'PhilHealth', icon: 'philhealth' },
+    {
+        value: 'philhealth',
+        label: 'PhilHealth',
+        icon: 'philhealth',
+        inPersonOnly: true,
+    },
 ];
+
+/**
+ * Shown in place of PhilHealth when the visit is a VIDEO consultation.
+ *
+ * A video call has nobody at a counter to check a PhilHealth card, and a
+ * coverage nobody checks is a free consultation. Self-Pay is gated by a
+ * verified payment and HMO by an approved LOA; PhilHealth has neither, so it
+ * stays with in-person visits, where the front desk verifies it.
+ */
+export const virtualCoverageNotice =
+    'PhilHealth is verified at the clinic counter, so it is available for in-person visits only. For a video consultation, choose Self-Pay or HMO.';
 
 /**
  * Shown when a self-payer picks a VIDEO consultation.
