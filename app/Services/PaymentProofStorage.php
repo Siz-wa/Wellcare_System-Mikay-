@@ -59,13 +59,32 @@ class PaymentProofStorage
     }
 
     /**
+     * The proof types a browser may render in place rather than download.
+     *
+     * Exactly what SubmitPaymentRequest accepts. Anything else that somehow
+     * reached the disk is still served, but only as an attachment, so an
+     * upload can never become a page that runs in the clinic's origin.
+     */
+    public const PREVIEWABLE_MIMES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'application/pdf',
+    ];
+
+    /**
      * Stream a proof to the browser.
+     *
+     * `$inline` asks for the receipt to open in the page — an <img> or the
+     * browser's PDF viewer — instead of a download prompt, so the patient and
+     * the officer can read it without saving a copy of a billing record to
+     * whatever machine they happen to be on.
      *
      * Returns null when the row carries no file or the file is missing from
      * disk, so callers keep their own `abort(404)` rather than this class
      * deciding how to fail — the same contract PatientDocumentStorage uses.
      */
-    public function download(PaymentVerification $payment): ?StreamedResponse
+    public function download(PaymentVerification $payment, bool $inline = false): ?StreamedResponse
     {
         $disk = Storage::disk(self::DISK);
 
@@ -81,8 +100,31 @@ class PaymentProofStorage
             [
                 'Content-Type' => $payment->proof_mime ?: 'application/octet-stream',
                 'Content-Length' => (string) strlen($contents),
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
             ],
+            $inline && self::isPreviewable($payment) ? 'inline' : 'attachment',
         );
+    }
+
+    /**
+     * How the interface should show a proof: as an image, as a PDF, or not at
+     * all in the page (a download link only).
+     *
+     * @return 'image'|'pdf'|null
+     */
+    public static function previewKind(PaymentVerification $payment): ?string
+    {
+        if ($payment->proof_path === null || ! self::isPreviewable($payment)) {
+            return null;
+        }
+
+        return $payment->proof_mime === 'application/pdf' ? 'pdf' : 'image';
+    }
+
+    private static function isPreviewable(PaymentVerification $payment): bool
+    {
+        return in_array($payment->proof_mime, self::PREVIEWABLE_MIMES, true);
     }
 
     /**

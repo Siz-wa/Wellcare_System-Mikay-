@@ -7,6 +7,11 @@
 // hands them the reference to search for and records what they found. Every
 // string is written on that assumption.
 
+import type {
+    ReceiptKind,
+    ReceiptViewerLabels,
+} from '@/components/receipt-viewer';
+
 export type PaymentStatus =
     | 'pending'
     | 'submitted'
@@ -47,6 +52,8 @@ export interface QueuePayment {
     remarks: string | null;
     hasProof: boolean;
     proofName: string | null;
+    /** How the receipt opens in the page; null means download only. */
+    proofKind: ReceiptKind;
     appointment: QueueAppointment | null;
 }
 
@@ -172,6 +179,15 @@ export const queueMeta = {
 
     readOnlyNotice:
         'You can review this queue but not decide it — confirming that money arrived belongs to HR.',
+
+    // The receipt opened in the page, with what it must be read against.
+    receiptViewer: {
+        title: 'Patient’s receipt',
+        close: 'Close',
+        download: 'Download',
+        openInNewTab: 'Open in new tab',
+        noPreview: 'This file cannot be shown here. Download it to view.',
+    } satisfies ReceiptViewerLabels & { title: string },
 } as const;
 
 export const statusStyles: Record<

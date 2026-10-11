@@ -2,6 +2,8 @@
 
 import { AlertTriangle, Paperclip } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useState } from 'react';
+import { ReceiptViewer } from '@/components/receipt-viewer';
 import { proof } from '@/routes/user/payments';
 import type { PaymentChannel, PaymentRecord } from '../payments-data';
 import { formatPeso, paymentsMeta, statusStyles } from '../payments-data';
@@ -19,8 +21,10 @@ export function PaymentCard({
     channels,
     showPatientName,
 }: PaymentCardProps): ReactElement {
-    const { labels, statusLabels, statusHints, overdueNotice } = paymentsMeta;
+    const { labels, statusLabels, statusHints, overdueNotice, receiptViewer } =
+        paymentsMeta;
     const style = statusStyles[payment.status];
+    const [isViewingProof, setIsViewingProof] = useState(false);
 
     // The form appears only while something is actually owed. A verified or
     // waived record showing a "submit payment" form would invite a second
@@ -225,14 +229,20 @@ export function PaymentCard({
 
                 {payment.hasProof && (
                     <p style={{ margin: 'var(--space-4) 0 0' }}>
-                        <a
-                            href={proof(payment.id).url}
+                        <button
+                            type="button"
+                            onClick={() => setIsViewingProof(true)}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
+                                padding: 0,
+                                border: 'none',
+                                background: 'none',
                                 fontSize: 'var(--text-sm)',
                                 color: 'var(--wc-link)',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
                             }}
                         >
                             <Paperclip
@@ -242,10 +252,22 @@ export function PaymentCard({
                             />
                             {labels.proof}
                             {payment.proofName ? ` — ${payment.proofName}` : ''}
-                        </a>
+                        </button>
                     </p>
                 )}
             </div>
+
+            {isViewingProof && (
+                <ReceiptViewer
+                    title={labels.proofViewerTitle}
+                    fileName={payment.proofName}
+                    kind={payment.proofKind}
+                    src={proof(payment.id, { query: { inline: 1 } }).url}
+                    downloadUrl={proof(payment.id).url}
+                    labels={receiptViewer}
+                    onClose={() => setIsViewingProof(false)}
+                />
+            )}
 
             {isOwed && <SettleForm payment={payment} channels={channels} />}
         </article>

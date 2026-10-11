@@ -10,7 +10,11 @@
 // "being checked" rather than "paid".
 
 import { useForm } from '@inertiajs/react';
+import { FileText } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useRef, useState } from 'react';
+import type { ReceiptKind } from '@/components/receipt-viewer';
+import { ReceiptViewer } from '@/components/receipt-viewer';
 import { Button, Field, Input, Select } from '@/design-system';
 import { store } from '@/routes/user/payments';
 import type { PaymentChannel, PaymentRecord } from '../payments-data';
@@ -26,7 +30,7 @@ export function SettleForm({
     payment,
     channels,
 }: SettleFormProps): ReactElement {
-    const { form } = paymentsMeta;
+    const { form, receiptViewer } = paymentsMeta;
 
     /*
      * snake_case field names, deliberately, against the camelCase the rest of
@@ -58,6 +62,39 @@ export function SettleForm({
         proof: null,
     });
 
+    /*
+     * The chosen receipt, shown back before it is sent.
+     *
+     * A blurry or cropped screenshot is the commonest reason the clinic cannot
+     * match a payment, and the patient only learns that hours later from a
+     * rejection. Seeing the file here catches it while they still have the
+     * receipt open. The blob: URL never leaves the browser; it is revoked as
+     * soon as the file is replaced or removed.
+     */
+    const fileInput = useRef<HTMLInputElement>(null);
+    const [proofUrl, setProofUrl] = useState<string | null>(null);
+    const [isViewingProof, setIsViewingProof] = useState(false);
+
+    const proofKind: ReceiptKind =
+        data.proof?.type === 'application/pdf'
+            ? 'pdf'
+            : data.proof?.type.startsWith('image/')
+              ? 'image'
+              : null;
+
+    const chooseProof = (file: File | null) => {
+        if (proofUrl) {
+            URL.revokeObjectURL(proofUrl);
+        }
+
+        setProofUrl(file ? URL.createObjectURL(file) : null);
+        setData('proof', file);
+
+        if (!file && fileInput.current) {
+            fileInput.current.value = '';
+        }
+    };
+
     const handleSubmit = (event: React.FormEvent) => {
         event.preventDefault();
 
@@ -67,7 +104,10 @@ export function SettleForm({
         post(store(payment.id).url, {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => reset(),
+            onSuccess: () => {
+                reset();
+                chooseProof(null);
+            },
         });
     };
 
@@ -170,19 +210,120 @@ export function SettleForm({
                         error={errors.proof}
                     >
                         <input
+                            ref={fileInput}
                             type="file"
                             accept=".jpg,.jpeg,.png,.webp,.pdf"
                             onChange={(event) =>
-                                setData(
-                                    'proof',
-                                    event.target.files?.[0] ?? null,
-                                )
+                                chooseProof(event.target.files?.[0] ?? null)
                             }
                             style={{
                                 fontSize: 'var(--text-sm)',
                                 color: 'var(--wc-text-secondary)',
                             }}
                         />
+
+                        {data.proof && proofUrl && (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--space-3)',
+                                    marginTop: 'var(--space-3)',
+                                    padding: 'var(--space-3)',
+                                    border: '1px solid var(--wc-gray-200)',
+                                    borderRadius: 'var(--radius-md)',
+                                    background: 'var(--wc-gray-50)',
+                                }}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => setIsViewingProof(true)}
+                                    aria-label={form.proofView}
+                                    style={{
+                                        flexShrink: 0,
+                                        width: 72,
+                                        height: 72,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 0,
+                                        border: '1px solid var(--wc-gray-200)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: '#fff',
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    {proofKind === 'image' ? (
+                                        <img
+                                            src={proofUrl}
+                                            alt=""
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                            }}
+                                        />
+                                    ) : (
+                                        <FileText
+                                            size={28}
+                                            color="var(--wc-text-muted)"
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </button>
+
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                    <p
+                                        style={{
+                                            margin: 0,
+                                            fontSize: 'var(--text-xs)',
+                                            color: 'var(--wc-text-muted)',
+                                        }}
+                                    >
+                                        {form.proofPreviewTitle}
+                                    </p>
+                                    <p
+                                        style={{
+                                            margin: '2px 0 var(--space-2)',
+                                            fontSize: 'var(--text-sm)',
+                                            fontWeight: 600,
+                                            color: 'var(--wc-text-primary)',
+                                            overflowWrap: 'anywhere',
+                                        }}
+                                    >
+                                        {data.proof.name}
+                                    </p>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            gap: 'var(--space-4)',
+                                            flexWrap: 'wrap',
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setIsViewingProof(true)
+                                            }
+                                            style={proofActionStyle}
+                                        >
+                                            {form.proofView}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => chooseProof(null)}
+                                            style={{
+                                                ...proofActionStyle,
+                                                color: 'var(--wc-text-muted)',
+                                            }}
+                                        >
+                                            {form.proofRemove}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </Field>
 
                     <div
@@ -213,6 +354,28 @@ export function SettleForm({
                     </div>
                 </form>
             </div>
+
+            {isViewingProof && data.proof && proofUrl && (
+                <ReceiptViewer
+                    title={form.proofPreviewTitle}
+                    fileName={data.proof.name}
+                    kind={proofKind}
+                    src={proofUrl}
+                    labels={receiptViewer}
+                    onClose={() => setIsViewingProof(false)}
+                />
+            )}
         </div>
     );
 }
+
+const proofActionStyle: React.CSSProperties = {
+    padding: 0,
+    border: 'none',
+    background: 'none',
+    fontSize: 'var(--text-sm)',
+    fontWeight: 600,
+    color: 'var(--wc-link)',
+    textDecoration: 'underline',
+    cursor: 'pointer',
+};

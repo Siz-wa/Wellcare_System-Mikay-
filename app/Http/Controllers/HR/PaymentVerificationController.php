@@ -232,9 +232,9 @@ class PaymentVerificationController extends Controller
     /**
      * The receipt the patient uploaded — the thing the officer is checking.
      */
-    public function downloadProof(PaymentVerification $paymentVerification): StreamedResponse
+    public function downloadProof(Request $request, PaymentVerification $paymentVerification): StreamedResponse
     {
-        $stream = $this->proofs->download($paymentVerification);
+        $stream = $this->proofs->download($paymentVerification, $request->boolean('inline'));
 
         abort_if($stream === null, 404);
 
@@ -281,6 +281,7 @@ class PaymentVerificationController extends Controller
 
             'hasProof' => $payment->proof_path !== null,
             'proofName' => $payment->proof_name,
+            'proofKind' => PaymentProofStorage::previewKind($payment),
 
             'appointment' => $appointment ? [
                 'id' => $appointment->id,
