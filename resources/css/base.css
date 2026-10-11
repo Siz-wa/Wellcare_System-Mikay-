@@ -194,6 +194,35 @@ textarea {
     color: var(--wc-text-primary);
 }
 
+/* The reset strips the native button off a file input, leaving "Choose File"
+   as plain text nobody reads as clickable. Give it back a visible button. */
+input[type='file'] {
+    cursor: pointer;
+}
+
+input[type='file']::file-selector-button {
+    margin-right: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--wc-blue-600);
+    border-radius: var(--radius-md);
+    background: var(--wc-blue-50);
+    color: var(--wc-blue-700);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) ease;
+}
+
+input[type='file']:hover::file-selector-button {
+    background: var(--wc-blue-100);
+}
+
+input[type='file']:focus-visible {
+    outline: 2px solid var(--wc-blue-600);
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
+}
+
 /* A placeholder is a hint, never the label — but it still has to be readable. */
 ::placeholder {
     color: var(--wc-text-muted);
