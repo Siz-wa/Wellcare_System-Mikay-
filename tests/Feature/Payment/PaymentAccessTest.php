@@ -3,6 +3,7 @@
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\PaymentVerification;
+use App\Services\PaymentProofStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
@@ -238,4 +239,72 @@ it('encrypts the remittance reference at rest', function () {
 
     expect($raw)->not->toBe('1234567890123')
         ->and($this->payment->refresh()->remittance_reference)->toBe('1234567890123');
+});
+
+// ── Previewing the receipt in the page ────────────────────────────────────────
+
+/**
+ * Attach a real, encrypted proof to the payment under test.
+ */
+function attachProof(PaymentVerification $payment, string $name, string $mime): void
+{
+    $path = app(PaymentProofStorage::class)->store(
+        UploadedFile::fake()->create($name, 10, $mime),
+        $payment->appointment_id,
+    );
+
+    $payment->update([
+        'proof_path' => $path,
+        'proof_name' => $name,
+        'proof_mime' => $mime,
+    ]);
+}
+
+it('opens a receipt in the page for its owner and for HR when asked to', function () {
+    attachProof($this->payment, 'receipt.png', 'image/png');
+
+    $this->actingAs($this->booker)
+        ->get("/user/payments/{$this->payment->id}/proof?inline=1")
+        ->assertOk()
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('Content-Disposition', 'inline; filename=receipt.png');
+
+    $this->actingAs($this->hr)
+        ->get("/hr/payment-verifications/{$this->payment->id}/proof?inline=1")
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'inline; filename=receipt.png');
+});
+
+it('still downloads the receipt when no preview is asked for', function () {
+    attachProof($this->payment, 'receipt.pdf', 'application/pdf');
+
+    $this->actingAs($this->hr)
+        ->get("/hr/payment-verifications/{$this->payment->id}/proof")
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'attachment; filename=receipt.pdf');
+});
+
+it('never renders a file outside the accepted receipt types in the page', function () {
+    // Nothing but JPG, PNG, WEBP and PDF passes validation, but a row written
+    // any other way must not become a page running in the clinic's origin.
+    attachProof($this->payment, 'receipt.html', 'text/html');
+
+    $this->actingAs($this->hr)
+        ->get("/hr/payment-verifications/{$this->payment->id}/proof?inline=1")
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'attachment; filename=receipt.html');
+});
+
+it('tells the page how each receipt can be previewed', function () {
+    attachProof($this->payment, 'receipt.pdf', 'application/pdf');
+
+    $this->actingAs($this->booker)
+        ->get('/user/payments')
+        ->assertInertia(fn ($page) => $page->where('payments.0.proofKind', 'pdf'));
+
+    attachProof($this->payment, 'receipt.webp', 'image/webp');
+
+    $this->actingAs($this->booker)
+        ->get('/user/payments')
+        ->assertInertia(fn ($page) => $page->where('payments.0.proofKind', 'image'));
 });

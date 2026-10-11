@@ -9,6 +9,7 @@ use App\Models\PaymentVerification;
 use App\Services\PaymentProofStorage;
 use App\Services\PaymentVerificationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -100,11 +101,11 @@ class PatientPaymentController extends Controller
      * the file is served through the application rather than from a public
      * path, so the ownership check above runs on every read.
      */
-    public function downloadProof(PaymentVerification $payment): StreamedResponse
+    public function downloadProof(Request $request, PaymentVerification $payment): StreamedResponse
     {
         $this->authorizeOwnership($payment);
 
-        $stream = $this->proofs->download($payment);
+        $stream = $this->proofs->download($payment, $request->boolean('inline'));
 
         abort_if($stream === null, 404);
 
@@ -191,6 +192,7 @@ class PatientPaymentController extends Controller
 
             'hasProof' => $payment->proof_path !== null,
             'proofName' => $payment->proof_name,
+            'proofKind' => PaymentProofStorage::previewKind($payment),
 
             'appointment' => $appointment ? [
                 'id' => $appointment->id,

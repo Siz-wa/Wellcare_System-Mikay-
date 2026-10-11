@@ -7,6 +7,8 @@
 
 import { AlertTriangle, Paperclip } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useState } from 'react';
+import { ReceiptViewer } from '@/components/receipt-viewer';
 import { Button } from '@/design-system';
 import { proof } from '@/routes/hr/payment-verifications';
 import type { QueuePayment } from '../payment-verifications-data';
@@ -28,8 +30,9 @@ export function QueueRow({
     canDecide,
     onDecide,
 }: QueueRowProps): ReactElement {
-    const { labels, statusLabels, actions } = queueMeta;
+    const { labels, statusLabels, actions, receiptViewer } = queueMeta;
     const style = statusStyles[payment.status];
+    const [isViewingProof, setIsViewingProof] = useState(false);
 
     const isDeclared = payment.status === 'submitted';
 
@@ -230,15 +233,21 @@ export function QueueRow({
                 }}
             >
                 {payment.hasProof && (
-                    <a
-                        href={proof(payment.id).url}
+                    <button
+                        type="button"
+                        onClick={() => setIsViewingProof(true)}
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 6,
                             marginRight: 'auto',
+                            padding: 0,
+                            border: 'none',
+                            background: 'none',
                             fontSize: 'var(--text-sm)',
                             color: 'var(--wc-link)',
+                            textDecoration: 'underline',
+                            cursor: 'pointer',
                         }}
                     >
                         <Paperclip
@@ -247,7 +256,7 @@ export function QueueRow({
                             aria-hidden="true"
                         />
                         {labels.proof}
-                    </a>
+                    </button>
                 )}
 
                 {canDecide && (
@@ -287,6 +296,47 @@ export function QueueRow({
                     </>
                 )}
             </div>
+
+            {/* The declared figures sit above the receipt so the officer
+                reads one against the other without leaving the dialog. */}
+            {isViewingProof && (
+                <ReceiptViewer
+                    title={`${receiptViewer.title} — ${payment.patient}`}
+                    fileName={payment.proofName}
+                    kind={payment.proofKind}
+                    src={proof(payment.id, { query: { inline: 1 } }).url}
+                    downloadUrl={proof(payment.id).url}
+                    details={[
+                        {
+                            label: labels.remittance,
+                            value:
+                                payment.remittanceReference ??
+                                labels.noRemittance,
+                        },
+                        {
+                            label: labels.amountPaid,
+                            value:
+                                payment.amountPaid !== null
+                                    ? formatPeso(payment.amountPaid)
+                                    : '—',
+                        },
+                        {
+                            label: labels.amountDue,
+                            value: formatPeso(payment.amountDue),
+                        },
+                        ...(payment.methodLabel
+                            ? [
+                                  {
+                                      label: labels.method,
+                                      value: payment.methodLabel,
+                                  },
+                              ]
+                            : []),
+                    ]}
+                    labels={receiptViewer}
+                    onClose={() => setIsViewingProof(false)}
+                />
+            )}
         </article>
     );
 }

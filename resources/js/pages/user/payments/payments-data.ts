@@ -7,6 +7,11 @@
 // here is written for someone who has just been told that and is holding a
 // phone — the instructions are the product, not decoration around it.
 
+import type {
+    ReceiptKind,
+    ReceiptViewerLabels,
+} from '@/components/receipt-viewer';
+
 export type PaymentStatus =
     | 'pending'
     | 'submitted'
@@ -43,6 +48,8 @@ export interface PaymentRecord {
     remarks: string | null;
     hasProof: boolean;
     proofName: string | null;
+    /** How the receipt opens in the page; null means download only. */
+    proofKind: ReceiptKind;
     appointment: PaymentAppointment | null;
 }
 
@@ -92,6 +99,7 @@ export const paymentsMeta = {
         appointment: 'Consultation',
         remarks: 'Note from the clinic',
         proof: 'Your receipt',
+        proofViewerTitle: 'Your receipt',
         noAppointment: 'No consultation is linked to this payment.',
     },
 
@@ -132,6 +140,11 @@ export const paymentsMeta = {
             'The number printed on your GCash, Maya or bank receipt — or the OR number from the clinic cashier.',
         proofLabel: 'Screenshot or photo of the receipt (optional)',
         proofHint: 'JPG, PNG, WEBP or PDF, up to 5 MB.',
+        // Shown once a file is chosen, so the patient can check it is the
+        // right receipt — and readable — before the clinic ever sees it.
+        proofPreviewTitle: 'Check your receipt before sending',
+        proofView: 'View full size',
+        proofRemove: 'Remove',
         submit: 'Submit payment details',
         submitting: 'Submitting…',
         resubmit: 'Submit corrected details',
@@ -139,6 +152,13 @@ export const paymentsMeta = {
         accountNumber: 'Send to',
         payAtDesk: 'No account number needed',
     },
+
+    receiptViewer: {
+        close: 'Close',
+        download: 'Download',
+        openInNewTab: 'Open in new tab',
+        noPreview: 'This file cannot be shown here. Download it to view.',
+    } satisfies ReceiptViewerLabels,
 
     overdueNotice:
         'This payment is past its deadline. The booking may be released at any time — settle it now or book again.',
