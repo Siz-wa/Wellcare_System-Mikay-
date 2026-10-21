@@ -188,3 +188,27 @@ Schedule::command('wellcare:results:escalate')
 Schedule::command('wellcare:reminders:send')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
+
+/**
+ * Drain the queue from the scheduler — for hosts that cannot keep a worker up.
+ *
+ * Every e-mail this app sends is queued (verification, reminders, results), so
+ * with no worker running nothing leaves the building. A VPS keeps
+ * `queue:work` alive under supervisor; shared hosting (Hostinger web hosting,
+ * where this is deployed) kills long-running processes, and cron is the only
+ * thing that runs. So cron's `schedule:run` starts a worker every minute that
+ * empties the queue and exits.
+ *
+ * Last in this file on purpose: `schedule:run` runs due tasks one after
+ * another, and a drain that takes forty seconds must not hold up the reminder
+ * sweep or the payment deadline behind it.
+ *
+ * `--max-time=50` ends it before the next minute's run, and the overlap lock
+ * expires after 5 minutes rather than the default 24 hours — a host that kills
+ * the process mid-drain would otherwise leave the lock held and stop mail for
+ * a day. Harmless where a real worker also runs (`composer dev` has one): the
+ * database queue hands each job to exactly one of them.
+ */
+Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')
+    ->everyMinute()
+    ->withoutOverlapping(5);
