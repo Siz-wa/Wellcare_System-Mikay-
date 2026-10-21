@@ -133,8 +133,12 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
+        // `email` is shown on the page so the person can see where the link
+        // went. Without it, an account registered under a mistyped address
+        // looks exactly like a mail system that never sends.
         Fortify::verifyEmailView(fn (Request $request) => Inertia::render('auth/verify-email', [
             'status' => $request->session()->get('status'),
+            'email' => $request->user()?->email,
         ]));
 
         // SC-4 / C-1. The consent wording is served from config/consent.php

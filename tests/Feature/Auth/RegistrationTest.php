@@ -91,6 +91,35 @@ test('the booking gate is ready to use as soon as the email is confirmed', funct
     );
 });
 
+// A family member added to a guarantor's list is a Patient row, not a login.
+// Their email must stay free for them to register with later.
+test('an email typed on a guarantor’s family member can still register', function () {
+    $guarantor = User::factory()->create();
+    $guarantor->assignRole('user');
+
+    $this->actingAs($guarantor)
+        ->post(route('user.patients.store'), [
+            'firstName' => 'Ana',
+            'lastName' => 'Dela Cruz',
+            'email' => 'ana.delacruz@example.com',
+            'contactNumber' => '09181234567',
+            'relationship' => 'child',
+            'gender' => 'female',
+            'birthdate' => now()->subYears(20)->toDateString(),
+        ])
+        ->assertSessionHasNoErrors();
+
+    auth()->logout();
+
+    $this->post(route('register.store'), ($this->registration)([
+        'first_name' => 'Ana',
+        'last_name' => 'Dela Cruz',
+        'email' => 'ana.delacruz@example.com',
+    ]))->assertSessionHasNoErrors();
+
+    $this->assertAuthenticated();
+});
+
 test('registration requires a first and last name', function () {
     $this->post(route('register.store'), ($this->registration)([
         'first_name' => '',

@@ -18,6 +18,16 @@ test('email verification screen can be rendered', function () {
     $response->assertOk();
 });
 
+test('email verification screen shows the address the link was sent to', function () {
+    $user = User::factory()->unverified()->create(['email' => 'shown@example.com']);
+
+    $this->actingAs($user)
+        ->get(route('verification.notice'))
+        ->assertInertia(fn ($page) => $page
+            ->component('auth/verify-email')
+            ->where('email', 'shown@example.com'));
+});
+
 test('email can be verified', function () {
     $user = User::factory()->unverified()->create();
 
