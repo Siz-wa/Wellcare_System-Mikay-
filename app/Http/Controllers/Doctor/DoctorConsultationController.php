@@ -11,6 +11,7 @@ use App\Models\LabTestResult;
 use App\Models\Service;
 use App\Services\ConsultationSessionService;
 use App\Services\LabResultService;
+use App\Services\RealtimeClientConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -397,7 +398,10 @@ class DoctorConsultationController extends Controller
             'isInitiator' => true,
             'selfUserId' => Auth::id(),
             'iceServers' => $this->sessions->iceServers(),
-            'reverb' => $this->reverbConfig(),
+            // A page prop rather than `import.meta.env`: the values stay
+            // server-authoritative, and the SSR entry never touches
+            // browser-only config.
+            'realtime' => RealtimeClientConfig::forBrowser(),
             /*
              * The CSRF token as a prop, because the room is the only place in
              * this app that cannot read it from the DOM.
@@ -423,26 +427,6 @@ class DoctorConsultationController extends Controller
              */
             'csrfToken' => csrf_token(),
         ]);
-    }
-
-    /**
-     * Reverb connection details for Echo.
-     *
-     * Passed as a page prop rather than read from `import.meta.env` in the
-     * bundle: the values stay server-authoritative, and the SSR entry never
-     * touches browser-only config. Only the two room pages need it, so it is
-     * not shared globally on every request.
-     *
-     * @return array<string, mixed>
-     */
-    private function reverbConfig(): array
-    {
-        return [
-            'key' => config('reverb.apps.apps.0.key'),
-            'host' => config('reverb.apps.apps.0.options.host'),
-            'port' => (int) config('reverb.apps.apps.0.options.port'),
-            'scheme' => config('reverb.apps.apps.0.options.scheme'),
-        ];
     }
 
     /**

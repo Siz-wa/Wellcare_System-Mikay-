@@ -50,3 +50,34 @@ it('shares the browser-facing socket address only with signed-in users', functio
         ->get('/user/dashboard')
         ->assertInertia(fn ($page) => $page->has('realtime.key')->has('realtime.host'));
 });
+
+/**
+ * Shared hosting runs no long-lived processes, so Reverb cannot run there and
+ * hosted Pusher serves the same protocol instead. The browser must then dial
+ * Pusher's cluster, not the Reverb address left over in the config.
+ */
+it('points browsers at hosted pusher when that is the broadcaster', function () {
+    config([
+        'broadcasting.default' => 'pusher',
+        'broadcasting.connections.pusher.key' => 'pusher-key',
+        'broadcasting.connections.pusher.options.cluster' => 'ap1',
+    ]);
+
+    $this->actingAs(userWithRole('user'))
+        ->get('/user/dashboard')
+        ->assertInertia(fn ($page) => $page
+            ->where('realtime.broadcaster', 'pusher')
+            ->where('realtime.key', 'pusher-key')
+            ->where('realtime.cluster', 'ap1')
+            ->where('realtime.host', 'ws-ap1.pusher.com')
+            ->where('realtime.port', 443)
+            ->where('realtime.scheme', 'https'));
+});
+
+it('shares no socket address when broadcasting is off', function () {
+    config(['broadcasting.default' => 'null']);
+
+    $this->actingAs(userWithRole('user'))
+        ->get('/user/dashboard')
+        ->assertInertia(fn ($page) => $page->where('realtime', null));
+});

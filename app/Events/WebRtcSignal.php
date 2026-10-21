@@ -34,6 +34,11 @@ use Illuminate\Foundation\Events\Dispatchable;
  * never assigns the global, so `toOthers()` would silently be a no-op that
  * looks like it works. Every peer receives every message and the hook drops
  * anything where `fromUserId` is its own id.
+ *
+ * **`ref` replaces the payload for anything large.** Hosted Pusher rejects an
+ * event over 10KB, and an SDP offer routinely exceeds that. When `ref` is set,
+ * `payload` is empty and the receiving peer fetches the real one from
+ * ConsultationRoomController::fetchSignal(). See STASH_THRESHOLD_BYTES there.
  */
 final class WebRtcSignal implements ShouldBroadcastNow
 {
@@ -49,6 +54,7 @@ final class WebRtcSignal implements ShouldBroadcastNow
         public readonly string $type,
         public readonly array $payload,
         public readonly int $fromUserId,
+        public readonly ?string $ref = null,
     ) {}
 
     /**
@@ -86,6 +92,7 @@ final class WebRtcSignal implements ShouldBroadcastNow
             'type' => $this->type,
             'payload' => $this->payload,
             'fromUserId' => $this->fromUserId,
+            'ref' => $this->ref,
         ];
     }
 }

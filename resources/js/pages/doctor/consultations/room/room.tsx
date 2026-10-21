@@ -6,7 +6,7 @@ import { LeaveCallDialog } from '@/components/consultation-room/leave-call-dialo
 import { VideoStage } from '@/components/consultation-room/video-stage';
 import { ConfirmDialog, Select } from '@/design-system';
 import { useWebRtc } from '@/hooks/use-web-rtc';
-import type { ReverbConfig } from '@/lib/echo';
+import type { RealtimeConfig } from '@/lib/echo';
 import type { VitalsSource } from '@/lib/vitals';
 import { DashboardLayout } from '../../layout/dashboard-layout';
 import type {
@@ -47,7 +47,7 @@ interface RoomPageProps {
     isInitiator: boolean;
     selfUserId: number;
     iceServers: RTCIceServer[];
-    reverb: ReverbConfig;
+    realtime: RealtimeConfig;
     csrfToken: string;
     /** Prescribing and lab orders, so a video visit can do both. */
     prescriptions: { id: string; name: string; instructions: string }[];
@@ -103,7 +103,7 @@ export default function DoctorConsultationRoom(): ReactElement {
         isInitiator,
         selfUserId,
         iceServers,
-        reverb,
+        realtime,
         csrfToken,
     } = usePage<RoomPageProps>().props;
     const pageProps = usePage<RoomPageProps>().props;
@@ -136,7 +136,7 @@ export default function DoctorConsultationRoom(): ReactElement {
         isInitiator,
         selfUserId,
         iceServers,
-        reverb,
+        realtime,
         csrfToken,
         // Null on purpose: the visit is not documented until the doctor
         // finalizes, so ending the call must not navigate away from unsaved

@@ -5,7 +5,7 @@ import { consultationRoomMeta } from '@/components/consultation-room/consultatio
 import { LeaveCallDialog } from '@/components/consultation-room/leave-call-dialog';
 import { VideoStage } from '@/components/consultation-room/video-stage';
 import { useWebRtc } from '@/hooks/use-web-rtc';
-import type { ReverbConfig } from '@/lib/echo';
+import type { RealtimeConfig } from '@/lib/echo';
 import { PatientDashboardLayout } from '@/pages/user/layout/patient-dashboard-layout';
 
 /**
@@ -32,7 +32,7 @@ interface PatientRoomProps {
     isInitiator: boolean;
     selfUserId: number;
     iceServers: RTCIceServer[];
-    reverb: ReverbConfig;
+    realtime: RealtimeConfig;
     csrfToken: string;
     [key: string]: unknown;
 }
@@ -44,7 +44,7 @@ export default function PatientConsultationRoom(): ReactElement {
         isInitiator,
         selfUserId,
         iceServers,
-        reverb,
+        realtime,
         csrfToken,
     } = usePage<PatientRoomProps>().props;
 
@@ -53,7 +53,7 @@ export default function PatientConsultationRoom(): ReactElement {
         isInitiator,
         selfUserId,
         iceServers,
-        reverb,
+        realtime,
         csrfToken,
         // The patient has nothing left to do here once the call is over.
         exitHref: '/user/consultations',
