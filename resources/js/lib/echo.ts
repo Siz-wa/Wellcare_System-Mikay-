@@ -17,8 +17,16 @@ import Pusher from 'pusher-js';
  *     it does not exist yet when this module is first imported.
  */
 
-export interface ReverbConfig {
+/**
+ * App\Services\RealtimeClientConfig::forBrowser(), as the page receives it.
+ *
+ * `pusher` is hosted Pusher, for shared hosting that cannot keep Reverb
+ * running. Both speak the same protocol; only the address differs.
+ */
+export interface RealtimeConfig {
+    broadcaster: 'reverb' | 'pusher';
     key: string;
+    cluster: string;
     host: string;
     port: number;
     scheme: string;
@@ -36,7 +44,10 @@ let instance: EchoInstance | null = null;
  *   stale, /broadcasting/auth answers 419, the private channel never
  *   subscribes, and the call fails with nothing logged server-side.
  */
-export function getEcho(config: ReverbConfig, csrfToken: string): EchoInstance {
+export function getEcho(
+    config: RealtimeConfig,
+    csrfToken: string,
+): EchoInstance {
     if (instance) {
         return instance;
     }
@@ -45,10 +56,12 @@ export function getEcho(config: ReverbConfig, csrfToken: string): EchoInstance {
     (window as unknown as { Pusher: typeof Pusher }).Pusher = Pusher;
 
     instance = new Echo({
-        broadcaster: 'reverb',
+        broadcaster: config.broadcaster,
         // Checked ahead of the meta tag by Echo's csrfToken(), so this wins.
         csrfToken,
         key: config.key,
+        // pusher-js refuses to construct without one. Reverb ignores it.
+        cluster: config.cluster,
         wsHost: config.host,
         wsPort: config.port,
         wssPort: config.port,

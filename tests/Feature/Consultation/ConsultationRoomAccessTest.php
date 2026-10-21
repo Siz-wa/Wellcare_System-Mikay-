@@ -5,6 +5,7 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Services\ConsultationSessionService;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 /**
  * The HTTP half of the consultation room — the signalling relay, the room
@@ -211,6 +212,108 @@ it('relays an SDP without altering a single byte', function () {
 });
 
 /**
+ * Offers and answers go by reference, because hosted Pusher refuses any event
+ * over 10KB and a real SDP offer runs to 7–9KB before the envelope is added.
+ * Shared hosting cannot run Reverb, so Pusher is what production uses there.
+ *
+ * The receiving peer must get back exactly what was sent, and nothing larger
+ * than a small stub may cross the socket.
+ */
+it('sends a large payload by reference and returns it byte for byte', function () {
+    $sdp = "v=0\r\n".str_repeat("a=candidate:1 1 udp 2122260223 192.168.1.20 54321 typ host\r\n", 200);
+    $payload = ['sdp' => $sdp, 'type' => 'offer', 'tab' => 'tab-a'];
+
+    $this->actingAs($this->doctor)
+        ->postJson("/consultations/rooms/{$this->roomId}/signal", ['type' => 'offer', 'payload' => $payload])
+        ->assertOk();
+
+    $ref = null;
+
+    Event::assertDispatched(WebRtcSignal::class, function (WebRtcSignal $event) use (&$ref): bool {
+        $ref = $event->ref;
+
+        return $event->ref !== null
+            && $event->payload === []
+            && strlen((string) json_encode($event->broadcastWith())) < 1024;
+    });
+
+    $this->actingAs($this->booker)
+        ->getJson("/consultations/rooms/{$this->roomId}/signal/{$ref}")
+        ->assertOk()
+        ->assertExactJson(['payload' => $payload]);
+
+    expect($this->actingAs($this->booker)
+        ->getJson("/consultations/rooms/{$this->roomId}/signal/{$ref}")
+        ->json('payload.sdp'))->toBe($sdp);
+});
+
+it('keeps small signals on the socket', function () {
+    $this->actingAs($this->doctor)
+        ->postJson("/consultations/rooms/{$this->roomId}/signal", [
+            'type' => 'ice-candidate',
+            'payload' => ['candidate' => 'candidate:1 1 udp 2122260223 10.0.0.2 5000 typ host'],
+        ])
+        ->assertOk();
+
+    Event::assertDispatched(WebRtcSignal::class, fn (WebRtcSignal $event): bool => $event->ref === null
+        && isset($event->payload['candidate']));
+});
+
+it('refuses a stashed signal to anyone who is not a participant', function (string $actor) {
+    $this->actingAs($this->doctor)
+        ->postJson("/consultations/rooms/{$this->roomId}/signal", [
+            'type' => 'offer',
+            'payload' => ['sdp' => str_repeat('a', 5000)],
+        ]);
+
+    $ref = null;
+    Event::assertDispatched(WebRtcSignal::class, function (WebRtcSignal $event) use (&$ref): bool {
+        $ref = $event->ref;
+
+        return true;
+    });
+
+    $this->actingAs($this->{$actor})
+        ->getJson("/consultations/rooms/{$this->roomId}/signal/{$ref}")
+        ->assertForbidden();
+})->with(['otherDoctor', 'stranger']);
+
+it('does not redeem a ref through a different room', function () {
+    $this->actingAs($this->doctor)
+        ->postJson("/consultations/rooms/{$this->roomId}/signal", [
+            'type' => 'offer',
+            'payload' => ['sdp' => str_repeat('a', 5000)],
+        ]);
+
+    $ref = null;
+    Event::assertDispatched(WebRtcSignal::class, function (WebRtcSignal $event) use (&$ref): bool {
+        $ref = $event->ref;
+
+        return true;
+    });
+
+    // A second live room the same doctor is in, so authorization passes and
+    // only the room-scoped key can refuse it.
+    $otherAppointment = Appointment::factory()
+        ->forPatient(Patient::factory()->forGuarantor($this->booker)->create())
+        ->forDoctor($this->doctor)
+        ->virtual()
+        ->settled()
+        ->create(['status' => 'checked_in', 'appointment_time' => '11:00 AM']);
+    $otherRoomId = $this->service->openVirtualRoom($otherAppointment, $this->doctor)->room_id;
+
+    $this->actingAs($this->doctor)
+        ->getJson("/consultations/rooms/{$otherRoomId}/signal/{$ref}")
+        ->assertNotFound();
+});
+
+it('reports an expired or unknown ref as not found', function () {
+    $this->actingAs($this->booker)
+        ->getJson("/consultations/rooms/{$this->roomId}/signal/".Str::uuid())
+        ->assertNotFound();
+});
+
+/**
  * Completing a visit from the list must close its video room.
  *
  * complete() marks the appointment terminal, which makes mayJoinRoom() fail its
@@ -263,7 +366,8 @@ it('opens the doctor room page for the assigned doctor', function () {
             ->where('room.id', $this->roomId)
             ->where('isInitiator', true)
             ->has('iceServers')
-            ->has('reverb.key')
+            ->has('realtime.key')
+            ->has('realtime.broadcaster')
         );
 });
 

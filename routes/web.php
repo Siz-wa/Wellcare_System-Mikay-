@@ -86,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
     // routes/channels.php makes for the WebSocket subscribe.
     Route::controller(ConsultationRoomController::class)->group(function () {
         Route::post('/consultations/rooms/{roomId}/signal', 'signal')->name('consultations.rooms.signal');
+        Route::get('/consultations/rooms/{roomId}/signal/{ref}', 'fetchSignal')->whereUuid('ref')->name('consultations.rooms.signal.fetch');
         Route::post('/consultations/rooms/{roomId}/join', 'join')->name('consultations.rooms.join');
         Route::post('/consultations/rooms/{roomId}/leave', 'leave')->name('consultations.rooms.leave');
     });

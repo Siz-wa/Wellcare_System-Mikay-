@@ -7,6 +7,7 @@ import { send } from '@/routes/verification';
 
 interface VerifyEmailProps {
     status?: string;
+    email?: string | null;
 }
 
 const MailIcon = () => (
@@ -58,7 +59,7 @@ const LogOutIcon = () => (
     </svg>
 );
 
-export default function VerifyEmail({ status }: VerifyEmailProps) {
+export default function VerifyEmail({ status, email }: VerifyEmailProps) {
     const linkSent = status === 'verification-link-sent';
 
     return (
@@ -94,16 +95,22 @@ export default function VerifyEmail({ status }: VerifyEmailProps) {
                     </h1>
 
                     <p className="mb-8 text-sm leading-relaxed">
-                        We sent a verification link to your email address. Click
-                        the link in that email to activate your account.
+                        We sent a verification link to{' '}
+                        {email ? (
+                            <strong className="break-all">{email}</strong>
+                        ) : (
+                            'your email address'
+                        )}
+                        . Click the link in that email to activate your account.
+                        Not there? Check your spam folder.
                     </p>
 
                     {linkSent && (
                         <div className="wc-alert wc-alert-success mb-6 flex items-center gap-2 rounded-xl text-sm">
                             <CheckCircleIcon />
                             <span>
-                                A new verification link has been sent to your
-                                email.
+                                A new verification link has been sent to{' '}
+                                {email ?? 'your email'}.
                             </span>
                         </div>
                     )}

@@ -9,7 +9,7 @@
 
 import { router } from '@inertiajs/react';
 import { useEffect } from 'react';
-import type { ReverbConfig } from '@/lib/echo';
+import type { RealtimeConfig } from '@/lib/echo';
 import { getEcho } from '@/lib/echo';
 
 function csrfToken(): string {
@@ -28,7 +28,7 @@ function csrfToken(): string {
  */
 export function useRealtimeNotifications(
     userId: number | null | undefined,
-    config: ReverbConfig | null | undefined,
+    config: RealtimeConfig | null | undefined,
     pageUrl: string,
 ): void {
     useEffect(() => {

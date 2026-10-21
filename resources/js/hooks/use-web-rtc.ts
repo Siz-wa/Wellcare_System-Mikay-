@@ -6,7 +6,7 @@ import {
     SIGNALLING_UNREACHABLE,
 } from '@/components/consultation-room/consultation-room-data';
 import { getEcho, teardownEcho } from '@/lib/echo';
-import type { ReverbConfig } from '@/lib/echo';
+import type { RealtimeConfig } from '@/lib/echo';
 
 /**
  * Native WebRTC for the consultation room. No peer library — the spike proved
@@ -17,7 +17,7 @@ import type { ReverbConfig } from '@/lib/echo';
  *
  *  - **React Compiler is on.** `rtc.current` is never read or written during
  *    render, and the setup effect depends on `[roomId]` alone. `iceServers`,
- *    `reverb` and `endpoints` are fresh objects from `usePage()` on every
+ *    `realtime` and `endpoints` are fresh objects from `usePage()` on every
  *    render, so depending on them directly would tear down and rebuild a live
  *    call whenever the parent re-rendered.
  *  - **StrictMode is on.** Effects run twice in dev. Everything mutable lives
@@ -50,7 +50,7 @@ export interface UseWebRtcOptions {
     isInitiator: boolean;
     selfUserId: number;
     iceServers: RTCIceServer[];
-    reverb: ReverbConfig;
+    realtime: RealtimeConfig;
     /**
      * From the page props, never from `meta[name="csrf-token"]`.
      *
@@ -230,6 +230,12 @@ interface SignalMessage {
     type: SignalType;
     payload: Record<string, unknown>;
     fromUserId: number;
+    /**
+     * Set when the payload was too large to broadcast — hosted Pusher caps an
+     * event at 10KB, which an SDP offer exceeds. `payload` is then empty and
+     * the real one is fetched by this id. See resolveSignal().
+     */
+    ref?: string | null;
 }
 
 /**
@@ -425,6 +431,8 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
         bag.departureAnnounced = false;
         bag.remoteStream = null;
         let cancelled = false;
+        // Signals are resolved strictly in arrival order. See the listener.
+        let inbox: Promise<void> = Promise.resolve();
 
         // Note on phase and roomId: there is deliberately no phase reset here.
         // Terminal phases are sticky by design, so a room change would need one
@@ -667,7 +675,7 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
             // twice — the offer gets applied twice and the handshake dies with
             // InvalidStateError.
             if (bag.channelName) {
-                getEcho(opts.current.reverb, opts.current.csrfToken).leave(
+                getEcho(opts.current.realtime, opts.current.csrfToken).leave(
                     bag.channelName,
                 );
                 bag.channelName = null;
@@ -1075,6 +1083,45 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
             }
         };
 
+        /**
+         * Fetch the payload of a signal the server sent by reference.
+         *
+         * ConsultationRoomController::signal() stashes anything over 4KB — in
+         * practice every offer and answer — and broadcasts only its `ref`.
+         * Our own echoes are left alone: handleSignal drops them anyway, and
+         * fetching them would be a wasted round trip per offer.
+         */
+        const resolveSignal = async (
+            message: SignalMessage,
+        ): Promise<SignalMessage> => {
+            if (
+                !message.ref ||
+                message.fromUserId === opts.current.selfUserId
+            ) {
+                return message;
+            }
+
+            const response = await fetch(
+                `/consultations/rooms/${roomId}/signal/${message.ref}`,
+                {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    `The call details could not be retrieved (HTTP ${response.status}). Please rejoin.`,
+                );
+            }
+
+            const body = (await response.json()) as {
+                payload: Record<string, unknown>;
+            };
+
+            return { ...message, payload: body.payload };
+        };
+
         const handleSignal = async (message: SignalMessage): Promise<void> => {
             // Replaces `->toOthers()`, which would be a silent no-op here: the
             // Echo axios interceptor that supplies X-Socket-Id only registers
@@ -1352,7 +1399,7 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
                 advancePhase('waiting');
 
                 const echo = getEcho(
-                    opts.current.reverb,
+                    opts.current.realtime,
                     opts.current.csrfToken,
                 );
 
@@ -1470,8 +1517,8 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
                         // listener never fires — silently, with nothing logged
                         // anywhere.
                         '.webrtc.signal',
-                        (message: SignalMessage) =>
-                            void handleSignal(message).catch((err: unknown) => {
+                        (message: SignalMessage) => {
+                            const fail = (err: unknown): void => {
                                 if (bag.disposed) {
                                     return;
                                 }
@@ -1490,7 +1537,24 @@ export function useWebRtc(options: UseWebRtcOptions): UseWebRtcResult {
                                         ? `${err.name}: ${err.message}`
                                         : 'The connection could not be negotiated.',
                                 );
-                            }),
+                            };
+
+                            // Resolved in arrival order, then dispatched
+                            // exactly as before. A by-reference offer takes a
+                            // round trip to resolve; candidates that overtook
+                            // it would reach handleSignal first, be buffered,
+                            // and then be thrown away by the offer branch,
+                            // which clears the buffer as belonging to a
+                            // previous negotiation. Only resolution is
+                            // serialized — handleSignal still runs unawaited,
+                            // so its own interleaving is unchanged.
+                            inbox = inbox
+                                .then(() => resolveSignal(message))
+                                .then((resolved) => {
+                                    void handleSignal(resolved).catch(fail);
+                                })
+                                .catch(fail);
+                        },
                     )
                     .error((err: unknown) => {
                         if (bag.disposed) {

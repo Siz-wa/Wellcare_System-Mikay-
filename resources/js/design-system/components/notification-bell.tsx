@@ -19,7 +19,7 @@ import { router, usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications';
-import type { ReverbConfig } from '@/lib/echo';
+import type { RealtimeConfig } from '@/lib/echo';
 import type { PageProps } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ export interface NotificationItem {
 interface SharedProps extends PageProps {
     notifications: NotificationItem[];
     unreadCount: number;
-    realtime?: ReverbConfig | null;
+    realtime?: RealtimeConfig | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

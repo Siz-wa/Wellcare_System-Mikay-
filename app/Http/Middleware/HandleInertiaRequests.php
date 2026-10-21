@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\AppointmentNotification;
 use App\Models\User;
+use App\Services\RealtimeClientConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
@@ -113,15 +114,11 @@ class HandleInertiaRequests extends Middleware
             ],
             'notifications' => $notifications,
             'unreadCount' => $unreadCount,
-            // Where the bell listens for "you have a new notification". The
-            // browser-facing Reverb address, never the server's internal one.
-            // Null for guests, and when broadcasting is off.
-            'realtime' => $user && config('broadcasting.default') === 'reverb' ? [
-                'key' => config('reverb.apps.apps.0.key'),
-                'host' => config('reverb.apps.apps.0.options.host'),
-                'port' => (int) config('reverb.apps.apps.0.options.port'),
-                'scheme' => config('reverb.apps.apps.0.options.scheme'),
-            ] : null,
+            // Where the bell listens for "you have a new notification". Null
+            // for guests, and when broadcasting is off.
+            'realtime' => $user && RealtimeClientConfig::enabled()
+                ? RealtimeClientConfig::forBrowser()
+                : null,
             'unacknowledgedCritical' => $unacknowledgedCritical,
             // No internet on this machine (config/app.php, offline_demo).
             // Pages swap internet-only content for a local stand-in.

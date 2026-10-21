@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Patient;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Services\ConsultationSessionService;
+use App\Services\RealtimeClientConfig;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -137,12 +138,7 @@ class PatientConsultationController extends Controller
             'iceServers' => $this->sessions->iceServers(),
             // See the docblock on DoctorConsultationController::room().
             'csrfToken' => csrf_token(),
-            'reverb' => [
-                'key' => config('reverb.apps.apps.0.key'),
-                'host' => config('reverb.apps.apps.0.options.host'),
-                'port' => (int) config('reverb.apps.apps.0.options.port'),
-                'scheme' => config('reverb.apps.apps.0.options.scheme'),
-            ],
+            'realtime' => RealtimeClientConfig::forBrowser(),
         ]);
     }
 

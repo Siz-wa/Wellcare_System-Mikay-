@@ -8,6 +8,8 @@ use App\Services\ConsultationSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 /**
  * The signalling relay and call-state endpoints shared by both peers.
@@ -25,6 +27,24 @@ use Illuminate\Support\Facades\Auth;
  */
 class ConsultationRoomController extends Controller
 {
+    /**
+     * Payloads above this go by reference instead of over the socket.
+     *
+     * Hosted Pusher refuses any event whose data exceeds 10KB, and an SDP offer
+     * with a full codec list and trickled candidates is routinely 7–9KB before
+     * the event envelope and JSON re-escaping are added. 4KB leaves every ICE
+     * candidate, `state` and `hello` on the socket and sends offers and answers
+     * by reference — on Reverb too, so local testing exercises the same path
+     * production takes.
+     */
+    private const STASH_THRESHOLD_BYTES = 4096;
+
+    /**
+     * Long enough for a slow phone to fetch, short enough that an abandoned
+     * offer does not sit in the cache table.
+     */
+    private const STASH_TTL_SECONDS = 120;
+
     public function __construct(private ConsultationSessionService $sessions) {}
 
     /**
@@ -54,14 +74,48 @@ class ConsultationRoomController extends Controller
             'payload' => ['present', 'array'],
         ]);
 
+        $payload = $validated['payload'];
+        $ref = null;
+
+        if (strlen((string) json_encode($payload)) > self::STASH_THRESHOLD_BYTES) {
+            $ref = (string) Str::uuid();
+            Cache::put(self::stashKey($session->room_id, $ref), $payload, self::STASH_TTL_SECONDS);
+            $payload = [];
+        }
+
         broadcast(new WebRtcSignal(
             roomId: $session->room_id,
             type: $validated['type'],
-            payload: $validated['payload'],
+            payload: $payload,
             fromUserId: (int) Auth::id(),
+            ref: $ref,
         ));
 
         return response()->json(['sent' => true]);
+    }
+
+    /**
+     * Hand a peer the payload of a signal that was too large to broadcast.
+     *
+     * Same gate as the relay, and the stash key is scoped to the room, so a ref
+     * from one consultation cannot be redeemed through another. Not pulled on
+     * read: a peer whose fetch drops on a network blip may ask again, and the
+     * TTL clears it either way.
+     */
+    public function fetchSignal(string $roomId, string $ref): JsonResponse
+    {
+        $session = $this->authorizeRoom($roomId);
+
+        $payload = Cache::get(self::stashKey($session->room_id, $ref));
+
+        abort_if($payload === null, 404, 'This signal has expired.');
+
+        return response()->json(['payload' => $payload]);
+    }
+
+    private static function stashKey(string $roomId, string $ref): string
+    {
+        return "webrtc-signal:{$roomId}:{$ref}";
     }
 
     /**
@@ -102,7 +156,7 @@ class ConsultationRoomController extends Controller
     }
 
     /**
-     * The single gate for all three actions above.
+     * The single gate for every action above.
      *
      * 403 rather than 404 on an unknown room is deliberate and costs nothing:
      * mayJoinRoom() already refuses rooms that do not exist, and returning a
